@@ -10,21 +10,34 @@ This repo wires the two together.
 
 ## High-level flow
 
-```text
-[real app / website]
-        ↓
-[ZAPI or NoUI discovery]
-        ↓
-[Adopt tools and actions]
-        ↓
-[Adopt RedThread adapters]
-        ↓
-[RedThread fixtures + replay packs]
-        ↓
-[attack / replay / validation]
-        ↓
-[publish approve or block]
+```mermaid
+flowchart TD
+    A[Real app or website] --> B[ZAPI or NoUI discovery]
+    B --> C[Adopt tools and actions]
+    C --> D[Adopt RedThread adapters]
+    D --> E[Normalized RedThread fixtures]
+    E --> F[Replay packs]
+    F --> G[RedThread attack, replay, and validation later]
+    G --> H[Pre-publish gate verdict]
+    H --> I[Approve, review, or block]
 ```
+
+## Current maturity
+
+Today this architecture is real at the **artifact bridge** layer.
+
+Implemented now:
+- sample ZAPI-style discovery intake
+- sample Adopt action catalog intake
+- fixture normalization
+- replay-pack generation
+- prototype pre-publish gate
+
+Not implemented yet:
+- live calls into real Adopt services
+- live parsing of confirmed real-world ZAPI export schemas
+- real RedThread execution against live Adopt-built agents
+- CI or release-system wiring for automatic publish gates
 
 ---
 

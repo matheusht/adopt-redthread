@@ -32,6 +32,11 @@ class RedThreadFixture:
     workflow_group: str = "default"
     risk_level: str = "unknown"
     replay_class: str = "manual_review"
+    approval_required: bool = False
+    tenant_scope: str = "single_tenant"
+    data_sensitivity: str = "internal"
+    endpoint_family: str = "general"
+    candidate_attack_types: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
     source: str = "zapi"
 

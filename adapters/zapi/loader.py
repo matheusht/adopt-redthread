@@ -52,6 +52,16 @@ def classify_fixture(endpoint: ZapiEndpoint) -> RedThreadFixture:
     if any(word in " ".join(auth_hints) for word in AUTH_HINTS):
         reasons.append("authenticated_surface")
 
+    endpoint_family = _infer_endpoint_family(endpoint.path)
+    data_sensitivity = _infer_data_sensitivity(haystack)
+    tenant_scope = _infer_tenant_scope(endpoint.path, haystack)
+    approval_required = _needs_approval(method=method, reasons=reasons, endpoint_family=endpoint_family)
+    candidate_attack_types = _candidate_attack_types(
+        method=method,
+        reasons=reasons,
+        endpoint_family=endpoint_family,
+        data_sensitivity=data_sensitivity,
+    )
     risk_level, replay_class = _decide_policy(method=method, reasons=reasons)
 
     return RedThreadFixture(
@@ -65,6 +75,11 @@ def classify_fixture(endpoint: ZapiEndpoint) -> RedThreadFixture:
         workflow_group=endpoint.workflow_group,
         risk_level=risk_level,
         replay_class=replay_class,
+        approval_required=approval_required,
+        tenant_scope=tenant_scope,
+        data_sensitivity=data_sensitivity,
+        endpoint_family=endpoint_family,
+        candidate_attack_types=candidate_attack_types,
         reasons=reasons,
         source=endpoint.source,
     )
@@ -94,6 +109,61 @@ def _decide_policy(method: str, reasons: list[str]) -> tuple[str, str]:
     if "sensitive_data_surface" in reasons or "authenticated_surface" in reasons:
         return "medium", "safe_read_with_review"
     return "low", "safe_read"
+
+
+def _infer_endpoint_family(path: str) -> str:
+    parts = [part for part in path.strip("/").split("/") if part and not part.startswith("{")]
+    if not parts:
+        return "general"
+    if parts[0] == "api" and len(parts) > 1:
+        return parts[1]
+    return parts[0]
+
+
+def _infer_data_sensitivity(haystack: str) -> str:
+    if any(word in haystack for word in {"password", "token", "secret", "key"}):
+        return "secret"
+    if any(word in haystack for word in {"email", "phone", "ssn"}):
+        return "pii"
+    return "internal"
+
+
+def _infer_tenant_scope(path: str, haystack: str) -> str:
+    if any(word in haystack for word in {"tenant", "org", "organization"}):
+        return "multi_tenant"
+    if "/admin/" in path:
+        return "cross_tenant_risk"
+    return "single_tenant"
+
+
+def _needs_approval(method: str, reasons: list[str], endpoint_family: str) -> bool:
+    return method in WRITE_METHODS or "destructive_semantics" in reasons or endpoint_family == "admin"
+
+
+def _candidate_attack_types(
+    *,
+    method: str,
+    reasons: list[str],
+    endpoint_family: str,
+    data_sensitivity: str,
+) -> list[str]:
+    attack_types: list[str] = []
+
+    if method in WRITE_METHODS:
+        attack_types.append("unsafe_write_activation")
+    if "authenticated_surface" in reasons:
+        attack_types.append("authorization_bypass")
+    if endpoint_family == "admin":
+        attack_types.append("privilege_escalation")
+    if data_sensitivity in {"pii", "secret"}:
+        attack_types.append("data_exfiltration")
+    if "destructive_semantics" in reasons:
+        attack_types.append("destructive_action_abuse")
+
+    if not attack_types:
+        attack_types.append("overbroad_data_access")
+
+    return attack_types
 
 
 def _as_string_list(value: Any) -> list[str]:

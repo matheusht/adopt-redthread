@@ -20,6 +20,13 @@
       "workflow_group": "customer_review",
       "risk_level": "medium",
       "replay_class": "safe_read_with_review",
+      "approval_required": false,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "internal",
+      "endpoint_family": "customers",
+      "candidate_attack_types": [
+        "authorization_bypass"
+      ],
       "reasons": [
         "authenticated_surface"
       ],
@@ -41,6 +48,14 @@
       "workflow_group": "customer_review",
       "risk_level": "medium",
       "replay_class": "manual_review",
+      "approval_required": true,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "internal",
+      "endpoint_family": "customers",
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass"
+      ],
       "reasons": [
         "mutating_http_method",
         "authenticated_surface"
@@ -61,6 +76,16 @@
       "workflow_group": "admin",
       "risk_level": "high",
       "replay_class": "sandbox_only",
+      "approval_required": true,
+      "tenant_scope": "multi_tenant",
+      "data_sensitivity": "internal",
+      "endpoint_family": "admin",
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "privilege_escalation",
+        "destructive_action_abuse"
+      ],
       "reasons": [
         "mutating_http_method",
         "destructive_semantics",
@@ -84,6 +109,14 @@
       "workflow_group": "reporting",
       "risk_level": "medium",
       "replay_class": "safe_read_with_review",
+      "approval_required": false,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "pii",
+      "endpoint_family": "reports",
+      "candidate_attack_types": [
+        "authorization_bypass",
+        "data_exfiltration"
+      ],
       "reasons": [
         "sensitive_data_surface",
         "authenticated_surface"

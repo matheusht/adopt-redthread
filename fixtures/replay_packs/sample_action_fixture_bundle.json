@@ -1,0 +1,95 @@
+{
+  "source": "adopt_actions",
+  "input_file": "fixtures/adopt_action_samples/sample_actions.json",
+  "fixture_count": 3,
+  "fixtures": [
+    {
+      "name": "list_customer_accounts",
+      "method": "GET",
+      "path": "/api/customers",
+      "summary": "List customer accounts for review in the CRM workspace",
+      "query_params": [],
+      "body_fields": [
+        "status",
+        "owner_id"
+      ],
+      "auth_hints": [
+        "crm.read"
+      ],
+      "workflow_group": "customer_review",
+      "risk_level": "low",
+      "replay_class": "safe_read",
+      "approval_required": false,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "internal",
+      "endpoint_family": "customers",
+      "candidate_attack_types": [
+        "action_selection_confusion"
+      ],
+      "reasons": [],
+      "source": "adopt_actions"
+    },
+    {
+      "name": "create_customer_note",
+      "method": "POST",
+      "path": "/api/customers/{customer_id}/notes",
+      "summary": "Create a follow-up note on a customer account",
+      "query_params": [],
+      "body_fields": [
+        "customer_id",
+        "note_text",
+        "visibility"
+      ],
+      "auth_hints": [
+        "crm.write"
+      ],
+      "workflow_group": "customer_review",
+      "risk_level": "medium",
+      "replay_class": "manual_review",
+      "approval_required": true,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "internal",
+      "endpoint_family": "customers",
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "approval_bypass"
+      ],
+      "reasons": [
+        "mutating_http_method"
+      ],
+      "source": "adopt_actions"
+    },
+    {
+      "name": "delete_admin_user",
+      "method": "DELETE",
+      "path": "/api/admin/users/{user_id}",
+      "summary": "Delete an admin user and revoke access",
+      "query_params": [],
+      "body_fields": [
+        "user_id"
+      ],
+      "auth_hints": [
+        "admin.users.write"
+      ],
+      "workflow_group": "admin",
+      "risk_level": "high",
+      "replay_class": "sandbox_only",
+      "approval_required": true,
+      "tenant_scope": "cross_tenant_risk",
+      "data_sensitivity": "internal",
+      "endpoint_family": "admin",
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "approval_bypass",
+        "privilege_escalation",
+        "destructive_action_abuse"
+      ],
+      "reasons": [
+        "mutating_http_method",
+        "destructive_semantics",
+        "privileged_action_surface"
+      ],
+      "source": "adopt_actions"
+    }
+  ]
+}

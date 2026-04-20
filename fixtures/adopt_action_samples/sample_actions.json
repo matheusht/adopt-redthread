@@ -1,0 +1,38 @@
+{
+  "app": "demo-crm-agent",
+  "actions": [
+    {
+      "name": "list_customer_accounts",
+      "description": "List customer accounts for review in the CRM workspace",
+      "method": "GET",
+      "path": "/api/customers",
+      "approval_required": false,
+      "scopes": ["crm.read"],
+      "input_fields": ["status", "owner_id"],
+      "tags": ["customers", "read"],
+      "workflow_group": "customer_review"
+    },
+    {
+      "name": "create_customer_note",
+      "description": "Create a follow-up note on a customer account",
+      "method": "POST",
+      "path": "/api/customers/{customer_id}/notes",
+      "approval_required": true,
+      "scopes": ["crm.write"],
+      "input_fields": ["customer_id", "note_text", "visibility"],
+      "tags": ["customers", "write"],
+      "workflow_group": "customer_review"
+    },
+    {
+      "name": "delete_admin_user",
+      "description": "Delete an admin user and revoke access",
+      "method": "DELETE",
+      "path": "/api/admin/users/{user_id}",
+      "approval_required": true,
+      "scopes": ["admin.users.write"],
+      "input_fields": ["user_id"],
+      "tags": ["admin", "destructive"],
+      "workflow_group": "admin"
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "source": "zapi",
+  "input_file": "fixtures/zapi_samples/sample_discovery.json",
+  "fixture_count": 4,
+  "fixtures": [
+    {
+      "name": "get_api_customers",
+      "method": "GET",
+      "path": "/api/customers",
+      "summary": "List customers",
+      "query_params": [
+        "page",
+        "status",
+        "owner_id"
+      ],
+      "body_fields": [],
+      "auth_hints": [
+        "Authorization: Bearer"
+      ],
+      "workflow_group": "customer_review",
+      "risk_level": "medium",
+      "replay_class": "safe_read_with_review",
+      "reasons": [
+        "authenticated_surface"
+      ],
+      "source": "zapi"
+    },
+    {
+      "name": "post_api_customers_customer_id_notes",
+      "method": "POST",
+      "path": "/api/customers/{customer_id}/notes",
+      "summary": "Create customer note",
+      "query_params": [],
+      "body_fields": [
+        "note_text",
+        "visibility"
+      ],
+      "auth_hints": [
+        "Authorization: Bearer"
+      ],
+      "workflow_group": "customer_review",
+      "risk_level": "medium",
+      "replay_class": "manual_review",
+      "reasons": [
+        "mutating_http_method",
+        "authenticated_surface"
+      ],
+      "source": "zapi"
+    },
+    {
+      "name": "delete_api_admin_users_user_id",
+      "method": "DELETE",
+      "path": "/api/admin/users/{user_id}",
+      "summary": "Delete admin user",
+      "query_params": [],
+      "body_fields": [],
+      "auth_hints": [
+        "Authorization: Bearer",
+        "Cookie"
+      ],
+      "workflow_group": "admin",
+      "risk_level": "high",
+      "replay_class": "sandbox_only",
+      "reasons": [
+        "mutating_http_method",
+        "destructive_semantics",
+        "authenticated_surface"
+      ],
+      "source": "zapi"
+    },
+    {
+      "name": "get_api_reports_export",
+      "method": "GET",
+      "path": "/api/reports/export",
+      "summary": "Export customer emails",
+      "query_params": [
+        "format",
+        "segment"
+      ],
+      "body_fields": [],
+      "auth_hints": [
+        "Authorization: Bearer"
+      ],
+      "workflow_group": "reporting",
+      "risk_level": "medium",
+      "replay_class": "safe_read_with_review",
+      "reasons": [
+        "sensitive_data_surface",
+        "authenticated_surface"
+      ],
+      "source": "zapi"
+    }
+  ]
+}

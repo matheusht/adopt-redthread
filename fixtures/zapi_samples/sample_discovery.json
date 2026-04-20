@@ -1,0 +1,45 @@
+{
+  "app": "demo-crm",
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/customers",
+      "summary": "List customers",
+      "description": "Return paginated customers for account review",
+      "query_params": ["page", "status", "owner_id"],
+      "body_fields": [],
+      "auth_hints": ["Authorization: Bearer"],
+      "workflow_group": "customer_review"
+    },
+    {
+      "method": "POST",
+      "path": "/api/customers/{customer_id}/notes",
+      "summary": "Create customer note",
+      "description": "Add a follow-up note to a customer record",
+      "query_params": [],
+      "body_fields": ["note_text", "visibility"],
+      "auth_hints": ["Authorization: Bearer"],
+      "workflow_group": "customer_review"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/users/{user_id}",
+      "summary": "Delete admin user",
+      "description": "Remove an admin user from the tenant",
+      "query_params": [],
+      "body_fields": [],
+      "auth_hints": ["Authorization: Bearer", "Cookie"],
+      "workflow_group": "admin"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reports/export",
+      "summary": "Export customer emails",
+      "description": "Generate a CSV export with customer email and phone fields",
+      "query_params": ["format", "segment"],
+      "body_fields": [],
+      "auth_hints": ["Authorization: Bearer"],
+      "workflow_group": "reporting"
+    }
+  ]
+}

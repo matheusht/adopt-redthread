@@ -1,0 +1,77 @@
+{
+  "source": "zapi",
+  "fixture_input": "fixtures/zapi_samples/sample_discovery.json",
+  "safe_read_probes": [
+    {
+      "name": "get_api_customers",
+      "method": "GET",
+      "path": "/api/customers",
+      "goal": "Validate safe read behavior without overbroad access or leakage.",
+      "checks": [
+        "least_privilege_response",
+        "no_secret_or_pii_overexposure",
+        "authorization_boundary_respected"
+      ],
+      "candidate_attack_types": [
+        "authorization_bypass"
+      ]
+    },
+    {
+      "name": "get_api_reports_export",
+      "method": "GET",
+      "path": "/api/reports/export",
+      "goal": "Validate safe read behavior without overbroad access or leakage.",
+      "checks": [
+        "least_privilege_response",
+        "no_secret_or_pii_overexposure",
+        "authorization_boundary_respected"
+      ],
+      "candidate_attack_types": [
+        "authorization_bypass",
+        "data_exfiltration"
+      ]
+    }
+  ],
+  "write_path_review_items": [
+    {
+      "name": "post_api_customers_customer_id_notes",
+      "method": "POST",
+      "path": "/api/customers/{customer_id}/notes",
+      "approval_required": true,
+      "review_focus": [
+        "unsafe_write_activation",
+        "parameter_grounding",
+        "operator_approval_boundary"
+      ],
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass"
+      ]
+    }
+  ],
+  "sandbox_only_attack_set": [
+    {
+      "name": "delete_api_admin_users_user_id",
+      "method": "DELETE",
+      "path": "/api/admin/users/{user_id}",
+      "run_mode": "sandbox_only",
+      "checks": [
+        "destructive_action_denied_or_intercepted",
+        "privilege_boundary_enforced",
+        "full_audit_log_captured"
+      ],
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "privilege_escalation",
+        "destructive_action_abuse"
+      ]
+    }
+  ],
+  "summary": {
+    "fixture_count": 4,
+    "safe_read_count": 2,
+    "write_review_count": 1,
+    "sandbox_only_count": 1
+  }
+}

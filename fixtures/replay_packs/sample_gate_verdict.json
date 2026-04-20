@@ -1,0 +1,21 @@
+{
+  "decision": "block",
+  "input_summary": {
+    "fixture_count": 4,
+    "safe_read_count": 2,
+    "write_review_count": 1,
+    "sandbox_only_count": 1
+  },
+  "blockers": [
+    "sandbox_only_items_present"
+  ],
+  "warnings": [
+    "manual_review_required_for_write_paths"
+  ],
+  "notes": [
+    "safe_read_count=2",
+    "write_review_count=1",
+    "sandbox_only_count=1",
+    "sandbox_only_items_block_publish_by_default"
+  ]
+}

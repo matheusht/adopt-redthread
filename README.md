@@ -153,6 +153,7 @@ Generated outputs:
 - `docs/live-workflow-explained.md` — simple explanation of what is live now, what is not, and how the workflow should act
 - `docs/full-live-loop-diagram.md` — blunt diagrams for what the future full live loop actually means
 - `docs/live-attack-implementation-plan.md` — step-by-step plan for getting from human-guided ZAPI capture to policy-controlled live RedThread execution
+- `docs/strix-fit-assessment.md` — blunt assessment of whether Strix should influence or integrate with this project
 - `docs/recruiter-demo-notes.md` — how to present this repo in outreach
 - `examples/zapi_to_replay_demo.md` — clean recruiter walkthrough for catalog-style input
 - `examples/har_to_replay_demo.md` — clean walkthrough for HAR-derived real-input intake

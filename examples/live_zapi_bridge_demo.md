@@ -15,11 +15,16 @@ Goal:
 
 ## Command
 
+Preferred near-term mode is **interactive**.
+That means a human drives the browser and decides when capture is done.
+
 ```bash
 python3 scripts/run_live_zapi_bridge.py \
   "https://www.talkie-ai.com/chat/grimace-122539993063541" \
   runs/talkie_live_run \
-  --zapi-repo /tmp/pi-github-repos/adoptai/zapi
+  --zapi-repo /tmp/pi-github-repos/adoptai/zapi \
+  --interactive \
+  --operator-notes "login, browse chat, open settings"
 ```
 
 If you want the capture to auto-save after a fixed time:
@@ -40,6 +45,7 @@ Inside the output directory:
 
 - `zapi_capture/session.har`
 - `zapi_capture/session_filtered.har`
+- `zapi_capture/capture_metadata.json`
 - `bridge_outputs/fixture_bundle.json`
 - `bridge_outputs/replay_plan.json`
 - `bridge_outputs/gate_verdict.json`

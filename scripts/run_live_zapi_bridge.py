@@ -20,7 +20,9 @@ def main() -> None:
     parser.add_argument("output_dir", help="Directory to write HAR files and pipeline outputs")
     parser.add_argument("--zapi-repo", default=str(DEFAULT_ZAPI_REPO), help="Path to local ZAPI clone")
     parser.add_argument("--headless", action="store_true", help="Run browser headless")
+    parser.add_argument("--interactive", action="store_true", help="Keep capture human-guided and wait for ENTER before saving HAR")
     parser.add_argument("--duration-seconds", type=int, default=None, help="Auto-save after N seconds instead of waiting for ENTER")
+    parser.add_argument("--operator-notes", default="", help="Short free-text note to store with capture metadata")
     parser.add_argument("--upload", action="store_true", help="Upload selected HAR to Adopt after capture")
     parser.add_argument("--use-original-har", action="store_true", help="Use original HAR instead of filtered HAR for downstream bridge work")
     parser.add_argument("--allow-sandbox-only", action="store_true")
@@ -28,6 +30,18 @@ def main() -> None:
     parser.add_argument("--redthread-python", default=str(DEFAULT_REDTHREAD_PYTHON))
     parser.add_argument("--redthread-src", default=str(DEFAULT_REDTHREAD_SRC))
     args = parser.parse_args()
+@@
+     capture = capture_live_session(
+         args.url,
+         zapi_repo=args.zapi_repo,
+         output_dir=capture_dir,
+         headless=args.headless,
+         duration_seconds=args.duration_seconds,
+         upload=args.upload,
+         prefer_filtered=not args.use_original_har,
++        interactive=args.interactive,
++        operator_notes=args.operator_notes,
+     )
 
     output_dir = Path(args.output_dir)
     capture_dir = output_dir / "zapi_capture"

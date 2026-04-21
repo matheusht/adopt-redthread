@@ -13,6 +13,8 @@ Current scripts:
 - `run_redthread_dryrun.py` — run one exported case through a real RedThread dry-run campaign path
 - `run_bridge_pipeline.py` — run the full bridge flow from one artifact input
 - `run_live_zapi_bridge.py` — run live ZAPI capture, then feed the selected HAR into the full bridge flow
+  - supports `--interactive` for human-guided capture
+  - writes `zapi_capture/capture_metadata.json`
 
 Handy commands:
 - `make test` — run the local test suite
@@ -84,7 +86,9 @@ For a live ZAPI session:
 python3 scripts/run_live_zapi_bridge.py \
   "https://example.com" \
   runs/live_zapi_run \
-  --zapi-repo /tmp/pi-github-repos/adoptai/zapi
+  --zapi-repo /tmp/pi-github-repos/adoptai/zapi \
+  --interactive \
+  --operator-notes "log in, click billing, open profile"
 ```
 
 What this proves:

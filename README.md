@@ -23,6 +23,7 @@ What works today:
 - run generated bridge cases through a real RedThread dry-run campaign path
 - run a one-command bridge workflow from one artifact input
 - run a live ZAPI capture and hand its selected HAR into that one-command workflow
+- keep that live capture explicitly human-guided with saved operator metadata when needed
 
 What is **not** live yet:
 - direct pull from real Adopt services

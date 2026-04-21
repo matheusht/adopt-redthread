@@ -14,6 +14,7 @@ What works today:
 - we can run **real RedThread dry-run cases**
 - we can run that bridge chain from **one command**
 - we can use a **live ZAPI capture runner** that saves HAR and feeds the selected HAR into the bridge automatically
+- we now have an explicit **interactive human-guided capture mode** with saved capture metadata
 
 What does **not** work yet:
 - one-button fully live flow from **running ZAPI session -> automatic RedThread attack loop -> live target execution**
@@ -159,6 +160,7 @@ The intended workflow is:
 
 1. **Discovery happens first**
    - ZAPI or NoUI watches the app
+   - human-guided ZAPI capture is the preferred near-term path
    - it finds APIs, tools, actions, auth patterns, and workflow hints
 
 2. **Bridge normalizes the findings**

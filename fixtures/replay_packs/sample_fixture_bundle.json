@@ -1,5 +1,6 @@
 {
   "source": "zapi",
+  "ingestion_mode": "catalog",
   "input_file": "fixtures/zapi_samples/sample_discovery.json",
   "fixture_count": 4,
   "fixtures": [

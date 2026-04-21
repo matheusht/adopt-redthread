@@ -7,11 +7,16 @@ Current scripts:
 - `ingest_adopt_actions.py` — normalize an Adopt action catalog into fixtures
 - `generate_replay_pack.py` — turn normalized fixtures into replay-pack groups
 - `prepublish_gate.py` — prototype gate for approve/review/block decisions
+- `export_redthread_runtime_inputs.py` — convert normalized fixture bundles into real RedThread replay and dry-run campaign input shapes
+- `evaluate_redthread_replay.py` — evaluate exported replay traces with RedThread's actual promotion-gate code
+- `run_redthread_dryrun.py` — run one exported case through a real RedThread dry-run campaign path
 
 Handy commands:
 - `make test` — run the local test suite
 - `make demo-zapi` — regenerate the sample catalog-style ZAPI fixture bundle
 - `make demo-zapi-har` — regenerate the sample HAR-derived fixture bundle, replay plan, and gate verdict
+- `make demo-redthread-runtime` — export HAR-derived fixtures into real RedThread replay inputs and evaluate them with the promotion gate
+- `make demo-redthread-dryrun` — run one generated bridge case through a real RedThread dry-run campaign
 - `make demo-adopt-actions` — regenerate the sample action fixture bundle
 - `make demo-gate` — regenerate the replay plan and gate verdict for the catalog-style sample
 - `make demo-all` — run the original local demo flow
@@ -31,6 +36,29 @@ python3 scripts/prepublish_gate.py /path/to/output_replay_plan.json /path/to/out
 Safety rule:
 - keep raw `.har` files out of git
 - commit normalized fixture bundles only after checking that sensitive values are gone
+
+## RedThread runtime flow
+
+Canonical local sequence:
+
+```bash
+python3 scripts/export_redthread_runtime_inputs.py \
+  fixtures/replay_packs/sample_har_fixture_bundle.json \
+  fixtures/replay_packs/sample_har_redthread_runtime_inputs.json
+
+../redthread/.venv/bin/python scripts/evaluate_redthread_replay.py \
+  fixtures/replay_packs/sample_har_redthread_runtime_inputs.json \
+  fixtures/replay_packs/sample_har_redthread_replay_verdict.json
+
+../redthread/.venv/bin/python scripts/run_redthread_dryrun.py \
+  fixtures/replay_packs/sample_har_redthread_runtime_inputs.json \
+  fixtures/replay_packs/sample_har_redthread_dryrun_case0.json
+```
+
+What this proves:
+- bridge fixtures can become a real `ReplayBundle` payload
+- RedThread's real promotion gate can score that bundle
+- one generated case can run through the real RedThread dry-run engine path
 
 Later scripts:
 - `classify_risk.py` — split-out classifier if the heuristics outgrow the loader

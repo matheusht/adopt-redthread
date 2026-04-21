@@ -33,11 +33,14 @@ Implemented now:
 - fixture normalization
 - replay-pack generation
 - prototype pre-publish gate
+- RedThread replay-bundle export
+- RedThread promotion-gate evaluation against exported bundles
+- RedThread dry-run campaign execution from generated bridge cases
 
 Not implemented yet:
 - live calls into real Adopt services
 - broad support for all confirmed real-world ZAPI and NoUI artifact schemas
-- real RedThread execution against live Adopt-built agents
+- real RedThread execution against live Adopt-built agents and sessions
 - CI or release-system wiring for automatic publish gates
 
 ---
@@ -94,6 +97,7 @@ Output:
 - normalized discovery artifact
 - first-pass risk labels
 - deduped app endpoints extracted from noisy browser captures
+- downstream bridge inputs that can be converted into RedThread replay and dry-run execution payloads
 
 ## 2. Adopt action adapter
 
@@ -160,11 +164,26 @@ Inputs:
 - manually curated API docs
 - later: NoUI-generated surfaces
 
+## New runtime bridge seam
+
+After normalization, the bridge can now go one step farther:
+
+1. build a replay bundle shaped like RedThread's `ReplayBundle`
+2. build dry-run campaign cases shaped like RedThread's `CampaignConfig`
+3. evaluate the replay bundle with RedThread's real promotion gate
+4. execute one generated case through a real RedThread dry-run campaign
+
+This is still conservative.
+The bridge is not claiming live enterprise execution.
+It is claiming that normalized Adopt-side artifacts can now reach real RedThread replay and dry-run runtime seams.
+
 Work done here:
 - parse discovery artifacts
 - filter noisy HAR traffic down to app-relevant API calls
 - normalize endpoint shapes
 - tag auth and risk hints
+- export real RedThread replay traces
+- export real RedThread dry-run campaign cases
 
 Output:
 - normalized endpoint catalog

@@ -17,11 +17,14 @@ What works today:
 - ingest an Adopt-style action catalog
 - generate replay-pack groups
 - generate a prototype pre-publish gate verdict
+- export normalized fixtures into real RedThread replay-bundle inputs
+- evaluate those replay traces with RedThread's actual promotion-gate code
+- run generated bridge cases through a real RedThread dry-run campaign path
 
 What is **not** live yet:
 - direct pull from real Adopt services
 - broad support for all real-world ZAPI and NoUI artifact shapes
-- live RedThread attack execution against Adopt-generated agents
+- live RedThread attack execution against real Adopt-managed agents and sessions
 - production-grade publish gating
 
 So the honest status is:
@@ -71,6 +74,7 @@ Short term:
 - generate first replay packs
 
 Medium term:
+- expand the new RedThread runtime export beyond dry-run seeds into stronger execution adapters
 - test Adopt-generated actions with RedThread attack suites
 - add multi-turn workflow replay
 - add pre-publish security gate experiments
@@ -103,6 +107,8 @@ This will:
 ```bash
 make demo-zapi
 make demo-zapi-har
+make demo-redthread-runtime
+make demo-redthread-dryrun
 make demo-adopt-actions
 make demo-gate
 ```
@@ -122,6 +128,9 @@ Generated outputs:
 - `fixtures/replay_packs/sample_har_replay_plan.json`
 - `fixtures/replay_packs/sample_gate_verdict.json`
 - `fixtures/replay_packs/sample_har_gate_verdict.json`
+- `fixtures/replay_packs/sample_har_redthread_runtime_inputs.json`
+- `fixtures/replay_packs/sample_har_redthread_replay_verdict.json`
+- `fixtures/replay_packs/sample_har_redthread_dryrun_case0.json`
 
 ## Docs
 
@@ -130,11 +139,13 @@ Generated outputs:
 - `docs/recruiter-demo-notes.md` — how to present this repo in outreach
 - `examples/zapi_to_replay_demo.md` — clean recruiter walkthrough for catalog-style input
 - `examples/har_to_replay_demo.md` — clean walkthrough for HAR-derived real-input intake
+- `examples/redthread_runtime_demo.md` — walkthrough from bridge fixtures into real RedThread replay and dry-run execution inputs
 
 ## Repo structure
 
 - `adapters/zapi/` — ZAPI ingestion code for catalog-style exports and HAR-derived captures
 - `adapters/adopt_actions/` — Adopt action/tool catalog mapping
+- `adapters/redthread_runtime/` — bridge export into real RedThread replay and dry-run campaign inputs
 - `fixtures/zapi_samples/` — sample discovery artifacts
 - `fixtures/adopt_action_samples/` — sample Adopt action catalogs
 - `fixtures/replay_packs/` — generated replay suites and gate verdicts
@@ -147,6 +158,26 @@ Generated outputs:
 If logic is generic and reusable, it should probably belong upstream in `redthread/`.
 
 If logic is Adopt-specific, integration-specific, HAR-shape-specific, or demo-specific, it belongs here.
+
+## Real RedThread runtime support
+
+This repo now has a real bridge seam into RedThread itself.
+
+From a normalized fixture bundle, it can now generate:
+- a **RedThread replay bundle** shaped for `redthread.evaluation.replay_corpus.ReplayBundle`
+- a set of **dry-run campaign cases** shaped for `RedThreadEngine.run(...)`
+
+The bridge also ships local scripts to:
+- evaluate the replay bundle with RedThread's real promotion-gate code
+- run one generated case through a real RedThread dry-run campaign
+
+This is important because the bridge is no longer only doing planning.
+It now reaches one real RedThread replay path and one real RedThread dry-run execution path.
+
+Still honest:
+- this is not yet live attack execution against a real Adopt-managed runtime
+- generated campaign prompts are bridge seeds, not production target truth
+- this is still a bridge-layer prototype, not a full platform integration
 
 ## Real HAR support
 
@@ -180,3 +211,13 @@ Raw HAR files may contain:
 
 So raw HAR files should stay local and out of git history.
 The commit-safe artifact is the normalized fixture bundle, not the raw capture.
+
+## RedThread interpreter note
+
+The replay-evaluation and dry-run execution demos use the RedThread repo's local virtualenv by default:
+
+- `../redthread/.venv/bin/python`
+
+Why:
+- the bridge repo stays zero-dependency for its own tests where possible
+- real replay evaluation needs RedThread's actual dependencies and modules

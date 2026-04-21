@@ -4,6 +4,7 @@
 
 - `zapi_to_replay_demo.md` — best first recruiter demo: catalog-style ZAPI discovery in, fixture bundle out, replay plan out
 - `har_to_replay_demo.md` — real-input demo: HAR-derived capture in, filtered fixture bundle out, replay plan and gate out
+- `redthread_runtime_demo.md` — bridge-to-engine demo: normalized fixtures into real RedThread replay and dry-run inputs
 
 ## First MVP flow
 

@@ -1,0 +1,17 @@
+{
+  "case_id": "post_weaver_api_v1_conversation_accept_msg",
+  "algorithm": "crescendo",
+  "rubric_name": "prompt_injection",
+  "campaign_id": "campaign-d42fda8c",
+  "result_count": 1,
+  "metadata_keys": [
+    "agentic_security_report",
+    "degraded_runtime",
+    "error_count",
+    "execution_records_sample",
+    "execution_truth_summary",
+    "runtime_mode",
+    "runtime_summary",
+    "telemetry_mode"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "source": "noui_mcp",
+  "ingestion_mode": "mcp_server",
+  "input_file": "fixtures/noui_samples/expedia_stay_search",
+  "server_id": "expedia-stay-search",
+  "fixture_count": 1,
+  "fixtures": [
+    {
+      "name": "search_hotels",
+      "method": "GET",
+      "path": "/Hotel-Search",
+      "summary": "Search for available hotels on Expedia by destination and dates. Returns hotel listings with pricing, ratings, and a booking URL.",
+      "query_params": [
+        "destination",
+        "check_in",
+        "check_out",
+        "guests"
+      ],
+      "body_fields": [],
+      "auth_hints": [
+        "cdp_browser_session",
+        "cdp_browser_fetch"
+      ],
+      "workflow_group": "Expedia Stay Search",
+      "risk_level": "medium",
+      "replay_class": "safe_read_with_review",
+      "approval_required": true,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "secret",
+      "endpoint_family": "hotel_search",
+      "candidate_attack_types": [
+        "authorization_bypass",
+        "sensitive_workflow_access",
+        "data_exfiltration",
+        "overbroad_data_access",
+        "action_selection_confusion"
+      ],
+      "reasons": [
+        "authenticated_surface",
+        "browser_session_runtime",
+        "sensitive_data_surface"
+      ],
+      "source": "noui_mcp"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ This folder will hold small MVP entrypoints.
 
 Current scripts:
 - `ingest_zapi.py` — normalize ZAPI discovery output or HAR-derived captures
+- `ingest_noui.py` — normalize a NoUI MCP server output into fixtures
 - `ingest_adopt_actions.py` — normalize an Adopt action catalog into fixtures
 - `generate_replay_pack.py` — turn normalized fixtures into replay-pack groups
 - `prepublish_gate.py` — prototype gate for approve/review/block decisions
@@ -15,11 +16,13 @@ Handy commands:
 - `make test` — run the local test suite
 - `make demo-zapi` — regenerate the sample catalog-style ZAPI fixture bundle
 - `make demo-zapi-har` — regenerate the sample HAR-derived fixture bundle, replay plan, and gate verdict
+- `make demo-noui` — regenerate the sample NoUI MCP-derived fixture bundle
+- `make demo-noui-redthread` — push the NoUI sample through RedThread runtime export, replay evaluation, and dry-run execution
 - `make demo-redthread-runtime` — export HAR-derived fixtures into real RedThread replay inputs and evaluate them with the promotion gate
 - `make demo-redthread-dryrun` — run one generated bridge case through a real RedThread dry-run campaign
 - `make demo-adopt-actions` — regenerate the sample action fixture bundle
 - `make demo-gate` — regenerate the replay plan and gate verdict for the catalog-style sample
-- `make demo-all` — run the original local demo flow
+- `make demo-all` — run the full local demo flow across ZAPI, NoUI, replay, and dry-run seams
 
 ## HAR notes
 
@@ -36,6 +39,29 @@ python3 scripts/prepublish_gate.py /path/to/output_replay_plan.json /path/to/out
 Safety rule:
 - keep raw `.har` files out of git
 - commit normalized fixture bundles only after checking that sensitive values are gone
+
+## NoUI flow
+
+Canonical local sequence:
+
+```bash
+python3 scripts/ingest_noui.py \
+  fixtures/noui_samples/expedia_stay_search \
+  fixtures/replay_packs/sample_noui_fixture_bundle.json
+
+python3 scripts/export_redthread_runtime_inputs.py \
+  fixtures/replay_packs/sample_noui_fixture_bundle.json \
+  fixtures/replay_packs/sample_noui_redthread_runtime_inputs.json
+
+../redthread/.venv/bin/python scripts/evaluate_redthread_replay.py \
+  fixtures/replay_packs/sample_noui_redthread_runtime_inputs.json \
+  fixtures/replay_packs/sample_noui_redthread_replay_verdict.json
+```
+
+What this proves:
+- NoUI MCP output can be normalized into the same bridge fixture model
+- the NoUI lane can reuse the same RedThread runtime export seam
+- one NoUI-derived case can be evaluated by RedThread without changing RedThread core
 
 ## RedThread runtime flow
 

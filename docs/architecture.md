@@ -29,6 +29,7 @@ Today this architecture is real at the **artifact bridge** layer.
 Implemented now:
 - sample ZAPI-style discovery intake
 - real HAR-shaped ZAPI intake with app-endpoint extraction
+- sample NoUI MCP manifest/tools intake
 - sample Adopt action catalog intake
 - fixture normalization
 - replay-pack generation
@@ -39,7 +40,7 @@ Implemented now:
 
 Not implemented yet:
 - live calls into real Adopt services
-- broad support for all confirmed real-world ZAPI and NoUI artifact schemas
+- broad support for all confirmed real-world NoUI output families beyond the first MCP server shape
 - real RedThread execution against live Adopt-built agents and sessions
 - CI or release-system wiring for automatic publish gates
 
@@ -161,8 +162,9 @@ Job:
 Inputs:
 - ZAPI catalog-style output
 - ZAPI HAR-derived browser captures
+- NoUI MCP server outputs (`manifest.json` + `tools.json`)
 - manually curated API docs
-- later: NoUI-generated surfaces
+- later: more NoUI output families and skill/runtime artifacts
 
 ## New runtime bridge seam
 
@@ -176,6 +178,22 @@ After normalization, the bridge can now go one step farther:
 This is still conservative.
 The bridge is not claiming live enterprise execution.
 It is claiming that normalized Adopt-side artifacts can now reach real RedThread replay and dry-run runtime seams.
+
+## Why NoUI matters here
+
+ZAPI helps discover endpoints.
+NoUI helps discover **agent-callable operations** with runtime/auth context.
+
+That extra context gives the bridge better security hints such as:
+- authenticated browser-session execution
+- MCP transport style
+- direct execution vs plain HTTP shape
+- tool parameter and response surface
+
+So the combined picture gets better:
+- ZAPI gives low-level app/API surface
+- NoUI gives operation/runtime/tool surface
+- RedThread still does the attack, replay, validation, and hardening work
 
 Work done here:
 - parse discovery artifacts

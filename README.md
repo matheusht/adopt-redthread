@@ -13,7 +13,8 @@ This repo is already integrated at the **prototype bridge** level.
 What works today:
 - ingest a ZAPI-style discovery export
 - ingest a real HAR-shaped ZAPI capture and extract app-relevant endpoints
-- normalize both discovery lanes into RedThread-friendly fixtures
+- ingest a NoUI MCP server output (`manifest.json` + `tools.json`)
+- normalize all three discovery lanes into RedThread-friendly fixtures
 - ingest an Adopt-style action catalog
 - generate replay-pack groups
 - generate a prototype pre-publish gate verdict
@@ -23,7 +24,7 @@ What works today:
 
 What is **not** live yet:
 - direct pull from real Adopt services
-- broad support for all real-world ZAPI and NoUI artifact shapes
+- broad support for all real-world NoUI output families beyond the first MCP server shape
 - live RedThread attack execution against real Adopt-managed agents and sessions
 - production-grade publish gating
 
@@ -46,8 +47,9 @@ This repo is different.
 It is the integration lab for:
 - ZAPI ingestion
 - Adopt action/tool mapping
-- NoUI target generation
+- NoUI MCP/tool output mapping
 - replay-pack generation
+- RedThread runtime export
 - pre-publish security gates
 - recruiter-ready demos for practical agent hardening
 
@@ -109,6 +111,8 @@ make demo-zapi
 make demo-zapi-har
 make demo-redthread-runtime
 make demo-redthread-dryrun
+make demo-noui
+make demo-noui-redthread
 make demo-adopt-actions
 make demo-gate
 ```
@@ -118,11 +122,14 @@ make demo-gate
 Inputs:
 - `fixtures/zapi_samples/sample_discovery.json`
 - `fixtures/zapi_samples/sample_filtered_har.json`
+- `fixtures/noui_samples/expedia_stay_search/manifest.json`
+- `fixtures/noui_samples/expedia_stay_search/tools.json`
 - `fixtures/adopt_action_samples/sample_actions.json`
 
 Generated outputs:
 - `fixtures/replay_packs/sample_fixture_bundle.json`
 - `fixtures/replay_packs/sample_har_fixture_bundle.json`
+- `fixtures/replay_packs/sample_noui_fixture_bundle.json`
 - `fixtures/replay_packs/sample_action_fixture_bundle.json`
 - `fixtures/replay_packs/sample_replay_plan.json`
 - `fixtures/replay_packs/sample_har_replay_plan.json`
@@ -131,6 +138,9 @@ Generated outputs:
 - `fixtures/replay_packs/sample_har_redthread_runtime_inputs.json`
 - `fixtures/replay_packs/sample_har_redthread_replay_verdict.json`
 - `fixtures/replay_packs/sample_har_redthread_dryrun_case0.json`
+- `fixtures/replay_packs/sample_noui_redthread_runtime_inputs.json`
+- `fixtures/replay_packs/sample_noui_redthread_replay_verdict.json`
+- `fixtures/replay_packs/sample_noui_redthread_dryrun_case0.json`
 
 ## Docs
 
@@ -140,11 +150,13 @@ Generated outputs:
 - `examples/zapi_to_replay_demo.md` — clean recruiter walkthrough for catalog-style input
 - `examples/har_to_replay_demo.md` — clean walkthrough for HAR-derived real-input intake
 - `examples/redthread_runtime_demo.md` — walkthrough from bridge fixtures into real RedThread replay and dry-run execution inputs
+- `examples/noui_to_redthread_demo.md` — walkthrough from NoUI MCP output into normalized fixtures and then into RedThread
 
 ## Repo structure
 
 - `adapters/zapi/` — ZAPI ingestion code for catalog-style exports and HAR-derived captures
 - `adapters/adopt_actions/` — Adopt action/tool catalog mapping
+- `adapters/noui/` — NoUI MCP manifest/tools adaptation
 - `adapters/redthread_runtime/` — bridge export into real RedThread replay and dry-run campaign inputs
 - `fixtures/zapi_samples/` — sample discovery artifacts
 - `fixtures/adopt_action_samples/` — sample Adopt action catalogs
@@ -158,6 +170,25 @@ Generated outputs:
 If logic is generic and reusable, it should probably belong upstream in `redthread/`.
 
 If logic is Adopt-specific, integration-specific, HAR-shape-specific, or demo-specific, it belongs here.
+
+## NoUI support
+
+This repo now supports one real NoUI output shape:
+- MCP server directory with `manifest.json` + `tools.json`
+
+Current NoUI bridge behavior:
+- loads the server manifest and tool inventory
+- maps auth/runtime/tool metadata into the same normalized fixture model used by ZAPI and Adopt actions
+- preserves downstream compatibility with replay-pack generation and RedThread runtime export
+
+This matters because NoUI gives a stronger app/runtime view than plain API discovery alone.
+It tells us:
+- auth strategy
+- MCP/runtime execution style
+- tool parameter shapes
+- response field shapes
+
+That gives RedThread more realistic surfaces to validate.
 
 ## Real RedThread runtime support
 

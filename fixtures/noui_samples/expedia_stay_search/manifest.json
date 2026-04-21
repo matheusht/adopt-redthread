@@ -1,0 +1,32 @@
+{
+  "schema_version": "2",
+  "server_id": "expedia-stay-search",
+  "app": {
+    "name": "Expedia Stay Search",
+    "slug": "expedia-stay-search"
+  },
+  "workflow": {
+    "id": "expedia-stay-search",
+    "name": "Expedia Stay Search"
+  },
+  "auth": {
+    "requires_auth": true,
+    "strategy": "cdp_browser_session",
+    "notes": "Akamai Bot Manager blocks plain Python HTTP clients. Operations execute fetch() from inside the browser session."
+  },
+  "runtime": {
+    "type": "fastmcp",
+    "entrypoint": "server.py",
+    "transport": "stdio",
+    "direct_execution": true
+  },
+  "tools": [
+    {
+      "name": "search_hotels",
+      "description": "Search for available hotels on Expedia with pricing, ratings, and reviews",
+      "method": "GET",
+      "path": "/Hotel-Search",
+      "module": "operations/search_hotels.py"
+    }
+  ]
+}

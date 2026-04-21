@@ -1,0 +1,51 @@
+[
+  {
+    "name": "search_hotels",
+    "description": "Search for available hotels on Expedia by destination and dates. Returns hotel listings with pricing, ratings, and a booking URL.",
+    "method": "GET",
+    "url": "https://www.expedia.com/Hotel-Search",
+    "path": "/Hotel-Search",
+    "base_url": "https://www.expedia.com",
+    "execution_strategy": "cdp_browser_fetch",
+    "params": [
+      {
+        "name": "destination",
+        "description": "Destination to search",
+        "type": "string",
+        "required": true,
+        "source": "query"
+      },
+      {
+        "name": "check_in",
+        "description": "Check-in date",
+        "type": "string",
+        "required": true,
+        "source": "query"
+      },
+      {
+        "name": "check_out",
+        "description": "Check-out date",
+        "type": "string",
+        "required": true,
+        "source": "query"
+      },
+      {
+        "name": "guests",
+        "description": "Guest count",
+        "type": "integer",
+        "required": false,
+        "source": "query"
+      }
+    ],
+    "response_fields": [
+      {
+        "name": "listings",
+        "description": "Hotel listings with price, rating, and refundable flag"
+      },
+      {
+        "name": "search_url",
+        "description": "Reference booking URL"
+      }
+    ]
+  }
+]

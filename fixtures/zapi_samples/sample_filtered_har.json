@@ -1,0 +1,170 @@
+{
+  "log": {
+    "entries": [
+      {
+        "request": {
+          "method": "GET",
+          "url": "https://www.talkie-ai.com/chat/grimace-122539993063541",
+          "headers": [],
+          "queryString": []
+        },
+        "response": {
+          "status": 200,
+          "content": {
+            "mimeType": "text/html; charset=utf-8"
+          }
+        }
+      },
+      {
+        "request": {
+          "method": "POST",
+          "url": "https://www.talkie-ai.com/weaver/api/v1/conversation/accept_msg?user_id=anon-user&device_id=anon-device&client_ip=0.0.0.0",
+          "headers": [
+            {"name": "content-type", "value": "application/json"},
+            {"name": "cookie", "value": "session=redacted"},
+            {"name": "x-token", "value": "redacted"},
+            {"name": "x-sign", "value": "redacted"}
+          ],
+          "queryString": [
+            {"name": "user_id", "value": "anon-user"},
+            {"name": "device_id", "value": "anon-device"},
+            {"name": "client_ip", "value": "0.0.0.0"}
+          ],
+          "postData": {
+            "mimeType": "application/json",
+            "text": "{\"business_id\":122539993063541,\"chat_scene\":0,\"payload\":{\"type\":\"chat\",\"bodies\":[{\"msg\":\"hello, what are you doing\",\"type\":\"txt\"}]}}"
+          }
+        },
+        "response": {
+          "status": 200,
+          "content": {
+            "mimeType": "application/json; charset=utf-8",
+            "text": "{\"pass\":true,\"base_resp\":{\"status_code\":0,\"status_msg\":\"success\"}}"
+          }
+        }
+      },
+      {
+        "request": {
+          "method": "POST",
+          "url": "https://www.talkie-ai.com/weaver/api/v1/ugc/memory/get_memory_detail?user_id=anon-user&device_id=anon-device",
+          "headers": [
+            {"name": "content-type", "value": "application/json"},
+            {"name": "cookie", "value": "session=redacted"},
+            {"name": "x-token", "value": "redacted"}
+          ],
+          "queryString": [
+            {"name": "user_id", "value": "anon-user"},
+            {"name": "device_id", "value": "anon-device"}
+          ],
+          "postData": {
+            "mimeType": "application/json",
+            "text": "{\"memory_id\":172036022919283}"
+          }
+        },
+        "response": {
+          "status": 200,
+          "content": {
+            "mimeType": "application/json; charset=utf-8",
+            "text": "{\"memory\":{\"memory_id\":172036022919283,\"title\":\"redacted\",\"chat_msgs\":[{\"content\":\"redacted\"}]}}"
+          }
+        }
+      },
+      {
+        "request": {
+          "method": "POST",
+          "url": "https://www.talkie-ai.com/weaver/api/v1/payment/subscription/list_v2?user_id=anon-user",
+          "headers": [
+            {"name": "content-type", "value": "application/json"},
+            {"name": "cookie", "value": "session=redacted"},
+            {"name": "x-token", "value": "redacted"}
+          ],
+          "queryString": [
+            {"name": "user_id", "value": "anon-user"}
+          ],
+          "postData": {
+            "mimeType": "application/json",
+            "text": "{\"store_type\":3,\"product_type\":[1000],\"enable_discount\":true}"
+          }
+        },
+        "response": {
+          "status": 200,
+          "content": {
+            "mimeType": "application/json; charset=utf-8",
+            "text": "{\"products\":[{\"product_id\":\"prod_redacted\",\"price\":\"$9.99\"}]}"
+          }
+        }
+      },
+      {
+        "request": {
+          "method": "POST",
+          "url": "https://www.talkie-ai.com/weaver/api/v1/user/set_user_preference?user_id=anon-user",
+          "headers": [
+            {"name": "content-type", "value": "application/json"},
+            {"name": "cookie", "value": "session=redacted"},
+            {"name": "x-token", "value": "redacted"}
+          ],
+          "queryString": [
+            {"name": "user_id", "value": "anon-user"}
+          ],
+          "postData": {
+            "mimeType": "application/json",
+            "text": "{\"user_id\":123,\"user_preferences\":{\"3\":[\"1\"]}}"
+          }
+        },
+        "response": {
+          "status": 200,
+          "content": {
+            "mimeType": "application/json; charset=utf-8",
+            "text": "{\"base_resp\":{\"status_code\":0,\"status_msg\":\"success\"}}"
+          }
+        }
+      },
+      {
+        "request": {
+          "method": "POST",
+          "url": "https://www.talkie-ai.com/weaver/api/v1/event/report?user_id=anon-user",
+          "headers": [
+            {"name": "content-type", "value": "application/json"},
+            {"name": "cookie", "value": "session=redacted"}
+          ],
+          "queryString": [
+            {"name": "user_id", "value": "anon-user"}
+          ],
+          "postData": {
+            "mimeType": "application/json",
+            "text": "{\"events\":[{\"event_uuid\":\"redacted\"}]}"
+          }
+        },
+        "response": {
+          "status": 200,
+          "content": {
+            "mimeType": "application/json; charset=utf-8",
+            "text": "{\"base_resp\":{\"status_code\":0}}"
+          }
+        }
+      },
+      {
+        "request": {
+          "method": "POST",
+          "url": "https://www.google-analytics.com/g/collect?v=2&tid=redacted",
+          "headers": [
+            {"name": "content-type", "value": "text/plain"}
+          ],
+          "queryString": [
+            {"name": "v", "value": "2"}
+          ],
+          "postData": {
+            "mimeType": "text/plain",
+            "text": "analytics=1"
+          }
+        },
+        "response": {
+          "status": 204,
+          "content": {
+            "mimeType": "text/plain"
+          }
+        }
+      }
+    ]
+  }
+}

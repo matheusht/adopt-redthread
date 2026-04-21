@@ -28,6 +28,7 @@ Today this architecture is real at the **artifact bridge** layer.
 
 Implemented now:
 - sample ZAPI-style discovery intake
+- real HAR-shaped ZAPI intake with app-endpoint extraction
 - sample Adopt action catalog intake
 - fixture normalization
 - replay-pack generation
@@ -35,7 +36,7 @@ Implemented now:
 
 Not implemented yet:
 - live calls into real Adopt services
-- live parsing of confirmed real-world ZAPI export schemas
+- broad support for all confirmed real-world ZAPI and NoUI artifact schemas
 - real RedThread execution against live Adopt-built agents
 - CI or release-system wiring for automatic publish gates
 
@@ -79,6 +80,7 @@ Path:
 
 Job:
 - ingest documented API output from ZAPI
+- ingest HAR-derived captures from ZAPI demos or local sessions
 - normalize endpoint metadata
 - preserve useful fields such as:
   - method
@@ -91,6 +93,7 @@ Job:
 Output:
 - normalized discovery artifact
 - first-pass risk labels
+- deduped app endpoints extracted from noisy browser captures
 
 ## 2. Adopt action adapter
 
@@ -152,12 +155,14 @@ Job:
 ## Phase 1 — Discovery intake
 
 Inputs:
-- ZAPI output
+- ZAPI catalog-style output
+- ZAPI HAR-derived browser captures
 - manually curated API docs
 - later: NoUI-generated surfaces
 
 Work done here:
 - parse discovery artifacts
+- filter noisy HAR traffic down to app-relevant API calls
 - normalize endpoint shapes
 - tag auth and risk hints
 

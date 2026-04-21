@@ -1,0 +1,80 @@
+{
+  "source": "zapi",
+  "fixture_input": "fixtures/zapi_samples/sample_filtered_har.json",
+  "safe_read_probes": [],
+  "write_path_review_items": [
+    {
+      "name": "post_weaver_api_v1_conversation_accept_msg",
+      "method": "POST",
+      "path": "/weaver/api/v1/conversation/accept_msg",
+      "approval_required": true,
+      "review_focus": [
+        "unsafe_write_activation",
+        "parameter_grounding",
+        "operator_approval_boundary"
+      ],
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "prompt_injection",
+        "data_exfiltration"
+      ]
+    },
+    {
+      "name": "post_weaver_api_v1_ugc_memory_get_memory_detail",
+      "method": "POST",
+      "path": "/weaver/api/v1/ugc/memory/get_memory_detail",
+      "approval_required": true,
+      "review_focus": [
+        "unsafe_write_activation",
+        "parameter_grounding",
+        "operator_approval_boundary"
+      ],
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "data_exfiltration"
+      ]
+    },
+    {
+      "name": "post_weaver_api_v1_payment_subscription_list_v2",
+      "method": "POST",
+      "path": "/weaver/api/v1/payment/subscription/list_v2",
+      "approval_required": true,
+      "review_focus": [
+        "unsafe_write_activation",
+        "parameter_grounding",
+        "operator_approval_boundary"
+      ],
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "sensitive_workflow_access"
+      ]
+    },
+    {
+      "name": "post_weaver_api_v1_user_set_user_preference",
+      "method": "POST",
+      "path": "/weaver/api/v1/user/set_user_preference",
+      "approval_required": true,
+      "review_focus": [
+        "unsafe_write_activation",
+        "parameter_grounding",
+        "operator_approval_boundary"
+      ],
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "prompt_injection",
+        "data_exfiltration"
+      ]
+    }
+  ],
+  "sandbox_only_attack_set": [],
+  "summary": {
+    "fixture_count": 4,
+    "safe_read_count": 0,
+    "write_review_count": 4,
+    "sandbox_only_count": 0
+  }
+}

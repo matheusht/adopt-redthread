@@ -1,0 +1,156 @@
+{
+  "source": "zapi",
+  "ingestion_mode": "har",
+  "input_file": "fixtures/zapi_samples/sample_filtered_har.json",
+  "fixture_count": 4,
+  "fixtures": [
+    {
+      "name": "post_weaver_api_v1_conversation_accept_msg",
+      "method": "POST",
+      "path": "/weaver/api/v1/conversation/accept_msg",
+      "summary": "HAR discovered endpoint: /weaver/api/v1/conversation/accept_msg",
+      "query_params": [
+        "client_ip",
+        "device_id",
+        "user_id"
+      ],
+      "body_fields": [
+        "business_id",
+        "chat_scene",
+        "payload",
+        "payload.bodies",
+        "payload.type"
+      ],
+      "auth_hints": [
+        "cookie",
+        "x-sign",
+        "x-token"
+      ],
+      "workflow_group": "conversation",
+      "risk_level": "medium",
+      "replay_class": "manual_review",
+      "approval_required": true,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "pii",
+      "endpoint_family": "conversation",
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "prompt_injection",
+        "data_exfiltration"
+      ],
+      "reasons": [
+        "mutating_http_method",
+        "sensitive_data_surface",
+        "authenticated_surface"
+      ],
+      "source": "zapi_har"
+    },
+    {
+      "name": "post_weaver_api_v1_ugc_memory_get_memory_detail",
+      "method": "POST",
+      "path": "/weaver/api/v1/ugc/memory/get_memory_detail",
+      "summary": "HAR discovered endpoint: /weaver/api/v1/ugc/memory/get_memory_detail",
+      "query_params": [
+        "device_id",
+        "user_id"
+      ],
+      "body_fields": [
+        "memory_id"
+      ],
+      "auth_hints": [
+        "cookie",
+        "x-token"
+      ],
+      "workflow_group": "ugc",
+      "risk_level": "medium",
+      "replay_class": "manual_review",
+      "approval_required": true,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "pii",
+      "endpoint_family": "ugc",
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "data_exfiltration"
+      ],
+      "reasons": [
+        "mutating_http_method",
+        "sensitive_data_surface",
+        "authenticated_surface"
+      ],
+      "source": "zapi_har"
+    },
+    {
+      "name": "post_weaver_api_v1_payment_subscription_list_v2",
+      "method": "POST",
+      "path": "/weaver/api/v1/payment/subscription/list_v2",
+      "summary": "HAR discovered endpoint: /weaver/api/v1/payment/subscription/list_v2",
+      "query_params": [
+        "user_id"
+      ],
+      "body_fields": [
+        "enable_discount",
+        "product_type",
+        "store_type"
+      ],
+      "auth_hints": [
+        "cookie",
+        "x-token"
+      ],
+      "workflow_group": "payment",
+      "risk_level": "medium",
+      "replay_class": "manual_review",
+      "approval_required": true,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "internal",
+      "endpoint_family": "payment",
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "sensitive_workflow_access"
+      ],
+      "reasons": [
+        "mutating_http_method",
+        "authenticated_surface"
+      ],
+      "source": "zapi_har"
+    },
+    {
+      "name": "post_weaver_api_v1_user_set_user_preference",
+      "method": "POST",
+      "path": "/weaver/api/v1/user/set_user_preference",
+      "summary": "HAR discovered endpoint: /weaver/api/v1/user/set_user_preference",
+      "query_params": [
+        "user_id"
+      ],
+      "body_fields": [
+        "user_id",
+        "user_preferences",
+        "user_preferences.3"
+      ],
+      "auth_hints": [
+        "cookie",
+        "x-token"
+      ],
+      "workflow_group": "user",
+      "risk_level": "medium",
+      "replay_class": "manual_review",
+      "approval_required": true,
+      "tenant_scope": "single_tenant",
+      "data_sensitivity": "pii",
+      "endpoint_family": "user",
+      "candidate_attack_types": [
+        "unsafe_write_activation",
+        "authorization_bypass",
+        "prompt_injection",
+        "data_exfiltration"
+      ],
+      "reasons": [
+        "mutating_http_method",
+        "authenticated_surface"
+      ],
+      "source": "zapi_har"
+    }
+  ]
+}

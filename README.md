@@ -12,14 +12,15 @@ This repo is already integrated at the **prototype bridge** level.
 
 What works today:
 - ingest a ZAPI-style discovery export
-- normalize it into RedThread-friendly fixtures
+- ingest a real HAR-shaped ZAPI capture and extract app-relevant endpoints
+- normalize both discovery lanes into RedThread-friendly fixtures
 - ingest an Adopt-style action catalog
 - generate replay-pack groups
 - generate a prototype pre-publish gate verdict
 
 What is **not** live yet:
 - direct pull from real Adopt services
-- direct pull from real ZAPI runtime output shapes in the wild
+- broad support for all real-world ZAPI and NoUI artifact shapes
 - live RedThread attack execution against Adopt-generated agents
 - production-grade publish gating
 
@@ -64,6 +65,7 @@ flowchart TD
 
 Short term:
 - ingest ZAPI-discovered API metadata
+- ingest real HAR-derived discovery captures
 - classify endpoint risk
 - convert the catalog into RedThread-friendly fixtures
 - generate first replay packs
@@ -100,6 +102,7 @@ This will:
 
 ```bash
 make demo-zapi
+make demo-zapi-har
 make demo-adopt-actions
 make demo-gate
 ```
@@ -108,24 +111,29 @@ make demo-gate
 
 Inputs:
 - `fixtures/zapi_samples/sample_discovery.json`
+- `fixtures/zapi_samples/sample_filtered_har.json`
 - `fixtures/adopt_action_samples/sample_actions.json`
 
 Generated outputs:
 - `fixtures/replay_packs/sample_fixture_bundle.json`
+- `fixtures/replay_packs/sample_har_fixture_bundle.json`
 - `fixtures/replay_packs/sample_action_fixture_bundle.json`
 - `fixtures/replay_packs/sample_replay_plan.json`
+- `fixtures/replay_packs/sample_har_replay_plan.json`
 - `fixtures/replay_packs/sample_gate_verdict.json`
+- `fixtures/replay_packs/sample_har_gate_verdict.json`
 
 ## Docs
 
 - `docs/strategy.md` — why the repo split exists and what each system owns
 - `docs/architecture.md` — proposed end-to-end integration architecture
 - `docs/recruiter-demo-notes.md` — how to present this repo in outreach
-- `examples/zapi_to_replay_demo.md` — clean recruiter walkthrough
+- `examples/zapi_to_replay_demo.md` — clean recruiter walkthrough for catalog-style input
+- `examples/har_to_replay_demo.md` — clean walkthrough for HAR-derived real-input intake
 
 ## Repo structure
 
-- `adapters/zapi/` — ZAPI ingestion code
+- `adapters/zapi/` — ZAPI ingestion code for catalog-style exports and HAR-derived captures
 - `adapters/adopt_actions/` — Adopt action/tool catalog mapping
 - `fixtures/zapi_samples/` — sample discovery artifacts
 - `fixtures/adopt_action_samples/` — sample Adopt action catalogs
@@ -138,4 +146,37 @@ Generated outputs:
 
 If logic is generic and reusable, it should probably belong upstream in `redthread/`.
 
-If logic is Adopt-specific, integration-specific, or demo-specific, it belongs here.
+If logic is Adopt-specific, integration-specific, HAR-shape-specific, or demo-specific, it belongs here.
+
+## Real HAR support
+
+This repo now supports two ZAPI intake lanes:
+
+1. **catalog-style** JSON with an `endpoints` list
+2. **HAR-style** JSON with `log.entries`
+
+The HAR lane is intentionally conservative.
+It:
+- keeps app-like API calls
+- drops obvious static assets
+- drops common analytics and third-party transport noise
+- dedupes by method + path
+- emits the same normalized fixture shape used by the replay-pack and gate scripts
+
+That keeps the RedThread boundary clean:
+- Adopt discovery gives us better app-specific surfaces
+- this repo adapts those surfaces
+- RedThread remains the engine that attacks, replays, validates, and hardens
+
+## Safety rule for HAR files
+
+Raw HAR files may contain:
+- cookies
+- tokens
+- user ids
+- device ids
+- message content
+- internal response payloads
+
+So raw HAR files should stay local and out of git history.
+The commit-safe artifact is the normalized fixture bundle, not the raw capture.

@@ -20,6 +20,7 @@ What works today:
 - generate a prototype pre-publish gate verdict
 - export normalized fixtures into real RedThread replay-bundle inputs
 - evaluate those replay traces with RedThread's actual promotion-gate code
+- generate a machine-readable live attack plan with execution policy fields
 - run generated bridge cases through a real RedThread dry-run campaign path
 - run a one-command bridge workflow from one artifact input
 - run a live ZAPI capture and hand its selected HAR into that one-command workflow
@@ -140,6 +141,7 @@ Generated outputs:
 - `fixtures/replay_packs/sample_gate_verdict.json`
 - `fixtures/replay_packs/sample_har_gate_verdict.json`
 - `fixtures/replay_packs/sample_har_redthread_runtime_inputs.json`
+- `fixtures/replay_packs/sample_har_live_attack_plan.json`
 - `fixtures/replay_packs/sample_har_redthread_replay_verdict.json`
 - `fixtures/replay_packs/sample_har_redthread_dryrun_case0.json`
 - `fixtures/replay_packs/sample_noui_redthread_runtime_inputs.json`
@@ -204,6 +206,7 @@ That gives RedThread more realistic surfaces to validate.
 
 This repo now has two higher-level runners:
 
+- `scripts/generate_live_attack_plan.py` — build `live_attack_plan.json` from one supported bridge input
 - `scripts/run_bridge_pipeline.py` — one input artifact in, full bridge outputs out
 - `scripts/run_live_zapi_bridge.py` — live ZAPI capture in, then full bridge workflow out
 

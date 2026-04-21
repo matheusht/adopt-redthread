@@ -1,0 +1,149 @@
+{
+  "plan_id": "live-plan-zapi-sample_filtered_har-json",
+  "source": "zapi",
+  "input_file": "fixtures/zapi_samples/sample_filtered_har.json",
+  "fixture_count": 4,
+  "allowed_case_count": 0,
+  "review_case_count": 4,
+  "blocked_case_count": 0,
+  "cases": [
+    {
+      "case_id": "post_weaver_api_v1_conversation_accept_msg",
+      "method": "POST",
+      "path": "/weaver/api/v1/conversation/accept_msg",
+      "execution_mode": "manual_review",
+      "approval_mode": "human_review",
+      "target_env": "captured_target",
+      "auth_context_required": true,
+      "max_replay_attempts": 0,
+      "side_effect_risk": "medium",
+      "allowed": false,
+      "reasons": [
+        "mutating_http_method",
+        "sensitive_data_surface",
+        "authenticated_surface"
+      ],
+      "request_blueprint": {
+        "url": "https://www.talkie-ai.com/weaver/api/v1/conversation/accept_msg",
+        "host": "www.talkie-ai.com",
+        "header_names": [
+          "content-type",
+          "cookie",
+          "x-sign",
+          "x-token"
+        ],
+        "query_params": [
+          "client_ip",
+          "device_id",
+          "user_id"
+        ],
+        "body_fields": [
+          "business_id",
+          "chat_scene",
+          "payload",
+          "payload.bodies",
+          "payload.type"
+        ]
+      }
+    },
+    {
+      "case_id": "post_weaver_api_v1_ugc_memory_get_memory_detail",
+      "method": "POST",
+      "path": "/weaver/api/v1/ugc/memory/get_memory_detail",
+      "execution_mode": "manual_review",
+      "approval_mode": "human_review",
+      "target_env": "captured_target",
+      "auth_context_required": true,
+      "max_replay_attempts": 0,
+      "side_effect_risk": "medium",
+      "allowed": false,
+      "reasons": [
+        "mutating_http_method",
+        "sensitive_data_surface",
+        "authenticated_surface"
+      ],
+      "request_blueprint": {
+        "url": "https://www.talkie-ai.com/weaver/api/v1/ugc/memory/get_memory_detail",
+        "host": "www.talkie-ai.com",
+        "header_names": [
+          "content-type",
+          "cookie",
+          "x-token"
+        ],
+        "query_params": [
+          "device_id",
+          "user_id"
+        ],
+        "body_fields": [
+          "memory_id"
+        ]
+      }
+    },
+    {
+      "case_id": "post_weaver_api_v1_payment_subscription_list_v2",
+      "method": "POST",
+      "path": "/weaver/api/v1/payment/subscription/list_v2",
+      "execution_mode": "manual_review",
+      "approval_mode": "human_review",
+      "target_env": "captured_target",
+      "auth_context_required": true,
+      "max_replay_attempts": 0,
+      "side_effect_risk": "medium",
+      "allowed": false,
+      "reasons": [
+        "mutating_http_method",
+        "authenticated_surface"
+      ],
+      "request_blueprint": {
+        "url": "https://www.talkie-ai.com/weaver/api/v1/payment/subscription/list_v2",
+        "host": "www.talkie-ai.com",
+        "header_names": [
+          "content-type",
+          "cookie",
+          "x-token"
+        ],
+        "query_params": [
+          "user_id"
+        ],
+        "body_fields": [
+          "enable_discount",
+          "product_type",
+          "store_type"
+        ]
+      }
+    },
+    {
+      "case_id": "post_weaver_api_v1_user_set_user_preference",
+      "method": "POST",
+      "path": "/weaver/api/v1/user/set_user_preference",
+      "execution_mode": "manual_review",
+      "approval_mode": "human_review",
+      "target_env": "captured_target",
+      "auth_context_required": true,
+      "max_replay_attempts": 0,
+      "side_effect_risk": "medium",
+      "allowed": false,
+      "reasons": [
+        "mutating_http_method",
+        "authenticated_surface"
+      ],
+      "request_blueprint": {
+        "url": "https://www.talkie-ai.com/weaver/api/v1/user/set_user_preference",
+        "host": "www.talkie-ai.com",
+        "header_names": [
+          "content-type",
+          "cookie",
+          "x-token"
+        ],
+        "query_params": [
+          "user_id"
+        ],
+        "body_fields": [
+          "user_id",
+          "user_preferences",
+          "user_preferences.3"
+        ]
+      }
+    }
+  ]
+}

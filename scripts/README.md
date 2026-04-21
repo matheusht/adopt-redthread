@@ -8,6 +8,7 @@ Current scripts:
 - `ingest_adopt_actions.py` — normalize an Adopt action catalog into fixtures
 - `generate_replay_pack.py` — turn normalized fixtures into replay-pack groups
 - `prepublish_gate.py` — prototype gate for approve/review/block decisions
+- `generate_live_attack_plan.py` — create `live_attack_plan.json` with execution policy for each normalized fixture
 - `export_redthread_runtime_inputs.py` — convert normalized fixture bundles into real RedThread replay and dry-run campaign input shapes
 - `evaluate_redthread_replay.py` — evaluate exported replay traces with RedThread's actual promotion-gate code
 - `run_redthread_dryrun.py` — run one exported case through a real RedThread dry-run campaign path
@@ -26,6 +27,7 @@ Handy commands:
 - `make demo-redthread-dryrun` — run one generated bridge case through a real RedThread dry-run campaign
 - `make demo-adopt-actions` — regenerate the sample action fixture bundle
 - `make demo-gate` — regenerate the replay plan and gate verdict for the catalog-style sample
+- `make demo-live-plan` — generate the sample machine-readable live attack plan
 - `make demo-bridge-pipeline` — run the full one-command pipeline from the sanitized HAR sample
 - `make live-zapi-bridge URL=https://example.com` — run a real ZAPI capture, then execute the full bridge flow
 - `make demo-all` — run the full local demo flow across ZAPI, NoUI, replay, dry-run, and the one-command pipeline
@@ -93,6 +95,7 @@ python3 scripts/run_live_zapi_bridge.py \
 
 What this proves:
 - artifact capture/export can now be chained directly into bridge normalization
+- a machine-readable live attack plan now exists alongside replay and gate artifacts
 - replay/gate/runtime export no longer need separate manual commands
 - RedThread replay + dry-run checks can be triggered from one top-level runner
 

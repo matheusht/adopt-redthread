@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from adapters.bridge.live_attack import build_execution_policy
+
 PRIMARY_ATTACK_ORDER = (
     "destructive_action_abuse",
     "privilege_escalation",
@@ -22,6 +24,9 @@ def build_redthread_runtime_inputs(bundle: dict[str, Any]) -> dict[str, Any]:
         "source": bundle.get("source", "unknown"),
         "fixture_input": bundle.get("input_file", "unknown"),
         "fixture_count": bundle.get("fixture_count", len(fixtures)),
+        "live_attack_candidates": [
+            {"case_id": fixture["name"], **build_execution_policy(fixture)} for fixture in fixtures
+        ],
         "redthread_replay_bundle": {
             "bundle_id": _bundle_id(bundle),
             "traces": [build_replay_trace(fixture) for fixture in fixtures],
@@ -45,6 +50,7 @@ def build_replay_trace(fixture: dict[str, Any]) -> dict[str, Any]:
             "replay_class": fixture.get("replay_class", "manual_review"),
             "candidate_attack_types": fixture.get("candidate_attack_types", []),
             "source": fixture.get("source", "unknown"),
+            "execution_policy": build_execution_policy(fixture),
             "action_envelope": action,
         },
         "authorization_decision": authorization_decision,
@@ -67,6 +73,7 @@ def build_campaign_case(fixture: dict[str, Any]) -> dict[str, Any]:
         "rubric_name": rubric_name,
         "algorithm": _algorithm_hint(fixture),
         "personas": 1,
+        "execution_policy": build_execution_policy(fixture),
         "why_this_case": f"Generated from {fixture['method']} {fixture['path']} with {rubric_name} focus.",
     }
 

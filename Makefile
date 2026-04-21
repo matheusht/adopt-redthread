@@ -1,7 +1,7 @@
 PYTHON ?= python3
 REDTHREAD_PYTHON ?= ../redthread/.venv/bin/python
 
-.PHONY: test demo-zapi demo-zapi-har demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
+.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
 
 test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
@@ -13,6 +13,9 @@ demo-zapi-har:
 	$(PYTHON) scripts/ingest_zapi.py fixtures/zapi_samples/sample_filtered_har.json fixtures/replay_packs/sample_har_fixture_bundle.json
 	$(PYTHON) scripts/generate_replay_pack.py fixtures/replay_packs/sample_har_fixture_bundle.json fixtures/replay_packs/sample_har_replay_plan.json
 	$(PYTHON) scripts/prepublish_gate.py fixtures/replay_packs/sample_har_replay_plan.json fixtures/replay_packs/sample_har_gate_verdict.json
+
+demo-live-plan:
+	$(PYTHON) scripts/generate_live_attack_plan.py fixtures/zapi_samples/sample_filtered_har.json fixtures/replay_packs/sample_har_live_attack_plan.json --ingestion zapi
 
 demo-bridge-pipeline:
 	$(PYTHON) scripts/run_bridge_pipeline.py fixtures/zapi_samples/sample_filtered_har.json runs/sample_har_pipeline --ingestion zapi --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src
@@ -43,4 +46,4 @@ live-zapi-bridge:
 	@test -n "$(URL)" || (echo "Usage: make live-zapi-bridge URL=https://example.com [HEADLESS=1] [DURATION=45]" && exit 1)
 	$(PYTHON) scripts/run_live_zapi_bridge.py "$(URL)" runs/live_zapi_run --zapi-repo /tmp/pi-github-repos/adoptai/zapi $(if $(HEADLESS),--headless,) $(if $(DURATION),--duration-seconds $(DURATION),) --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src
 
-demo-all: demo-zapi demo-zapi-har demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate demo-noui demo-noui-redthread demo-bridge-pipeline
+demo-all: demo-zapi demo-zapi-har demo-live-plan demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate demo-noui demo-noui-redthread demo-bridge-pipeline

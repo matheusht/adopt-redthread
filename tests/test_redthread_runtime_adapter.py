@@ -21,7 +21,9 @@ class RedThreadRuntimeAdapterTests(unittest.TestCase):
         first_trace = payload["redthread_replay_bundle"]["traces"][0]
         self.assertIn(first_trace["expected_authorization"], {"allow", "deny"})
         self.assertIn("action_envelope", first_trace["scenario_result"])
+        self.assertIn("execution_policy", first_trace["scenario_result"])
         self.assertIn("objective", payload["campaign_cases"][0])
+        self.assertIn("live_attack_candidates", payload)
 
     def test_exported_bundle_can_be_evaluated_with_real_redthread_code(self) -> None:
         runtime_output = Path("fixtures/replay_packs/test_runtime_inputs.json")

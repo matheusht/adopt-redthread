@@ -21,11 +21,13 @@ What works today:
 - export normalized fixtures into real RedThread replay-bundle inputs
 - evaluate those replay traces with RedThread's actual promotion-gate code
 - run generated bridge cases through a real RedThread dry-run campaign path
+- run a one-command bridge workflow from one artifact input
+- run a live ZAPI capture and hand its selected HAR into that one-command workflow
 
 What is **not** live yet:
 - direct pull from real Adopt services
 - broad support for all real-world NoUI output families beyond the first MCP server shape
-- live RedThread attack execution against real Adopt-managed agents and sessions
+- fully automatic live ZAPI runtime -> RedThread attack loop against a real Adopt-managed session
 - production-grade publish gating
 
 So the honest status is:
@@ -115,6 +117,7 @@ make demo-noui
 make demo-noui-redthread
 make demo-adopt-actions
 make demo-gate
+make demo-bridge-pipeline
 ```
 
 ## Key demo files
@@ -141,16 +144,19 @@ Generated outputs:
 - `fixtures/replay_packs/sample_noui_redthread_runtime_inputs.json`
 - `fixtures/replay_packs/sample_noui_redthread_replay_verdict.json`
 - `fixtures/replay_packs/sample_noui_redthread_dryrun_case0.json`
+- `runs/sample_har_pipeline/` — one-command sample pipeline outputs
 
 ## Docs
 
 - `docs/strategy.md` — why the repo split exists and what each system owns
 - `docs/architecture.md` — proposed end-to-end integration architecture
+- `docs/live-workflow-explained.md` — simple explanation of what is live now, what is not, and how the workflow should act
 - `docs/recruiter-demo-notes.md` — how to present this repo in outreach
 - `examples/zapi_to_replay_demo.md` — clean recruiter walkthrough for catalog-style input
 - `examples/har_to_replay_demo.md` — clean walkthrough for HAR-derived real-input intake
 - `examples/redthread_runtime_demo.md` — walkthrough from bridge fixtures into real RedThread replay and dry-run execution inputs
 - `examples/noui_to_redthread_demo.md` — walkthrough from NoUI MCP output into normalized fixtures and then into RedThread
+- `examples/live_zapi_bridge_demo.md` — one-command live ZAPI capture into bridge outputs and RedThread checks
 
 ## Repo structure
 
@@ -161,7 +167,7 @@ Generated outputs:
 - `fixtures/zapi_samples/` — sample discovery artifacts
 - `fixtures/adopt_action_samples/` — sample Adopt action catalogs
 - `fixtures/replay_packs/` — generated replay suites and gate verdicts
-- `scripts/` — helper scripts and MVP entrypoints
+- `scripts/` — helper scripts and MVP entrypoints, including one-command workflow runners
 - `tests/` — zero-dependency local test suite
 - `examples/` — end-to-end demos
 
@@ -189,6 +195,26 @@ It tells us:
 - response field shapes
 
 That gives RedThread more realistic surfaces to validate.
+
+## One-command workflow support
+
+This repo now has two higher-level runners:
+
+- `scripts/run_bridge_pipeline.py` — one input artifact in, full bridge outputs out
+- `scripts/run_live_zapi_bridge.py` — live ZAPI capture in, then full bridge workflow out
+
+That means the intended operator story is now much closer to real life:
+1. capture or provide one discovery artifact
+2. normalize it
+3. generate replay and gate artifacts
+4. export RedThread runtime inputs
+5. run RedThread replay evaluation
+6. run one RedThread dry-run case
+7. inspect one final summary JSON
+
+Still honest:
+- this is workflow automation around the bridge we already had
+- it is not yet full live RedThread attack execution against a real production runtime
 
 ## Real RedThread runtime support
 

@@ -37,11 +37,13 @@ Implemented now:
 - RedThread replay-bundle export
 - RedThread promotion-gate evaluation against exported bundles
 - RedThread dry-run campaign execution from generated bridge cases
+- one-command bridge workflow from one artifact input
+- one-command live ZAPI capture runner that feeds selected HAR into the bridge workflow
 
 Not implemented yet:
 - live calls into real Adopt services
 - broad support for all confirmed real-world NoUI output families beyond the first MCP server shape
-- real RedThread execution against live Adopt-built agents and sessions
+- fully automatic live RedThread attack execution against a real Adopt-built session immediately after discovery
 - CI or release-system wiring for automatic publish gates
 
 ---

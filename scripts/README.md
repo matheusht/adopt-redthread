@@ -11,6 +11,8 @@ Current scripts:
 - `export_redthread_runtime_inputs.py` — convert normalized fixture bundles into real RedThread replay and dry-run campaign input shapes
 - `evaluate_redthread_replay.py` — evaluate exported replay traces with RedThread's actual promotion-gate code
 - `run_redthread_dryrun.py` — run one exported case through a real RedThread dry-run campaign path
+- `run_bridge_pipeline.py` — run the full bridge flow from one artifact input
+- `run_live_zapi_bridge.py` — run live ZAPI capture, then feed the selected HAR into the full bridge flow
 
 Handy commands:
 - `make test` — run the local test suite
@@ -22,7 +24,9 @@ Handy commands:
 - `make demo-redthread-dryrun` — run one generated bridge case through a real RedThread dry-run campaign
 - `make demo-adopt-actions` — regenerate the sample action fixture bundle
 - `make demo-gate` — regenerate the replay plan and gate verdict for the catalog-style sample
-- `make demo-all` — run the full local demo flow across ZAPI, NoUI, replay, and dry-run seams
+- `make demo-bridge-pipeline` — run the full one-command pipeline from the sanitized HAR sample
+- `make live-zapi-bridge URL=https://example.com` — run a real ZAPI capture, then execute the full bridge flow
+- `make demo-all` — run the full local demo flow across ZAPI, NoUI, replay, dry-run, and the one-command pipeline
 
 ## HAR notes
 
@@ -62,6 +66,31 @@ What this proves:
 - NoUI MCP output can be normalized into the same bridge fixture model
 - the NoUI lane can reuse the same RedThread runtime export seam
 - one NoUI-derived case can be evaluated by RedThread without changing RedThread core
+
+## One-command bridge flow
+
+For a sanitized HAR or other supported input artifact:
+
+```bash
+python3 scripts/run_bridge_pipeline.py \
+  fixtures/zapi_samples/sample_filtered_har.json \
+  runs/sample_har_pipeline \
+  --ingestion zapi
+```
+
+For a live ZAPI session:
+
+```bash
+python3 scripts/run_live_zapi_bridge.py \
+  "https://example.com" \
+  runs/live_zapi_run \
+  --zapi-repo /tmp/pi-github-repos/adoptai/zapi
+```
+
+What this proves:
+- artifact capture/export can now be chained directly into bridge normalization
+- replay/gate/runtime export no longer need separate manual commands
+- RedThread replay + dry-run checks can be triggered from one top-level runner
 
 ## RedThread runtime flow
 

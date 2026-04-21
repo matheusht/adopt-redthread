@@ -151,6 +151,8 @@ Generated outputs:
 - `docs/strategy.md` — why the repo split exists and what each system owns
 - `docs/architecture.md` — proposed end-to-end integration architecture
 - `docs/live-workflow-explained.md` — simple explanation of what is live now, what is not, and how the workflow should act
+- `docs/full-live-loop-diagram.md` — blunt diagrams for what the future full live loop actually means
+- `docs/live-attack-implementation-plan.md` — step-by-step plan for getting from human-guided ZAPI capture to policy-controlled live RedThread execution
 - `docs/recruiter-demo-notes.md` — how to present this repo in outreach
 - `examples/zapi_to_replay_demo.md` — clean recruiter walkthrough for catalog-style input
 - `examples/har_to_replay_demo.md` — clean walkthrough for HAR-derived real-input intake

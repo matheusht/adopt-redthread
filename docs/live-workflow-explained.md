@@ -198,6 +198,10 @@ flowchart TD
 
 This is where we want to go.
 
+For the concrete implementation path, see also:
+- `docs/full-live-loop-diagram.md`
+- `docs/live-attack-implementation-plan.md`
+
 ---
 
 ## Where we are now vs where we want to be

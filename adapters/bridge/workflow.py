@@ -83,6 +83,7 @@ def run_bridge_workflow(
             write_context=write_context,
             allow_reviewed_writes=allow_reviewed_writes,
             output_path=paths["live_workflow_replay"],
+            binding_history_path=paths["binding_history"],
             stream_max_bytes=stream_max_bytes,
         )
 
@@ -121,6 +122,7 @@ def run_bridge_workflow(
         for name, path in paths.items()
         if (name != "live_safe_replay" or live_safe_replay_summary is not None)
         and (name != "live_workflow_replay" or live_workflow_summary is not None)
+        and (name != "binding_history" or (live_workflow_summary is not None and live_workflow_summary.get("binding_history_rows_written", 0) > 0))
     }
     summary = {
         "status": "completed",
@@ -145,6 +147,7 @@ def run_bridge_workflow(
         "live_workflow_failure_class_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_failure_class_summary", {}),
         "live_workflow_binding_review_artifacts": [] if live_workflow_summary is None else live_workflow_summary.get("workflow_binding_review_artifacts", []),
         "live_workflow_review_manifest_ready": bool(workflow_review_manifest.get("workflows")),
+        "binding_history_rows_written": 0 if live_workflow_summary is None else live_workflow_summary.get("binding_history_rows_written", 0),
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),

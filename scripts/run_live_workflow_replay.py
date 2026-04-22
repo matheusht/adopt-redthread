@@ -23,6 +23,7 @@ def main() -> None:
     parser.add_argument("workflow_plan", help="Path to live_workflow_plan.json")
     parser.add_argument("live_attack_plan", help="Path to live_attack_plan.json")
     parser.add_argument("output", help="Path to write live workflow replay summary")
+    parser.add_argument("--binding-history-path", help="Optional JSONL file to append successful response binding outcomes")
     parser.add_argument("--auth-context", help="Path to approved auth context JSON for reviewed auth-safe-read steps")
     parser.add_argument("--allow-reviewed-auth", action="store_true", help="Allow reviewed auth-safe-read workflow steps when approved auth context is supplied")
     parser.add_argument("--write-context", help="Path to approved staging write context JSON for reviewed write workflow steps")
@@ -39,6 +40,7 @@ def main() -> None:
         write_context=args.write_context,
         allow_reviewed_writes=args.allow_reviewed_writes,
         output_path=args.output,
+        binding_history_path=args.binding_history_path,
         timeout_seconds=args.timeout_seconds,
         stream_max_bytes=args.stream_max_bytes,
     )

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from adapters.live_replay.binding_history import append_binding_history
 from adapters.live_replay.executor import execute_live_case, is_live_case_executable
 from adapters.live_replay.stream_capture import DEFAULT_STREAM_MAX_BYTES
 from adapters.live_replay.workflow_bindings import apply_response_bindings, binding_review_required, extract_response_binding_values
@@ -23,6 +24,7 @@ def execute_live_workflow_replay(
     write_context: dict[str, Any] | str | Path | None = None,
     allow_reviewed_writes: bool = False,
     output_path: str | Path | None = None,
+    binding_history_path: str | Path | None = None,
     timeout_seconds: int = 10,
     stream_max_bytes: int = DEFAULT_STREAM_MAX_BYTES,
 ) -> dict[str, Any]:
@@ -53,6 +55,8 @@ def execute_live_workflow_replay(
         write_context_used=bool(write_payload),
         stream_max_bytes=stream_max_bytes,
     )
+    if binding_history_path is not None:
+        summary["binding_history_rows_written"] = append_binding_history(summary, workflows, cases, binding_history_path)
     if output_path is not None:
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)

@@ -228,15 +228,21 @@ class LiveWorkflowReplayTests(unittest.TestCase):
 
             workflow_plan = json.loads((output_dir / "live_workflow_plan.json").read_text())
             replay = json.loads((output_dir / "live_workflow_replay.json").read_text())
+            review_manifest = json.loads((output_dir / "workflow_review_manifest.json").read_text())
             self.assertEqual(workflow_plan["workflow_count"], 1)
             self.assertTrue(summary["live_workflow_replay_executed"])
             self.assertEqual(summary["live_workflow_replay_count"], 1)
             self.assertEqual(summary["live_workflow_blocked_count"], 0)
             self.assertEqual(summary["live_workflow_aborted_count"], 0)
             self.assertEqual(summary["live_workflow_reason_counts"], {})
+            self.assertTrue(summary["live_workflow_review_manifest_ready"])
             self.assertEqual(replay["successful_workflow_count"], 1)
             self.assertEqual(replay["total_executed_step_count"], 2)
             self.assertEqual(replay["results"][0]["final_state"]["last_case_id"], "get_api_v1_account_preferences")
+            self.assertEqual(review_manifest["workflow_count"], 1)
+            self.assertEqual(review_manifest["workflow_failure_class_summary"], {})
+            self.assertEqual(review_manifest["workflows"][0]["replay_status"], "completed")
+            self.assertIn("workflow_context_requirements", review_manifest["workflows"][0])
 
 
 class _server:

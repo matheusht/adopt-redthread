@@ -9,6 +9,7 @@ from typing import Any
 from adapters.adopt_actions.loader import build_action_fixture_bundle
 from adapters.bridge.live_attack import build_live_attack_plan
 from adapters.bridge.live_workflow import build_live_workflow_plan
+from adapters.bridge.workflow_review_manifest import build_workflow_review_manifest
 from adapters.live_replay.executor import execute_live_safe_replay
 from adapters.live_replay.workflow_executor import execute_live_workflow_replay
 from adapters.noui.loader import build_noui_fixture_bundle
@@ -79,6 +80,9 @@ def run_bridge_workflow(
             output_path=paths["live_workflow_replay"],
         )
 
+    workflow_review_manifest = build_workflow_review_manifest(live_workflow_plan, live_workflow_summary)
+    _write_json(paths["workflow_review_manifest"], workflow_review_manifest)
+
     replay_verdict = _run_replay(runtime_input=paths["runtime_inputs"], output_path=paths["replay_verdict"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))
     gate_verdict = build_gate_verdict(
         replay_pack,
@@ -120,6 +124,7 @@ def run_bridge_workflow(
         "live_workflow_requirement_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_requirement_summary", {}),
         "live_workflow_failure_class_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_failure_class_summary", {}),
         "live_workflow_binding_review_artifacts": [] if live_workflow_summary is None else live_workflow_summary.get("workflow_binding_review_artifacts", []),
+        "live_workflow_review_manifest_ready": bool(workflow_review_manifest.get("workflows")),
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -186,6 +191,7 @@ def _artifact_paths(output_root: Path) -> dict[str, Path]:
         "replay_verdict": output_root / "redthread_replay_verdict.json",
         "dryrun_case0": output_root / "redthread_dryrun_case0.json",
         "summary": output_root / "workflow_summary.json",
+        "workflow_review_manifest": output_root / "workflow_review_manifest.json",
     }
 
 

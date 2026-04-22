@@ -726,6 +726,25 @@ Workflow replay and bridge summaries now also surface:
 - `workflow_failure_class_summary` so operators can quickly see review gaps vs context-contract failures vs runtime failures
 - richer gate notes that mirror those bounded contract summaries
 
+### Phase 9.6 — unified workflow review manifest
+
+This pass also stays bounded.
+It does not add new replay power.
+
+The bridge now writes one operator-facing artifact:
+- `workflow_review_manifest.json`
+
+This puts the important bounded workflow review facts in one place:
+- workflow context requirements
+- session context requirements
+- response-binding contract and per-step bindings
+- binding review summaries and decisions
+- workflow requirement summary
+- workflow failure-class summary
+- per-workflow replay status and failure reason
+
+This makes it easier to use real HAR captures without jumping across several JSON files just to review one workflow lane.
+
 New structured workflow reasons now also include:
 - `response_binding_missing`
 - `response_binding_target_missing`

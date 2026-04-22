@@ -13,11 +13,12 @@ Current scripts:
 - `run_live_workflow_replay.py` — execute grouped sequential workflow replay from workflow and attack plans using the same auth/write guardrails
   - carries bounded state/evidence forward between steps
   - emits structured workflow failure reasons and reason counts
-  - emits workflow requirement summaries, failure-class summaries, and binding review artifacts for operator/gate follow-through
+  - emits workflow requirement summaries, failure-class summaries, binding review artifacts, and data for a unified operator review manifest
 - `export_redthread_runtime_inputs.py` — convert normalized fixture bundles into real RedThread replay and dry-run campaign input shapes
 - `evaluate_redthread_replay.py` — evaluate exported replay traces with RedThread's actual promotion-gate code
 - `run_redthread_dryrun.py` — run one exported case through a real RedThread dry-run campaign path
 - `run_bridge_pipeline.py` — run the full bridge flow from one artifact input
+  - writes a unified `workflow_review_manifest.json` when workflow planning is present
 - `run_live_zapi_bridge.py` — run live ZAPI capture, then feed the selected HAR into the full bridge flow
   - supports `--interactive` for human-guided capture
   - writes `zapi_capture/capture_metadata.json`

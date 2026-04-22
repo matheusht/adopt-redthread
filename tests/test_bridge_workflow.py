@@ -33,6 +33,7 @@ class BridgeWorkflowTests(unittest.TestCase):
         self.assertTrue(summary["redthread_dryrun_executed"])
 
         workflow_summary = json.loads((output_dir / "workflow_summary.json").read_text())
+        workflow_review_manifest = json.loads((output_dir / "workflow_review_manifest.json").read_text())
         live_attack_plan = json.loads((output_dir / "live_attack_plan.json").read_text())
         gate_verdict = json.loads((output_dir / "gate_verdict.json").read_text())
         self.assertEqual(workflow_summary["gate_decision"], "review")
@@ -40,9 +41,13 @@ class BridgeWorkflowTests(unittest.TestCase):
         self.assertIn("live_workflow_requirement_summary", workflow_summary)
         self.assertIn("live_workflow_failure_class_summary", workflow_summary)
         self.assertIn("live_workflow_binding_review_artifacts", workflow_summary)
+        self.assertIn("live_workflow_review_manifest_ready", workflow_summary)
         self.assertEqual(workflow_summary["live_workflow_requirement_summary"], {})
         self.assertEqual(workflow_summary["live_workflow_failure_class_summary"], {})
         self.assertEqual(workflow_summary["live_workflow_binding_review_artifacts"], [])
+        self.assertFalse(workflow_summary["live_workflow_review_manifest_ready"])
+        self.assertEqual(workflow_review_manifest["workflow_count"], 0)
+        self.assertEqual(workflow_review_manifest["workflows"], [])
         self.assertEqual(live_attack_plan["fixture_count"], 4)
         self.assertTrue(gate_verdict["evidence_summary"]["redthread_replay_verdict"]["passed"])
 
@@ -67,6 +72,8 @@ class BridgeWorkflowTests(unittest.TestCase):
         self.assertEqual(summary["status"], "completed")
         self.assertTrue(summary["redthread_replay_passed"])
         self.assertIn("live_attack_allowed_count", summary)
+        self.assertIn("live_workflow_review_manifest_ready", summary)
+        self.assertIn("workflow_review_manifest", summary["artifacts"])
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from adapters.live_replay.executor import execute_live_case, is_live_case_execut
 from adapters.live_replay.workflow_bindings import apply_response_bindings, binding_review_required, extract_response_binding_values
 from adapters.live_replay.workflow_requirements import step_block_reason, summarize_failure_classes, summarize_workflow_requirements, validate_workflow_context
 from adapters.live_replay.workflow_state import initial_workflow_state, snapshot_workflow_state, step_evidence, update_workflow_state, workflow_reason_code
+from adapters.live_replay.workflow_support import approved_write_body_json, binding_review_artifact
 
 
 def execute_live_workflow_replay(
@@ -50,7 +51,7 @@ def execute_live_workflow_replay(
         "reason_counts": _reason_counts(results),
         "workflow_requirement_summary": summarize_workflow_requirements(workflows, results),
         "workflow_failure_class_summary": summarize_failure_classes(results),
-        "workflow_binding_review_artifacts": [_binding_review_artifact(workflow) for workflow in workflows],
+        "workflow_binding_review_artifacts": [binding_review_artifact(workflow) for workflow in workflows],
         "auth_context_used": bool(auth_payload),
         "write_context_used": bool(write_payload),
         "results": results,
@@ -71,7 +72,7 @@ def _execute_workflow(
     write_payload: dict[str, Any] | None,
     allow_reviewed_writes: bool,
 ) -> dict[str, Any]:
-    review_artifact = _binding_review_artifact(workflow)
+    review_artifact = binding_review_artifact(workflow)
     precheck = validate_workflow_context(workflow, auth_payload, write_payload, cases)
     if precheck is not None:
         return _blocked_workflow(workflow, [], initial_workflow_state(), precheck[0], precheck[1], review_artifact)
@@ -88,7 +89,12 @@ def _execute_workflow(
             return _blocked_workflow(workflow, step_results, workflow_state, "binding_review_required", str(case.get("case_id")), review_artifact)
         if not is_live_case_executable(case, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes):
             return _blocked_workflow(workflow, step_results, workflow_state, step_block_reason(step), str(case.get("case_id")), review_artifact)
-        bound_case, applied_bindings, binding_error = apply_response_bindings(case, step, workflow_state)
+        bound_case, applied_bindings, binding_error = apply_response_bindings(
+            case,
+            step,
+            workflow_state,
+            approved_write_body_json(case, write_payload, allow_reviewed_writes),
+        )
         if binding_error is not None:
             return _blocked_workflow(workflow, step_results, workflow_state, binding_error[0], binding_error[1], review_artifact)
         assert bound_case is not None
@@ -134,22 +140,6 @@ def _execute_workflow(
         "binding_review_artifact": review_artifact,
         "final_state": snapshot_workflow_state(workflow_state),
         "results": step_results,
-    }
-
-
-def _binding_review_artifact(workflow: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "workflow_id": workflow.get("workflow_id", "unknown"),
-        "steps": [
-            {
-                "case_id": step.get("case_id"),
-                "workflow_step_index": step.get("workflow_step_index", 0),
-                "binding_review_summary": step.get("binding_review_summary", {}),
-                "binding_review_decisions": step.get("binding_review_decisions", []),
-            }
-            for step in workflow.get("steps", [])
-            if step.get("binding_review_summary") or step.get("binding_review_decisions")
-        ],
     }
 
 

@@ -41,6 +41,7 @@ def apply_response_bindings(
     case: dict[str, Any],
     step: dict[str, Any],
     workflow_state: dict[str, Any],
+    approved_write_body_json: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], tuple[str, str] | None]:
     bindings = step.get("response_bindings", [])
     if not bindings:
@@ -50,6 +51,8 @@ def apply_response_bindings(
     request_url = str(step.get("request_url_template") or request_blueprint.get("url", ""))
     request_path = str(bound_case.get("path", ""))
     request_body_json = deepcopy(request_blueprint.get("body_json"))
+    if request_body_json is None and isinstance(approved_write_body_json, dict):
+        request_body_json = deepcopy(approved_write_body_json)
     applied: list[dict[str, Any]] = []
     binding_values = workflow_state.get("response_binding_values", {})
     for binding in bindings:

@@ -98,9 +98,11 @@ def _request_map(bundle: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]
 
 
 def _execution_mode(fixture: dict[str, Any]) -> str:
-    if fixture.get("replay_class") == "safe_read" and fixture.get("method") == "GET":
+    method = fixture.get("method")
+    auth_required = bool(fixture.get("auth_hints"))
+    if fixture.get("replay_class") == "safe_read" and method == "GET" and not auth_required:
         return "live_safe_read"
-    if fixture.get("replay_class") == "safe_read_with_review" and fixture.get("method") == "GET":
+    if fixture.get("replay_class") in {"safe_read", "safe_read_with_review"} and method == "GET":
         return "live_safe_read_with_review"
     if fixture.get("replay_class") == "sandbox_only":
         return "sandbox_only"

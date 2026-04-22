@@ -15,6 +15,7 @@ What works today:
 - we can run that bridge chain from **one command**
 - we can use a **live ZAPI capture runner** that saves HAR and feeds the selected HAR into the bridge automatically
 - we now have an explicit **interactive human-guided capture mode** with saved capture metadata
+- we now generate a **machine-readable live attack plan** and can execute the first **policy-gated live safe-read GET lane**
 
 What does **not** work yet:
 - one-button fully live flow from **running ZAPI session -> automatic RedThread attack loop -> live target execution**
@@ -127,6 +128,7 @@ This is also real working integration.
 What we do **not** have yet:
 - RedThread fully driving a live target discovered moments earlier by ZAPI
 - RedThread doing live authenticated attack execution against a real Adopt-managed runtime
+- reviewed write lanes
 - full continuous closed-loop publish gating
 
 ---

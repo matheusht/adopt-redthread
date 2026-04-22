@@ -9,6 +9,7 @@ Current scripts:
 - `generate_replay_pack.py` — turn normalized fixtures into replay-pack groups
 - `prepublish_gate.py` — prototype gate for approve/review/block decisions
 - `generate_live_attack_plan.py` — create `live_attack_plan.json` with execution policy for each normalized fixture
+- `run_live_safe_replay.py` — execute only policy-allowed safe-read GET cases from a live attack plan
 - `export_redthread_runtime_inputs.py` — convert normalized fixture bundles into real RedThread replay and dry-run campaign input shapes
 - `evaluate_redthread_replay.py` — evaluate exported replay traces with RedThread's actual promotion-gate code
 - `run_redthread_dryrun.py` — run one exported case through a real RedThread dry-run campaign path
@@ -82,6 +83,16 @@ python3 scripts/run_bridge_pipeline.py \
   --ingestion zapi
 ```
 
+If you want the first live safe-read lane too:
+
+```bash
+python3 scripts/run_bridge_pipeline.py \
+  /path/to/safe_read_capture.har \
+  runs/live_safe_read_pipeline \
+  --ingestion zapi \
+  --run-live-safe-replay
+```
+
 For a live ZAPI session:
 
 ```bash
@@ -96,6 +107,7 @@ python3 scripts/run_live_zapi_bridge.py \
 What this proves:
 - artifact capture/export can now be chained directly into bridge normalization
 - a machine-readable live attack plan now exists alongside replay and gate artifacts
+- the first live safe-read execution lane can run against allowed GET cases
 - replay/gate/runtime export no longer need separate manual commands
 - RedThread replay + dry-run checks can be triggered from one top-level runner
 

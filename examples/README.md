@@ -7,6 +7,7 @@
 - `redthread_runtime_demo.md` — bridge-to-engine demo: normalized fixtures into real RedThread replay and dry-run inputs
 - `noui_to_redthread_demo.md` — NoUI MCP output into normalized fixtures, then into RedThread replay and dry-run seams
 - `live_zapi_bridge_demo.md` — live ZAPI capture into one-command bridge outputs and RedThread checks
+- `live_safe_replay_demo.md` — first policy-gated live safe-read GET replay lane
 
 ## First MVP flow
 

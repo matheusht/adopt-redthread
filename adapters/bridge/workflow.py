@@ -8,6 +8,7 @@ from typing import Any
 
 from adapters.adopt_actions.loader import build_action_fixture_bundle
 from adapters.bridge.live_attack import build_live_attack_plan
+from adapters.live_replay.executor import execute_live_safe_replay
 from adapters.noui.loader import build_noui_fixture_bundle
 from adapters.redthread_runtime.runtime_adapter import build_redthread_runtime_inputs
 from adapters.zapi.loader import build_fixture_bundle as build_zapi_fixture_bundle
@@ -26,6 +27,7 @@ def run_bridge_workflow(
     output_dir: str | Path,
     allow_sandbox_only: bool = False,
     run_dryrun: bool = True,
+    run_live_safe_replay: bool = False,
     redthread_python: str | Path = DEFAULT_REDTHREAD_PYTHON,
     redthread_src: str | Path = DEFAULT_REDTHREAD_SRC,
 ) -> dict[str, Any]:
@@ -46,11 +48,16 @@ def run_bridge_workflow(
     _write_json(paths["runtime_inputs"], runtime_inputs)
     _write_json(paths["live_attack_plan"], live_attack_plan)
 
+    live_safe_replay_summary: dict[str, Any] | None = None
+    if run_live_safe_replay:
+        live_safe_replay_summary = execute_live_safe_replay(live_attack_plan, output_path=paths["live_safe_replay"])
+
     replay_verdict = _run_replay(runtime_input=paths["runtime_inputs"], output_path=paths["replay_verdict"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))
     dryrun_summary: dict[str, Any] | None = None
     if run_dryrun:
         dryrun_summary = _run_dryrun(runtime_input=paths["runtime_inputs"], output_path=paths["dryrun_case0"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))
 
+    artifact_paths = {name: str(path) for name, path in paths.items() if name != "live_safe_replay" or live_safe_replay_summary is not None}
     summary = {
         "status": "completed",
         "ingestion": ingestion,
@@ -60,10 +67,12 @@ def run_bridge_workflow(
         "gate_decision": gate_verdict["decision"],
         "live_attack_allowed_count": live_attack_plan["allowed_case_count"],
         "live_attack_blocked_count": live_attack_plan["blocked_case_count"],
+        "live_safe_replay_executed": live_safe_replay_summary is not None,
+        "live_safe_replay_count": 0 if live_safe_replay_summary is None else live_safe_replay_summary["executed_case_count"],
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "artifacts": {name: str(path) for name, path in paths.items()},
+        "artifacts": artifact_paths,
     }
     if dryrun_summary is not None:
         summary["dryrun_case_id"] = dryrun_summary["case_id"]
@@ -120,6 +129,7 @@ def _artifact_paths(output_root: Path) -> dict[str, Path]:
         "gate_verdict": output_root / "gate_verdict.json",
         "runtime_inputs": output_root / "redthread_runtime_inputs.json",
         "live_attack_plan": output_root / "live_attack_plan.json",
+        "live_safe_replay": output_root / "live_safe_replay.json",
         "replay_verdict": output_root / "redthread_replay_verdict.json",
         "dryrun_case0": output_root / "redthread_dryrun_case0.json",
         "summary": output_root / "workflow_summary.json",

@@ -27,6 +27,15 @@ python3 scripts/run_live_zapi_bridge.py \
   --operator-notes "login, browse chat, open settings"
 ```
 
+If you want the first safe-read live lane too, add:
+
+```bash
+  --run-live-safe-replay
+```
+
+It will only execute policy-allowed GET safe-read cases.
+It will not execute writes.
+
 If you want the capture to auto-save after a fixed time:
 
 ```bash
@@ -53,6 +62,7 @@ Inside the output directory:
 - `bridge_outputs/redthread_replay_verdict.json`
 - `bridge_outputs/redthread_dryrun_case0.json`
 - `bridge_outputs/workflow_summary.json`
+- `bridge_outputs/live_safe_replay.json` (only when `--run-live-safe-replay` is enabled and allowed cases exist)
 - `live_zapi_bridge_summary.json`
 
 ---

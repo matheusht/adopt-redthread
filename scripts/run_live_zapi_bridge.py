@@ -27,21 +27,10 @@ def main() -> None:
     parser.add_argument("--use-original-har", action="store_true", help="Use original HAR instead of filtered HAR for downstream bridge work")
     parser.add_argument("--allow-sandbox-only", action="store_true")
     parser.add_argument("--skip-dryrun", action="store_true")
+    parser.add_argument("--run-live-safe-replay", action="store_true", help="Execute policy-allowed safe-read live replay cases after planning")
     parser.add_argument("--redthread-python", default=str(DEFAULT_REDTHREAD_PYTHON))
     parser.add_argument("--redthread-src", default=str(DEFAULT_REDTHREAD_SRC))
     args = parser.parse_args()
-@@
-     capture = capture_live_session(
-         args.url,
-         zapi_repo=args.zapi_repo,
-         output_dir=capture_dir,
-         headless=args.headless,
-         duration_seconds=args.duration_seconds,
-         upload=args.upload,
-         prefer_filtered=not args.use_original_har,
-+        interactive=args.interactive,
-+        operator_notes=args.operator_notes,
-     )
 
     output_dir = Path(args.output_dir)
     capture_dir = output_dir / "zapi_capture"
@@ -55,6 +44,8 @@ def main() -> None:
         duration_seconds=args.duration_seconds,
         upload=args.upload,
         prefer_filtered=not args.use_original_har,
+        interactive=args.interactive,
+        operator_notes=args.operator_notes,
     )
     summary = run_bridge_workflow(
         capture["selected_input"],
@@ -62,6 +53,7 @@ def main() -> None:
         output_dir=pipeline_dir,
         allow_sandbox_only=args.allow_sandbox_only,
         run_dryrun=not args.skip_dryrun,
+        run_live_safe_replay=args.run_live_safe_replay,
         redthread_python=args.redthread_python,
         redthread_src=args.redthread_src,
     )

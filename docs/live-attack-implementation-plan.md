@@ -1,516 +1,364 @@
 # Live Attack Implementation Plan
 
-## Blunt answer first
+## Blunt answer
 
-Yes.
-Your instinct is right.
+We should build live attack mode in **controlled steps**.
 
-For the ZAPI part, we should keep **human-in-the-loop discovery** as the main near-term path.
+Not like this:
+- auto-discover everything
+- auto-send risky requests
+- hope it works
 
-That means:
-- a human opens the site
-- a human clicks around
-- a human logs in if needed
-- a human reaches the important workflows
-- ZAPI records the real session
-- then the rest becomes automated
+Like this:
+- human captures reality first
+- bridge normalizes it
+- policy classifies it
+- only low-risk read cases can run automatically
+- everything riskier stays review-gated
 
-This is the correct shape.
+That is now the implemented shape.
 
-Why:
-- real apps are messy
-- login flows are messy
-- auth, CAPTCHA, MFA, weird redirects, popups, and app-specific flows are messy
-- a human can reach the meaningful parts faster than brittle auto-browse logic
-- the security value starts **after** we have a good artifact
+---
 
-So the near-term architecture should be:
+## What is implemented now
+
+## Phase status
+
+| Phase | Status | What it does |
+|---|---|---|
+| Phase 1 — Interactive capture | done | human-guided ZAPI capture is now an explicit first-class mode |
+| Phase 2 — Machine-readable live plan | done | bridge emits `live_attack_plan.json` with execution policy per case |
+| Phase 3 — Safe-read live lane | done | policy-allowed GET read cases can be executed live |
+
+So the current system now has a real ladder:
 
 ```text
-human-guided discovery -> artifact export -> automated normalization -> automated RedThread replay/dry-run -> later automated live attack lane
+interactive capture -> normalized fixtures -> live attack plan -> safe-read live replay -> replay gate -> dry-run
+```
+
+Still honest:
+- writes are not auto-executed
+- auth/session replay is not finished
+- reviewed write lanes are still future work
+
+---
+
+## Main rule
+
+The system must treat **human-guided capture as the official near-term path**.
+
+Reason:
+- real apps are messy
+- login flows are messy
+- MFA is messy
+- app navigation is messy
+- a human reaches the meaningful flows faster than brittle auto-browse logic
+
+So the correct foundation is:
+
+```text
+human-guided discovery first
+automation second
+riskier live execution last
 ```
 
 ---
 
-## Main product shape
-
-There should be **2 operating modes**.
-
-## Mode A — Human-guided discovery, automated security pipeline
-
-This should be the default.
+## Final architecture shape
 
 ```mermaid
 flowchart TD
-    A[Human opens ZAPI browser session] --> B[Human explores app manually]
-    B --> C[ZAPI records HAR and session artifacts]
-    C --> D[adopt-redthread auto-normalizes artifacts]
-    D --> E[Generate RedThread fixtures and runtime inputs]
-    E --> F[Run replay evaluation]
-    E --> G[Run dry-run cases]
-    F --> H[Gate summary]
-    G --> H
+    A[Human starts live ZAPI capture] --> B[Human explores app manually]
+    B --> C[HAR capture + capture metadata]
+    C --> D[adopt-redthread normalization]
+    D --> E[live_attack_plan.json]
+    E --> F{execution policy}
+    F -->|live_safe_read| G[execute GET replay now]
+    F -->|live_safe_read_with_review| H[hold for human review]
+    F -->|manual_review| H
+    F -->|sandbox_only| I[block from live]
+    G --> J[save live_safe_replay.json]
+    D --> K[RedThread runtime export]
+    K --> L[replay evaluation]
+    K --> M[dry-run campaign]
+    J --> N[final workflow summary]
+    L --> N
+    M --> N
 ```
 
-This is the best first real workflow because:
-- it is believable
-- it is stable
-- it handles auth-heavy apps
-- it gives real app-specific traffic
-- it does not depend on fake browsing heuristics
-
-## Mode B — Future automated discovery and live attack loop
-
-This is later.
-
-```mermaid
-flowchart TD
-    A[Operator / CI starts target run] --> B[Auto discovery or pre-supplied artifact]
-    B --> C[adopt-redthread normalization]
-    C --> D[Policy classification]
-    D --> E[RedThread builds attack cases]
-    E --> F[RedThread executes allowed live cases]
-    F --> G[Judge + evidence collection]
-    G --> H[Approve / Review / Block]
-```
-
-This is stronger, but riskier and harder.
-
-So the roadmap should go through Mode A first.
-
 ---
 
-## The real future workflow
+## Phase 1 — Interactive capture
 
-## Stage 1 — Human discovery
+## Goal
 
-Human does:
-- start ZAPI session
-- browse the app
-- log in
-- click important flows
-- trigger meaningful tools/actions
-- end session
+Make human-guided capture explicit, normal, and documented.
 
-ZAPI does:
-- capture browser traffic
-- save HAR
-- optionally save filtered HAR
-- optionally save extracted endpoint/action metadata
+## Delivered
 
-### Important design rule
+### CLI support
 
-The system must **not require automated browsing** to be useful.
+`run_live_zapi_bridge.py` now supports:
+- `--interactive`
+- `--operator-notes`
 
-Human-guided capture is not a fallback.
-It is a first-class workflow.
+### Capture metadata
 
----
+Live capture now writes:
+- `zapi_capture/capture_metadata.json`
 
-## Stage 2 — Bridge automation
+That metadata records:
+- URL
+- capture mode
+- completion mode
+- selected HAR
+- operator notes
+- estimated HAR analysis stats
 
-After artifact exists, `adopt-redthread` should do this automatically:
+### Why it matters
 
-1. detect artifact type
-   - HAR
-   - filtered HAR
-   - NoUI manifest/tools
-   - Adopt action catalog
+This turns manual browsing into a **real supported workflow**, not a hack.
 
-2. normalize into one fixture model
-   - endpoint/tool/action name
-   - method
-   - path
-   - auth hints
-   - workflow group
-   - sensitivity
-   - candidate attack types
-
-3. classify policy lane
-   - safe read
-   - reviewed write
-   - sandbox only
-   - blocked
-
-4. export RedThread inputs
-   - replay bundle
-   - dry-run campaign cases
-   - later live-attack execution plan
-
-This is mostly where we already are.
-
----
-
-## Stage 3 — Safe automated execution
-
-Before full live attack mode, we need a middle layer.
-
-```mermaid
-flowchart TD
-    A[Normalized fixture] --> B{Policy lane}
-    B -->|safe read| C[Auto replay allowed]
-    B -->|reviewed write| D[Approval or staging only]
-    B -->|sandbox only| E[Do not hit live target]
-    B -->|blocked| F[No execution]
-```
-
-This is where RedThread starts sending controlled requests automatically.
-
-Examples:
-- safe GET replay
-- low-risk POST replay in staging
-- session-aware request replay with explicit approval
-
-This is the first real live execution step.
-
----
-
-## Stage 4 — Full live attack lane
-
-Later, after policy and controls are solid:
-
-```mermaid
-sequenceDiagram
-    participant H as Human / CI
-    participant Z as ZAPI
-    participant B as adopt-redthread
-    participant R as RedThread
-    participant T as Target Runtime
-    participant G as Gate
-
-    H->>Z: Start capture session
-    H->>T: Manually browse app
-    Z-->>B: Save HAR / filtered HAR
-    B->>B: Normalize + classify
-    B->>R: Export live-attack plan + runtime inputs
-    R->>R: Build allowed cases only
-    R->>T: Send controlled live requests / tool actions
-    T-->>R: Real responses / side effects / denials
-    R->>R: Judge risk and collect evidence
-    R-->>G: Findings + verdict
-    G-->>H: Approve / Review / Block
-```
-
-Important:
-- human interaction is still at the front of the flow
-- automation starts after the artifact is captured
-- later we can add optional automatic discovery helpers, but they are not the foundation
-
----
-
-## What gets automated vs what stays human
-
-## Human-owned for now
-
-These should stay human-first in the near term:
-- login
-- MFA handling
-- weird app navigation
-- deciding which workflows matter
-- exercising nuanced UI flows
-- choosing when capture is complete
-- approving risky live execution lanes
-
-## Automated now
-
-These can be automated now or very soon:
-- selecting downstream HAR file
-- ingesting artifact
-- normalization
-- replay-plan generation
-- gate artifact generation
-- RedThread runtime export
-- replay evaluation
-- dry-run execution
-- final summary emission
-
-## Automated later
-
-These should come after control gates are solid:
-- safe read replay against live target
-- approved write replay in staging
-- multi-step live workflow execution
-- session-aware live testing
-- pre-publish attack gate in CI
-
----
-
-## Exact roadmap
-
-## Phase 1 — Human-guided ZAPI capture becomes official path
-
-Goal:
-make the manual capture flow the clean supported workflow.
-
-Deliverables:
-- document `demo.py` or a wrapper as **manual exploration mode**
-- support a simple command like:
+### Current operator command
 
 ```bash
 python3 scripts/run_live_zapi_bridge.py \
-  "https://target-app.example" \
-  runs/live_session \
-  --interactive
+  "https://example.com" \
+  runs/live_zapi_run \
+  --zapi-repo /tmp/pi-github-repos/adoptai/zapi \
+  --interactive \
+  --operator-notes "login, browse billing, open profile"
 ```
 
-Expected behavior:
-- open browser
-- human explores app
-- human presses ENTER when done or clicks stop
-- HAR saved
-- filtered HAR selected
-- pipeline continues automatically
-
-Success criteria:
-- human can tinker freely
-- no forced auto-browse logic
-- artifacts go straight into bridge pipeline
-
 ---
 
-## Phase 2 — Explicit policy model for live execution
+## Phase 2 — Machine-readable live plan
 
-Goal:
-make sure discovered surfaces are not all treated the same.
+## Goal
 
-Need new or expanded fields in normalized fixtures / execution plan:
-- `execution_mode`: `artifact_only | replay_only | live_allowed`
-- `approval_mode`: `auto | human_review | sandbox_only | blocked`
-- `target_env`: `sandbox | staging | production_like`
-- `auth_context_required`: bool
-- `max_replay_attempts`
-- `side_effect_risk`: `low | medium | high`
+Stop relying on prose-only future plans.
+Generate a real plan artifact from normalized fixtures.
 
-Success criteria:
-- every fixture gets one execution lane
-- no blind live execution
-- policy is machine-readable and auditable
+## Delivered
 
----
+### New artifact
 
-## Phase 3 — Safe read replay lane
-
-Goal:
-prove real end-to-end live execution with the least risk.
-
-Scope:
-- GET and clearly non-destructive read operations only
-- optional authenticated reads if operator approves
-- record request/response metadata for judging
-
-Flow:
-
-```mermaid
-flowchart LR
-    A[Fixture classified safe-read] --> B[RedThread builds replay request]
-    B --> C[Target receives request]
-    C --> D[Response captured]
-    D --> E[Judge scores auth/data safety]
-```
-
-Success criteria:
-- RedThread can execute safe live reads from discovered artifacts
-- evidence is saved
-- policy blocks anything outside allowed lane
-
----
-
-## Phase 4 — Reviewed write lane in staging
-
-Goal:
-expand from reads into controlled writes without becoming reckless.
-
-Scope:
-- staging or sandbox first
-- explicit approval required
-- only low/medium-risk write endpoints
-- strict rate / count limits
-
-Examples:
-- set preferences
-- create draft
-- save search
-- non-billing profile update
-
-Not yet:
-- destructive admin actions
-- billing mutations
-- account deletion
-
-Success criteria:
-- reviewed writes can run in safe environment
-- side effects are tracked
-- operator can inspect exact executed case list
-
----
-
-## Phase 5 — Multi-step workflow execution
-
-Goal:
-attack flows, not just single endpoints.
-
-Examples:
-- search -> detail -> save
-- login -> fetch profile -> update preference
-- retrieve memory -> generate follow-up action
-
-Need:
-- workflow grouping from HAR/tool traces
-- session reuse
-- step-by-step evidence capture
-- stop-on-failure behavior
-
-Success criteria:
-- RedThread can replay a discovered workflow chain
-- evidence is attached per step
-- unsafe branches are pruned by policy
-
----
-
-## Phase 6 — Session-aware live attack lane
-
-Goal:
-test real permission boundaries and agent/tool misuse more honestly.
-
-Need:
-- cookie/header/session handling model
-- explicit auth source tracking
-- expiry handling
-- strong masking for secrets in logs
-- proof of which identity was used during attack
-
-Success criteria:
-- operator knows exactly which auth context was used
-- RedThread can test permission errors and confused-deputy paths
-- logs do not leak secrets
-
----
-
-## Phase 7 — Pre-publish gate
-
-Goal:
-turn this into a release control.
-
-```mermaid
-flowchart TD
-    A[Build or release candidate] --> B[Human-guided or saved discovery artifact]
-    B --> C[Bridge normalization]
-    C --> D[Allowed live replay/attack lanes]
-    D --> E[Evidence + findings]
-    E --> F[Pass / Review / Block]
-```
-
-Success criteria:
-- one final machine-readable summary
-- policy-controlled execution
-- clear failure reasons
-- easy operator review
-
----
-
-## Needed implementation pieces
-
-## In `adopt-redthread`
-
-### A. Interactive capture mode
-
-Need runner behavior like:
-- `--interactive`
-- maybe `--duration-seconds` for timed mode
-- maybe `--manual-confirm-har` if both raw and filtered HAR exist
-
-This is mostly orchestration glue.
-
-### B. Live execution plan artifact
-
-Need a generated file like:
+The bridge now emits:
 - `live_attack_plan.json`
 
-Example shape:
+### Each case now includes
 
-```json
-{
-  "mode": "human_guided_then_automated",
-  "target_env": "staging",
-  "fixtures": [
-    {
-      "fixture_id": "get_user_profile",
-      "execution_mode": "live_allowed",
-      "approval_mode": "auto",
-      "side_effect_risk": "low"
-    },
-    {
-      "fixture_id": "set_user_preference",
-      "execution_mode": "live_allowed",
-      "approval_mode": "human_review",
-      "side_effect_risk": "medium"
-    },
-    {
-      "fixture_id": "delete_account",
-      "execution_mode": "artifact_only",
-      "approval_mode": "sandbox_only",
-      "side_effect_risk": "high"
-    }
-  ]
-}
+- `execution_mode`
+- `approval_mode`
+- `target_env`
+- `auth_context_required`
+- `max_replay_attempts`
+- `side_effect_risk`
+- `request_blueprint`
+- `allowed`
+
+### Current execution modes
+
+- `live_safe_read`
+- `live_safe_read_with_review`
+- `manual_review`
+- `sandbox_only`
+
+### Current policy logic
+
+Auto-allowed only when all of this is true:
+- normalized case is `safe_read`
+- method is `GET`
+- no auth context is required
+
+Everything else is review-gated or blocked.
+
+### Why it matters
+
+This gives us a machine-readable boundary between:
+- what can run now
+- what needs review
+- what must stay out of live execution
+
+---
+
+## Phase 3 — Safe-read live lane
+
+## Goal
+
+Execute the first real live requests, but only in the safest policy lane.
+
+## Delivered
+
+### New execution lane
+
+The bridge now supports:
+- live execution of policy-allowed GET cases only
+
+### New script
+
+- `scripts/run_live_safe_replay.py`
+
+### New workflow flag
+
+- `scripts/run_bridge_pipeline.py --run-live-safe-replay`
+- `scripts/run_live_zapi_bridge.py --run-live-safe-replay`
+
+### New artifact
+
+When enabled, the workflow writes:
+- `live_safe_replay.json`
+
+### What the executor does
+
+It will:
+- load `live_attack_plan.json`
+- select only `allowed=true` cases
+- only execute `GET`
+- send the request to the captured URL
+- save response status, content type, and a short body preview
+
+### What it will not do
+
+It will **not**:
+- replay writes
+- invent auth/session state
+- replay risky POST/PUT/PATCH/DELETE cases
+- bypass review gates
+
+### Why it matters
+
+This is the first real step from:
+- artifact planning
+- into actual controlled live execution
+
+without jumping straight into dangerous automation.
+
+---
+
+## Current commands
+
+## Build only the live attack plan
+
+```bash
+python3 scripts/generate_live_attack_plan.py \
+  fixtures/zapi_samples/sample_filtered_har.json \
+  fixtures/replay_packs/sample_har_live_attack_plan.json \
+  --ingestion zapi
 ```
 
-### C. Final gate summary
+## Run full pipeline with live safe-read lane enabled
 
-Need one summary artifact that combines:
-- replay verdict
-- dry-run verdict
-- live execution verdict
-- blocked items
-- reviewed items
-- skipped items
+```bash
+python3 scripts/run_bridge_pipeline.py \
+  /path/to/capture.har \
+  runs/live_safe_read_pipeline \
+  --ingestion zapi \
+  --run-live-safe-replay
+```
 
----
+## Run live ZAPI capture + bridge + safe-read lane
 
-## In RedThread
-
-Near term, RedThread should receive:
-- normalized fixture
-- execution lane
-- auth context metadata
-- environment target info
-
-Then RedThread should do:
-- build request/tool action cases
-- execute only allowed lanes
-- collect evidence
-- score outcome
-- emit gate-ready results
-
-Important boundary:
-- `adopt-redthread` decides **what the app surface looks like**
-- RedThread decides **how to attack and evaluate that surface**
+```bash
+python3 scripts/run_live_zapi_bridge.py \
+  "https://example.com" \
+  runs/live_capture_pipeline \
+  --interactive \
+  --run-live-safe-replay
+```
 
 ---
 
-## The one sentence plan
+## What is intentionally still blocked
 
-The real plan is:
+These are still out of the live auto-execution lane:
 
-> **Keep human-guided ZAPI discovery in front, then automate normalization, replay, dry-run, and later policy-controlled live execution behind it.**
+- authenticated read replay that needs real session/header reuse
+- all writes
+- destructive flows
+- payment/account mutation flows
+- admin or cross-tenant risk
+- multi-step workflow execution
 
-That is the clean path.
-
-Not:
-- fake full automation too early
-- remove the human from discovery
-- blindly execute every discovered request
+That is correct.
 
 ---
 
-## Recommended next implementation order
+## Why this phase order is correct
 
-1. make **interactive human-guided capture** the official path in the live runner
-2. add **execution-lane policy fields** to normalized fixtures / execution plan
-3. add **safe-read live replay** first
-4. add **reviewed writes in staging**
-5. add **workflow replay**
-6. add **session-aware live execution**
-7. add **final publish gate**
+Because it gives us:
 
-That is the order that makes this believable and safe.
+### first
+reality capture
+
+### then
+normalized planning
+
+### then
+safe execution
+
+### then later
+reviewed writes and session-aware execution
+
+This is safer and easier to explain.
+
+---
+
+## What comes next later
+
+These are future phases, not part of the now-completed ladder.
+
+## Future Phase 4 — Auth-aware safe reads
+
+Goal:
+- reuse approved captured auth context safely
+- support low-risk authenticated GET replay
+
+Needs:
+- redaction-safe header/session handling
+- explicit approval source
+- auth-expiry handling
+- stronger audit logs
+
+## Future Phase 5 — Reviewed writes in staging
+
+Goal:
+- allow approved non-destructive writes in staging only
+
+Needs:
+- environment binding
+- operator approval checkpoint
+- side-effect rollback notes
+- stronger evidence capture
+
+## Future Phase 6 — Workflow/session live execution
+
+Goal:
+- replay multi-step workflows, not single requests only
+
+Needs:
+- step sequencing
+- state tracking
+- workflow abort rules
+- richer judgment
+
+---
+
+## Final judgment
+
+The right live-attack rollout was:
+1. make interactive capture official
+2. emit a real live attack plan
+3. execute only policy-allowed safe reads
+
+That is now done.
+
+This means the current system is no longer only talking about live attack mode.
+It now has:
+- an official capture path
+- a real policy plan artifact
+- a first live execution lane
+
+Still honest:
+- full live attack mode is **not** finished
+- but the foundation is now real and properly bounded

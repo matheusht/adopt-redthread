@@ -19,6 +19,7 @@ What works today:
 - we can now execute reviewed **auth-bound safe-read GETs** only when explicit approved auth context is supplied
 - we can now execute the first **reviewed non-destructive staging write lane** only when explicit approved write context is supplied
 - we can now execute the first **grouped sequential workflow replay lane** for multi-step cases with stop-on-first-failure behavior
+- that workflow lane now carries bounded workflow evidence forward and emits structured failure reasons for gate decisions
 
 What does **not** work yet:
 - one-button fully live flow from **running ZAPI session -> automatic RedThread attack loop -> live target execution**
@@ -27,7 +28,7 @@ What does **not** work yet:
 - full live attack execution against a real Adopt-managed runtime/session
 - full session-aware authenticated replay beyond approved header reuse
 - broader reviewed write coverage beyond the first non-destructive staging lane
-- richer workflow state beyond grouped sequential replay
+- richer workflow state beyond the new bounded evidence-carry-forward grouped replay
 
 So the honest status is:
 
@@ -190,6 +191,7 @@ The intended workflow is:
    - review
    - block
    - and now it can include live replay/workflow evidence plus the RedThread replay verdict
+   - workflow-specific blocked/aborted reason codes now feed that gate more honestly
 
 That is the intended product behavior.
 

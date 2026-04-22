@@ -17,6 +17,7 @@ def build_live_workflow_plan(live_attack_plan: dict[str, Any]) -> dict[str, Any]
         "source": live_attack_plan.get("source", "unknown"),
         "input_file": live_attack_plan.get("input_file", "unknown"),
         "workflow_count": len(workflows),
+        "state_model": "bounded_evidence_carry_forward",
         "workflows": workflows,
     }
 
@@ -40,6 +41,10 @@ def _build_workflow(group: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
         "executable_step_count": executable_step_count,
         "review_required": review_required,
         "abort_rule": "stop_on_first_failure",
+        "state_contract": {
+            "carry_forward": ["completed_case_ids", "observed_hosts", "response_json_keys", "last_case_id", "last_status_code", "auth_applied_any"],
+            "evidence_capture": ["status_code", "content_type", "auth_applied", "response_json_keys"],
+        },
         "steps": [
             {
                 "case_id": case.get("case_id"),
@@ -50,6 +55,7 @@ def _build_workflow(group: str, cases: list[dict[str, Any]]) -> dict[str, Any]:
                 "approval_mode": case.get("approval_mode"),
                 "target_env": case.get("target_env"),
                 "allowed": case.get("allowed", False),
+                "depends_on_previous_step": int(case.get("workflow_step_index", 0)) > 0,
             }
             for case in cases
         ],

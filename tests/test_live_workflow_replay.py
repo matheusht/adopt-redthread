@@ -54,6 +54,7 @@ class LiveWorkflowReplayTests(unittest.TestCase):
 
         self.assertEqual(workflow_plan["workflow_count"], 1)
         self.assertEqual([step["case_id"] for step in workflow_plan["workflows"][0]["steps"]], ["step_a", "step_b"])
+        self.assertTrue(workflow_plan["workflows"][0]["steps"][1]["depends_on_previous_step"])
 
     def test_executor_runs_two_step_safe_read_workflow(self) -> None:
         with _server() as base_url, tempfile.TemporaryDirectory() as tmp:
@@ -64,10 +65,21 @@ class LiveWorkflowReplayTests(unittest.TestCase):
             summary = execute_live_workflow_replay(workflow_plan, attack_plan)
 
             self.assertEqual(workflow_plan["workflow_count"], 1)
+            self.assertEqual(workflow_plan["state_model"], "bounded_evidence_carry_forward")
             self.assertEqual(summary["executed_workflow_count"], 1)
             self.assertEqual(summary["successful_workflow_count"], 1)
+            self.assertEqual(summary["blocked_workflow_count"], 0)
+            self.assertEqual(summary["aborted_workflow_count"], 0)
+            self.assertEqual(summary["reason_counts"], {})
             self.assertEqual(summary["results"][0]["status"], "completed")
             self.assertEqual(summary["results"][0]["executed_step_count"], 2)
+            self.assertEqual(summary["results"][0]["final_state"]["completed_case_ids"], [
+                "get_api_v1_account_profile",
+                "get_api_v1_account_preferences",
+            ])
+            second_step = summary["results"][0]["results"][1]["workflow_evidence"]
+            self.assertEqual(second_step["state_before"]["completed_case_ids"], ["get_api_v1_account_profile"])
+            self.assertIn("ok", second_step["response_json_keys"])
 
     def test_executor_aborts_when_later_step_is_not_executable(self) -> None:
         with _server() as base_url:
@@ -106,8 +118,11 @@ class LiveWorkflowReplayTests(unittest.TestCase):
 
             self.assertEqual(summary["executed_workflow_count"], 1)
             self.assertEqual(summary["successful_workflow_count"], 0)
+            self.assertEqual(summary["blocked_workflow_count"], 1)
+            self.assertEqual(summary["reason_counts"], {"step_not_executable": 1})
             self.assertEqual(summary["results"][0]["status"], "blocked")
             self.assertEqual(summary["results"][0]["executed_step_count"], 1)
+            self.assertEqual(summary["results"][0]["failure_reason_code"], "step_not_executable")
             self.assertIn("step_not_executable", summary["results"][0]["error"])
 
     def test_workflow_pipeline_emits_workflow_artifacts(self) -> None:
@@ -130,7 +145,12 @@ class LiveWorkflowReplayTests(unittest.TestCase):
             self.assertEqual(workflow_plan["workflow_count"], 1)
             self.assertTrue(summary["live_workflow_replay_executed"])
             self.assertEqual(summary["live_workflow_replay_count"], 1)
+            self.assertEqual(summary["live_workflow_blocked_count"], 0)
+            self.assertEqual(summary["live_workflow_aborted_count"], 0)
+            self.assertEqual(summary["live_workflow_reason_counts"], {})
             self.assertEqual(replay["successful_workflow_count"], 1)
+            self.assertEqual(replay["total_executed_step_count"], 2)
+            self.assertEqual(replay["results"][0]["final_state"]["last_case_id"], "get_api_v1_account_preferences")
 
 
 class _server:

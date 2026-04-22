@@ -11,6 +11,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
+from adapters.bridge.gate_evidence import apply_live_safe_replay_rules, apply_live_workflow_rules, apply_redthread_replay_rules, evidence_counts
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Prototype pre-publish gate based on replay-pack composition and optional live evidence.")
     parser.add_argument("input", help="Path to replay-pack JSON")
@@ -59,9 +62,9 @@ def build_gate_verdict(
     if not safe_reads and not write_reviews and not sandbox_items:
         blockers.append("empty_replay_pack")
 
-    _apply_live_safe_replay_rules(live_safe_replay, blockers, warnings)
-    _apply_live_workflow_rules(live_workflow_replay, blockers, warnings)
-    _apply_redthread_replay_rules(redthread_replay_verdict, blockers)
+    apply_live_safe_replay_rules(live_safe_replay, blockers, warnings)
+    apply_live_workflow_rules(live_workflow_replay, blockers, warnings)
+    apply_redthread_replay_rules(redthread_replay_verdict, blockers)
 
     decision = "approve"
     if blockers:
@@ -73,9 +76,9 @@ def build_gate_verdict(
         "decision": decision,
         "input_summary": replay_pack.get("summary", {}),
         "evidence_summary": {
-            "live_safe_replay": _evidence_counts(live_safe_replay),
-            "live_workflow_replay": _evidence_counts(live_workflow_replay),
-            "redthread_replay_verdict": _evidence_counts(redthread_replay_verdict),
+            "live_safe_replay": evidence_counts(live_safe_replay),
+            "live_workflow_replay": evidence_counts(live_workflow_replay),
+            "redthread_replay_verdict": evidence_counts(redthread_replay_verdict),
         },
         "blockers": blockers,
         "warnings": warnings,
@@ -120,64 +123,6 @@ def _build_notes(
         notes.append(f"redthread_replay_passed={bool(redthread_replay_verdict.get('passed'))}")
     return notes
 
-
-def _apply_live_safe_replay_rules(
-    live_safe_replay: dict[str, Any] | None,
-    blockers: list[str],
-    warnings: list[str],
-) -> None:
-    if live_safe_replay is None:
-        return
-    executed = int(live_safe_replay.get("executed_case_count", 0))
-    success = int(live_safe_replay.get("success_count", 0))
-    allowed = int(live_safe_replay.get("allowed_case_count", executed))
-    if executed == 0 and allowed > 0:
-        warnings.append("live_safe_replay_not_executed")
-    if success < executed:
-        blockers.append("live_safe_replay_failures_present")
-
-
-def _apply_live_workflow_rules(
-    live_workflow_replay: dict[str, Any] | None,
-    blockers: list[str],
-    warnings: list[str],
-) -> None:
-    if live_workflow_replay is None:
-        return
-    workflow_count = int(live_workflow_replay.get("workflow_count", 0))
-    executed = int(live_workflow_replay.get("executed_workflow_count", 0))
-    successful = int(live_workflow_replay.get("successful_workflow_count", 0))
-    if executed == 0 and workflow_count > 0:
-        warnings.append("live_workflow_replay_not_executed")
-    if successful < executed:
-        blockers.append("live_workflow_replay_failures_present")
-    if any(result.get("status") == "blocked" for result in live_workflow_replay.get("results", [])):
-        blockers.append("live_workflow_blocked_steps_present")
-
-
-def _apply_redthread_replay_rules(redthread_replay_verdict: dict[str, Any] | None, blockers: list[str]) -> None:
-    if redthread_replay_verdict is None:
-        return
-    if not redthread_replay_verdict.get("passed", False):
-        blockers.append("redthread_replay_verdict_failed")
-
-
-def _evidence_counts(payload: dict[str, Any] | None) -> dict[str, Any] | None:
-    if payload is None:
-        return None
-    summary: dict[str, Any] = {}
-    for key in (
-        "allowed_case_count",
-        "executed_case_count",
-        "success_count",
-        "workflow_count",
-        "executed_workflow_count",
-        "successful_workflow_count",
-        "passed",
-    ):
-        if key in payload:
-            summary[key] = payload[key]
-    return summary
 
 
 def _load_optional_json(path: str | None) -> dict[str, Any] | None:

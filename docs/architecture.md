@@ -39,6 +39,7 @@ Implemented now:
 - reviewed auth-bound safe-read GET replay with explicit approved auth context
 - first reviewed non-destructive staging write lane with explicit per-case approved write context
 - first grouped sequential workflow replay lane with stop-on-first-failure behavior
+- bounded workflow evidence carry-forward with structured workflow failure reasons
 - RedThread replay-bundle export
 - RedThread promotion-gate evaluation against exported bundles
 - RedThread dry-run campaign execution from generated bridge cases
@@ -49,7 +50,7 @@ Not implemented yet:
 - live calls into real Adopt services
 - broad support for all confirmed real-world NoUI output families beyond the first MCP server shape
 - full session-aware live replay beyond explicit approved header reuse
-- richer workflow state beyond grouped sequential replay
+- richer workflow state beyond the new bounded evidence-carry-forward grouped replay
 - broader reviewed write coverage beyond the first non-destructive staging lane
 - fully automatic live RedThread attack execution against a real Adopt-built session immediately after discovery
 - CI or release-system wiring for automatic publish gates

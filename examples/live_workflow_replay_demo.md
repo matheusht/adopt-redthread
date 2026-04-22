@@ -10,6 +10,7 @@ It does one simple thing:
 - run them in order
 - stop on first failure
 - reuse the same per-step auth and write guardrails from the single-request lane
+- carry bounded workflow evidence forward in the output artifact
 
 ---
 
@@ -47,11 +48,14 @@ The workflow lane writes:
 - which cases belong to one workflow
 - what order they run in
 - whether review is needed
+- what bounded state/evidence contract gets carried forward
 
 `live_workflow_replay.json` says:
 - which workflows ran
 - which step failed or blocked
 - how many steps completed
+- what the carried state looked like before and after each successful step
+- structured workflow `failure_reason_code` and summary `reason_counts`
 
 ---
 
@@ -62,6 +66,7 @@ This lane still does **not**:
 - do browser-side workflow automation
 - bypass auth/write review rules
 - continue after a failed step
+- rewrite later requests using prior responses
 
 So this is a real Phase 6 step.
 But it is still bounded and honest.

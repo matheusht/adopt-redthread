@@ -32,17 +32,18 @@ That is now the implemented shape.
 | Phase 4 — Auth-aware safe reads | done | reviewed auth-bound GET read cases can run only with explicit approved auth context |
 | Phase 5 — Reviewed writes in staging | done | reviewed non-destructive write cases can run only in staging with explicit per-case approved write context |
 | Phase 6 — Workflow/session live execution | done (bounded) | grouped multi-step cases can replay in sequence with stop-on-first-failure using existing per-step guardrails |
+| Phase 7 — Workflow evidence and gate mapping | done (bounded) | workflow replay now carries bounded state/evidence forward, emits structured reason codes, and maps those reasons into the replay gate |
 
 So the current system now has a real ladder:
 
 ```text
-interactive capture -> normalized fixtures -> live attack plan -> live workflow plan -> safe-read live replay -> auth-aware safe-read replay -> reviewed staging writes -> grouped workflow replay -> evidence-aware replay gate -> dry-run
+interactive capture -> normalized fixtures -> live attack plan -> live workflow plan -> safe-read live replay -> auth-aware safe-read replay -> reviewed staging writes -> grouped workflow replay with evidence carry-forward -> evidence-aware replay gate with workflow reason mapping -> dry-run
 ```
 
 Still honest:
 - writes are not auto-executed
 - only the first non-destructive staging write lane exists
-- workflow replay is bounded sequential replay, not full browser/session-state orchestration
+- workflow replay is bounded sequential replay with bounded evidence carry-forward, not full browser/session-state orchestration
 - the gate is now evidence-aware, but still a first prototype rather than a full release-control system
 
 ---
@@ -495,6 +496,68 @@ This is **not yet**:
 - cookie/session mutation learning
 - branching workflow exploration
 - autonomous workflow attack planning
+
+## Phase 7 — Workflow evidence and gate mapping
+
+## Goal
+
+Make workflow replay outputs more useful than just:
+- completed
+- blocked
+- aborted
+
+The gate needs to know **why** a workflow failed and what state/evidence existed when it failed.
+
+## Delivered
+
+### New workflow state model
+
+`live_workflow_plan.json` now declares:
+- `state_model: bounded_evidence_carry_forward`
+
+Each workflow also declares a small `state_contract` with:
+- carried fields
+- evidence capture fields
+
+### New workflow evidence output
+
+Each workflow step can now emit:
+- `workflow_evidence.state_before`
+- `workflow_evidence.state_after`
+- `workflow_evidence.response_json_keys`
+- carried host / auth / completed-step evidence
+
+Each workflow summary can now emit:
+- `final_state`
+- `blocked_workflow_count`
+- `aborted_workflow_count`
+- `total_executed_step_count`
+- `reason_counts`
+- structured `failure_reason_code`
+
+### Why it matters
+
+This is the first bounded answer to:
+- what did the workflow know before the failing step?
+- what evidence got carried forward?
+- was the problem review-gating, runtime failure, or missing executable context?
+
+### Gate mapping
+
+The gate now maps workflow reasons more honestly.
+
+Examples:
+- `step_not_executable` -> review-gap warning plus blocked-step evidence
+- `http_status_*` -> runtime-failure blocker
+- `url_error` -> runtime-failure blocker
+
+### Still honest
+
+This is still **not**:
+- dynamic browser/session mutation
+- workflow branching exploration
+- learned session repair
+- autonomous stateful attack planning
 
 ---
 

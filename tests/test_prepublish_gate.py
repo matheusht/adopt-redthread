@@ -44,7 +44,10 @@ class PrepublishGateTests(unittest.TestCase):
                 "workflow_count": 1,
                 "executed_workflow_count": 1,
                 "successful_workflow_count": 0,
-                "results": [{"status": "aborted"}],
+                "blocked_workflow_count": 0,
+                "aborted_workflow_count": 1,
+                "reason_counts": {"http_status_401": 1},
+                "results": [{"status": "aborted", "failure_reason_code": "http_status_401"}],
             },
             redthread_replay_verdict={"passed": False},
         )
@@ -52,6 +55,7 @@ class PrepublishGateTests(unittest.TestCase):
         self.assertEqual(verdict["decision"], "block")
         self.assertIn("live_safe_replay_failures_present", verdict["blockers"])
         self.assertIn("live_workflow_replay_failures_present", verdict["blockers"])
+        self.assertIn("live_workflow_runtime_failures_present", verdict["blockers"])
         self.assertIn("redthread_replay_verdict_failed", verdict["blockers"])
         self.assertEqual(verdict["evidence_summary"]["redthread_replay_verdict"], {"passed": False})
 
@@ -71,14 +75,19 @@ class PrepublishGateTests(unittest.TestCase):
                 "workflow_count": 1,
                 "executed_workflow_count": 0,
                 "successful_workflow_count": 0,
+                "blocked_workflow_count": 1,
+                "aborted_workflow_count": 0,
+                "reason_counts": {"step_not_executable": 1},
                 "results": [],
             },
             redthread_replay_verdict={"passed": True},
         )
 
-        self.assertEqual(verdict["decision"], "review")
+        self.assertEqual(verdict["decision"], "block")
         self.assertIn("live_safe_replay_not_executed", verdict["warnings"])
         self.assertIn("live_workflow_replay_not_executed", verdict["warnings"])
+        self.assertIn("live_workflow_review_gap_present", verdict["warnings"])
+        self.assertIn("live_workflow_blocked_steps_present", verdict["blockers"])
         self.assertNotIn("redthread_replay_verdict_failed", verdict["blockers"])
 
 

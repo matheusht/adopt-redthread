@@ -30,17 +30,18 @@ That is now the implemented shape.
 | Phase 2 — Machine-readable live plan | done | bridge emits `live_attack_plan.json` with execution policy per case |
 | Phase 3 — Safe-read live lane | done | policy-allowed GET read cases can be executed live |
 | Phase 4 — Auth-aware safe reads | done | reviewed auth-bound GET read cases can run only with explicit approved auth context |
+| Phase 5 — Reviewed writes in staging | done | reviewed non-destructive write cases can run only in staging with explicit per-case approved write context |
 
 So the current system now has a real ladder:
 
 ```text
-interactive capture -> normalized fixtures -> live attack plan -> safe-read live replay -> auth-aware safe-read replay -> replay gate -> dry-run
+interactive capture -> normalized fixtures -> live attack plan -> safe-read live replay -> auth-aware safe-read replay -> reviewed staging writes -> replay gate -> dry-run
 ```
 
 Still honest:
 - writes are not auto-executed
+- only the first non-destructive staging write lane exists
 - full session/workflow replay is not finished
-- reviewed write lanes are still future work
 
 ---
 
@@ -371,16 +372,77 @@ This is the first real bridge from:
 
 without pretending full session-aware live attack is done.
 
-## Future Phase 5 — Reviewed writes in staging
+## Phase 5 — Reviewed writes in staging
 
-Goal:
-- allow approved non-destructive writes in staging only
+## Goal
 
-Needs:
-- environment binding
-- operator approval checkpoint
-- side-effect rollback notes
-- stronger evidence capture
+Allow only reviewed non-destructive writes in staging.
+
+## Delivered
+
+### New rule
+
+A narrow slice of write cases can now become:
+- `live_reviewed_write_staging`
+
+That only happens when the case is:
+- `POST`, `PUT`, or `PATCH`
+- non-destructive
+- not admin/payment/account family
+- single-tenant
+- still human-reviewed
+
+### New write context
+
+The executor now accepts:
+- `--write-context`
+- `--allow-reviewed-writes`
+
+### Approved write context shape
+
+```json
+{
+  "approved": true,
+  "target_env": "staging",
+  "target_base_url": "https://staging.example.com",
+  "target_hosts": ["staging.example.com"],
+  "case_approvals": {
+    "post_api_v1_user_preferences": {
+      "method": "POST",
+      "path": "/api/v1/user/preferences",
+      "headers": {
+        "authorization": "Bearer stage-token"
+      },
+      "json_body": {
+        "theme": "dark"
+      }
+    }
+  }
+}
+```
+
+### Safety rules
+
+Even here, the executor still requires:
+- explicit `approved: true`
+- `target_env: staging`
+- host allowlist match
+- per-case method/path match
+- explicit operator-approved body
+
+So it still does **not**:
+- replay arbitrary captured write bodies
+- auto-run writes
+- allow destructive writes
+- allow prod-targeted reviewed writes
+
+### Why it matters
+
+This is the first real move from:
+- read-only live execution
+- into bounded reviewed write execution
+
+without pretending full live workflow attack is finished.
 
 ## Future Phase 6 — Workflow/session live execution
 

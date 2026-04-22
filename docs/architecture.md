@@ -37,6 +37,7 @@ Implemented now:
 - machine-readable live attack planning with execution policy fields
 - first live safe-read GET replay lane for policy-allowed cases
 - reviewed auth-bound safe-read GET replay with explicit approved auth context
+- first reviewed non-destructive staging write lane with explicit per-case approved write context
 - RedThread replay-bundle export
 - RedThread promotion-gate evaluation against exported bundles
 - RedThread dry-run campaign execution from generated bridge cases
@@ -47,7 +48,7 @@ Not implemented yet:
 - live calls into real Adopt services
 - broad support for all confirmed real-world NoUI output families beyond the first MCP server shape
 - full session-aware live replay beyond explicit approved header reuse
-- reviewed write lanes
+- broader reviewed write coverage beyond the first non-destructive staging lane
 - fully automatic live RedThread attack execution against a real Adopt-built session immediately after discovery
 - CI or release-system wiring for automatic publish gates
 

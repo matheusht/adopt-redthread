@@ -27,16 +27,18 @@ def build_live_attack_case(fixture: dict[str, Any], request_map: dict[tuple[str,
     approval_mode = _approval_mode(execution_mode)
     allowed = execution_mode == "live_safe_read"
     reviewable_with_auth = execution_mode == "live_safe_read_with_approved_auth"
+    reviewable_write = execution_mode == "live_reviewed_write_staging"
     return {
         "case_id": fixture["name"],
         "method": fixture["method"],
         "path": fixture["path"],
         "execution_mode": execution_mode,
         "approval_mode": approval_mode,
-        "target_env": "captured_target",
+        "target_env": "staging" if reviewable_write else "captured_target",
         "auth_context_required": bool(fixture.get("auth_hints")),
         "reviewable_with_auth_context": reviewable_with_auth,
-        "max_replay_attempts": 1 if allowed or reviewable_with_auth else 0,
+        "reviewable_write_in_staging": reviewable_write,
+        "max_replay_attempts": 1 if allowed or reviewable_with_auth or reviewable_write else 0,
         "side_effect_risk": _side_effect_risk(fixture),
         "allowed": allowed,
         "reasons": fixture.get("reasons", []),
@@ -56,10 +58,11 @@ def build_execution_policy(fixture: dict[str, Any]) -> dict[str, Any]:
     return {
         "execution_mode": execution_mode,
         "approval_mode": _approval_mode(execution_mode),
-        "target_env": "captured_target",
+        "target_env": "staging" if execution_mode == "live_reviewed_write_staging" else "captured_target",
         "auth_context_required": bool(fixture.get("auth_hints")),
         "reviewable_with_auth_context": execution_mode == "live_safe_read_with_approved_auth",
-        "max_replay_attempts": 1 if execution_mode in {"live_safe_read", "live_safe_read_with_approved_auth"} else 0,
+        "reviewable_write_in_staging": execution_mode == "live_reviewed_write_staging",
+        "max_replay_attempts": 1 if execution_mode in {"live_safe_read", "live_safe_read_with_approved_auth", "live_reviewed_write_staging"} else 0,
         "side_effect_risk": _side_effect_risk(fixture),
         "allowed": allowed,
     }
@@ -109,6 +112,8 @@ def _execution_mode(fixture: dict[str, Any]) -> str:
         return "live_safe_read_with_approved_auth"
     if fixture.get("replay_class") in {"safe_read", "safe_read_with_review"} and method == "GET":
         return "live_safe_read_with_review"
+    if _reviewable_write_staging(fixture):
+        return "live_reviewed_write_staging"
     if fixture.get("replay_class") == "sandbox_only":
         return "sandbox_only"
     return "manual_review"
@@ -117,7 +122,7 @@ def _execution_mode(fixture: dict[str, Any]) -> str:
 def _approval_mode(execution_mode: str) -> str:
     if execution_mode == "live_safe_read":
         return "auto"
-    if execution_mode in {"live_safe_read_with_approved_auth", "live_safe_read_with_review", "manual_review"}:
+    if execution_mode in {"live_safe_read_with_approved_auth", "live_safe_read_with_review", "live_reviewed_write_staging", "manual_review"}:
         return "human_review"
     return "blocked"
 
@@ -128,6 +133,21 @@ def _side_effect_risk(fixture: dict[str, Any]) -> str:
     if fixture.get("method") in {"POST", "PUT", "PATCH", "DELETE"}:
         return "medium"
     return "low"
+
+
+def _reviewable_write_staging(fixture: dict[str, Any]) -> bool:
+    method = str(fixture.get("method", "")).upper()
+    if method not in {"POST", "PUT", "PATCH"}:
+        return False
+    if fixture.get("replay_class") not in {"manual_review", "safe_read_with_review"}:
+        return False
+    if "destructive_semantics" in fixture.get("reasons", []):
+        return False
+    if fixture.get("endpoint_family") in {"admin", "payment", "account"}:
+        return False
+    if fixture.get("tenant_scope") != "single_tenant":
+        return False
+    return True
 
 
 def _plan_id(bundle: dict[str, Any]) -> str:

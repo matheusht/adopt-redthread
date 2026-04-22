@@ -18,6 +18,8 @@ def main() -> None:
     parser.add_argument("output", help="Path to write live safe replay summary")
     parser.add_argument("--auth-context", help="Path to approved auth context JSON for reviewed auth-safe-read cases")
     parser.add_argument("--allow-reviewed-auth", action="store_true", help="Allow reviewed auth-safe-read GET cases when approved auth context is supplied")
+    parser.add_argument("--write-context", help="Path to approved staging write context JSON for reviewed write cases")
+    parser.add_argument("--allow-reviewed-writes", action="store_true", help="Allow reviewed staging write cases when approved write context is supplied")
     parser.add_argument("--timeout-seconds", type=int, default=10)
     args = parser.parse_args()
 
@@ -25,6 +27,8 @@ def main() -> None:
         args.input,
         auth_context=args.auth_context,
         allow_reviewed_auth=args.allow_reviewed_auth,
+        write_context=args.write_context,
+        allow_reviewed_writes=args.allow_reviewed_writes,
         output_path=args.output,
         timeout_seconds=args.timeout_seconds,
     )

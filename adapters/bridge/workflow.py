@@ -30,6 +30,8 @@ def run_bridge_workflow(
     run_live_safe_replay: bool = False,
     auth_context: dict[str, Any] | str | Path | None = None,
     allow_reviewed_auth: bool = False,
+    write_context: dict[str, Any] | str | Path | None = None,
+    allow_reviewed_writes: bool = False,
     redthread_python: str | Path = DEFAULT_REDTHREAD_PYTHON,
     redthread_src: str | Path = DEFAULT_REDTHREAD_SRC,
 ) -> dict[str, Any]:
@@ -56,6 +58,8 @@ def run_bridge_workflow(
             live_attack_plan,
             auth_context=auth_context,
             allow_reviewed_auth=allow_reviewed_auth,
+            write_context=write_context,
+            allow_reviewed_writes=allow_reviewed_writes,
             output_path=paths["live_safe_replay"],
         )
 
@@ -77,6 +81,7 @@ def run_bridge_workflow(
         "live_safe_replay_executed": live_safe_replay_summary is not None,
         "live_safe_replay_count": 0 if live_safe_replay_summary is None else live_safe_replay_summary["executed_case_count"],
         "live_safe_replay_used_auth_context": False if live_safe_replay_summary is None else live_safe_replay_summary.get("auth_context_used", False),
+        "live_safe_replay_used_write_context": False if live_safe_replay_summary is None else live_safe_replay_summary.get("write_context_used", False),
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),

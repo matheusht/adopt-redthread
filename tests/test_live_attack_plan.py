@@ -20,7 +20,7 @@ class LiveAttackPlanTests(unittest.TestCase):
         self.assertEqual(plan["allowed_case_count"], 0)
         self.assertTrue(plan["blocked_case_count"] >= 0)
         first_case = plan["cases"][0]
-        self.assertIn(first_case["execution_mode"], {"manual_review", "sandbox_only"})
+        self.assertIn(first_case["execution_mode"], {"manual_review", "sandbox_only", "live_reviewed_write_staging"})
         self.assertEqual(first_case["request_blueprint"]["host"], "www.talkie-ai.com")
 
     def test_authenticated_safe_read_get_becomes_reviewable_auth_case(self) -> None:
@@ -44,6 +44,33 @@ class LiveAttackPlanTests(unittest.TestCase):
         self.assertEqual(plan["review_case_count"], 1)
         self.assertEqual(plan["cases"][0]["execution_mode"], "live_safe_read_with_approved_auth")
         self.assertTrue(plan["cases"][0]["reviewable_with_auth_context"])
+
+    def test_reviewed_write_case_becomes_staging_write_mode(self) -> None:
+        bundle = {
+            "source": "zapi",
+            "input_file": "fixtures/zapi_samples/sample_filtered_har.json",
+            "fixtures": [
+                {
+                    "name": "post_api_v1_user_preferences",
+                    "method": "POST",
+                    "path": "/api/v1/user/preferences",
+                    "summary": "Update user preferences",
+                    "body_fields": ["theme"],
+                    "auth_hints": ["authorization"],
+                    "replay_class": "manual_review",
+                    "endpoint_family": "user",
+                    "tenant_scope": "single_tenant",
+                    "reasons": ["mutating_http_method", "authenticated_surface"],
+                }
+            ],
+        }
+        plan = build_live_attack_plan(bundle)
+
+        self.assertEqual(plan["allowed_case_count"], 0)
+        self.assertEqual(plan["review_case_count"], 1)
+        self.assertEqual(plan["cases"][0]["execution_mode"], "live_reviewed_write_staging")
+        self.assertTrue(plan["cases"][0]["reviewable_write_in_staging"])
+        self.assertEqual(plan["cases"][0]["target_env"], "staging")
 
     def test_cli_writes_plan_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

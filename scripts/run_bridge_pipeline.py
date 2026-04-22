@@ -22,6 +22,8 @@ def main() -> None:
     parser.add_argument("--run-live-safe-replay", action="store_true", help="Execute policy-allowed safe-read live replay cases after planning")
     parser.add_argument("--auth-context", help="Path to approved auth context JSON for reviewed auth-safe-read GET cases")
     parser.add_argument("--allow-reviewed-auth", action="store_true", help="Allow reviewed auth-safe-read GET cases when approved auth context is supplied")
+    parser.add_argument("--write-context", help="Path to approved staging write context JSON for reviewed write cases")
+    parser.add_argument("--allow-reviewed-writes", action="store_true", help="Allow reviewed staging write cases when approved write context is supplied")
     parser.add_argument("--redthread-python", default=str(DEFAULT_REDTHREAD_PYTHON))
     parser.add_argument("--redthread-src", default=str(DEFAULT_REDTHREAD_SRC))
     args = parser.parse_args()
@@ -35,6 +37,8 @@ def main() -> None:
         run_live_safe_replay=args.run_live_safe_replay,
         auth_context=args.auth_context,
         allow_reviewed_auth=args.allow_reviewed_auth,
+        write_context=args.write_context,
+        allow_reviewed_writes=args.allow_reviewed_writes,
         redthread_python=args.redthread_python,
         redthread_src=args.redthread_src,
     )

@@ -9,7 +9,7 @@ Current scripts:
 - `generate_replay_pack.py` — turn normalized fixtures into replay-pack groups
 - `prepublish_gate.py` — prototype gate for approve/review/block decisions
 - `generate_live_attack_plan.py` — create `live_attack_plan.json` with execution policy for each normalized fixture
-- `run_live_safe_replay.py` — execute policy-allowed safe-read GET cases, plus reviewed auth-safe-read GET cases when approved auth context is supplied
+- `run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
 - `export_redthread_runtime_inputs.py` — convert normalized fixture bundles into real RedThread replay and dry-run campaign input shapes
 - `evaluate_redthread_replay.py` — evaluate exported replay traces with RedThread's actual promotion-gate code
 - `run_redthread_dryrun.py` — run one exported case through a real RedThread dry-run campaign path
@@ -105,6 +105,18 @@ python3 scripts/run_bridge_pipeline.py \
   --auth-context /path/to/approved_auth_context.json
 ```
 
+If a reviewed non-destructive write should run in staging:
+
+```bash
+python3 scripts/run_bridge_pipeline.py \
+  /path/to/write_review_capture.har \
+  runs/reviewed_write_pipeline \
+  --ingestion zapi \
+  --run-live-safe-replay \
+  --allow-reviewed-writes \
+  --write-context /path/to/approved_write_context.json
+```
+
 For a live ZAPI session:
 
 ```bash
@@ -121,6 +133,7 @@ What this proves:
 - a machine-readable live attack plan now exists alongside replay and gate artifacts
 - the first live safe-read execution lane can run against allowed GET cases
 - reviewed auth-bound safe-read GETs can run only with explicit approved auth context
+- reviewed non-destructive writes can run only in staging with explicit per-case approved write context
 - replay/gate/runtime export no longer need separate manual commands
 - RedThread replay + dry-run checks can be triggered from one top-level runner
 

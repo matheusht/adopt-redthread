@@ -23,6 +23,7 @@ What works today:
 - generate a machine-readable live attack plan with execution policy fields
 - execute the first policy-gated live safe-read replay lane for allowed GET cases
 - execute reviewed auth-bound safe-read GET cases only when explicit approved auth context is supplied
+- execute reviewed non-destructive write cases in staging only when explicit approved write context is supplied
 - run generated bridge cases through a real RedThread dry-run campaign path
 - run a one-command bridge workflow from one artifact input
 - run a live ZAPI capture and hand its selected HAR into that one-command workflow
@@ -32,7 +33,7 @@ What is **not** live yet:
 - direct pull from real Adopt services
 - broad support for all real-world NoUI output families beyond the first MCP server shape
 - full session-aware authenticated replay beyond approved header reuse
-- reviewed write execution lanes
+- full reviewed write coverage beyond the first non-destructive staging lane
 - fully automatic live ZAPI runtime -> RedThread attack loop against a real Adopt-managed session
 - production-grade publish gating
 
@@ -167,6 +168,7 @@ Generated outputs:
 - `examples/redthread_runtime_demo.md` — walkthrough from bridge fixtures into real RedThread replay and dry-run execution inputs
 - `examples/noui_to_redthread_demo.md` — walkthrough from NoUI MCP output into normalized fixtures and then into RedThread
 - `examples/live_zapi_bridge_demo.md` — one-command live ZAPI capture into bridge outputs and RedThread checks
+- `examples/reviewed_staging_write_demo.md` — reviewed non-destructive staging write replay with explicit approved write context
 
 ## Repo structure
 
@@ -211,7 +213,7 @@ That gives RedThread more realistic surfaces to validate.
 This repo now has two higher-level runners:
 
 - `scripts/generate_live_attack_plan.py` — build `live_attack_plan.json` from one supported bridge input
-- `scripts/run_live_safe_replay.py` — execute policy-allowed live safe-read GET cases, plus reviewed auth-safe-read GETs when approved auth context is supplied
+- `scripts/run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
 - `scripts/run_bridge_pipeline.py` — one input artifact in, full bridge outputs out
 - `scripts/run_live_zapi_bridge.py` — live ZAPI capture in, then full bridge workflow out
 

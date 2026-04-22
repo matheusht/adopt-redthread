@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from adapters.bridge.workflow_binding_inference import infer_step_bindings
 
 
 def build_step(case: dict[str, Any], cases: list[dict[str, Any]], overrides: dict[str, Any], case_host: str) -> dict[str, Any]:
@@ -53,46 +54,8 @@ def step_response_binding_contract(case: dict[str, Any], cases: list[dict[str, A
     source_case = next((item for item in cases if int(item.get("workflow_step_index", 0)) == index - 1), None)
     if source_case is None:
         return None, []
-    url = str(case.get("request_blueprint", {}).get("url", "")).strip()
-    if not url:
-        return None, []
-    parsed = urlsplit(url)
-    query_pairs = parse_qsl(parsed.query, keep_blank_values=True)
-    if not query_pairs:
-        return None, []
-    bindings: list[dict[str, Any]] = []
-    next_pairs: list[tuple[str, str]] = []
-    for name, value in query_pairs:
-        if not looks_like_binding_query(name, value):
-            next_pairs.append((name, value))
-            continue
-        binding_id = f"{name}_from_{source_case.get('case_id')}"
-        placeholder = "{{" + binding_id + "}}"
-        bindings.append(
-            normalized_binding(
-                {
-                    "binding_id": binding_id,
-                    "source_case_id": source_case.get("case_id"),
-                    "source_type": "response_json",
-                    "source_key": name,
-                    "target_field": "request_url",
-                    "placeholder": placeholder,
-                    "required": True,
-                    "inference_reason": f"query_param:{name}:previous_step_json",
-                    "confidence": "low",
-                },
-                inferred=True,
-            )
-        )
-        next_pairs.append((name, placeholder))
-    if not bindings:
-        return None, []
-    query = urlencode(next_pairs, doseq=True)
-    for binding in bindings:
-        placeholder = str(binding["placeholder"])
-        query = query.replace(encoded_placeholder(placeholder), placeholder)
-    template = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, query, parsed.fragment))
-    return template, bindings
+    request_url_template, inferred_bindings = infer_step_bindings(case, source_case)
+    return request_url_template, [normalized_binding(binding, inferred=True) for binding in inferred_bindings]
 
 
 def apply_binding_override(
@@ -163,15 +126,3 @@ def _override_template(case_override: dict[str, Any], request_url_template: str 
     return override_template or request_url_template
 
 
-def looks_like_binding_query(name: str, value: str) -> bool:
-    lowered = str(name).lower()
-    raw = str(value).strip()
-    if lowered not in {"id"} and not lowered.endswith("_id"):
-        return False
-    if not raw or "{{" in raw or len(raw) < 3:
-        return False
-    return any(char.isdigit() for char in raw) or "-" in raw or "_" in raw
-
-
-def encoded_placeholder(placeholder: str) -> str:
-    return urlencode({"x": placeholder}).removeprefix("x=")

@@ -688,8 +688,23 @@ Workflow replay and bridge summaries now also expose reviewed binding decision a
 - per-workflow reviewed binding decisions
 - counts for inferred / approved / pending-review / rejected / replaced inferred bindings
 
+### Phase 9.4 — reviewed body-field inference
+
+The bridge now emits one narrow additional inference class automatically:
+- id-like JSON body fields such as `id` or `*_id`
+- sourced only from the immediately previous workflow step response JSON
+- exact field-name match only
+- still marked `pending_review` by default
+
+This means a reviewed write step can now carry a prior response value into:
+- `request_body_json`
+
+but only when:
+- the inferred binding is approved or replaced by operator review
+- the reviewed write approval explicitly opts in with `use_bound_body_json: true`
+
 Still honest:
-- this is only a small query-parameter heuristic plus explicit operator review/override
+- this is only a small query-parameter heuristic plus one narrow body-field heuristic and explicit operator review/override
 - it does not infer arbitrary body/path bindings automatically
 - it does not infer browser/session state
 - it does not claim all real workflows will bind automatically

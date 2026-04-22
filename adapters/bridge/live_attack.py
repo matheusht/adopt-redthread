@@ -26,6 +26,7 @@ def build_live_attack_case(fixture: dict[str, Any], request_map: dict[tuple[str,
     execution_mode = _execution_mode(fixture)
     approval_mode = _approval_mode(execution_mode)
     allowed = execution_mode == "live_safe_read"
+    reviewable_with_auth = execution_mode == "live_safe_read_with_approved_auth"
     return {
         "case_id": fixture["name"],
         "method": fixture["method"],
@@ -34,7 +35,8 @@ def build_live_attack_case(fixture: dict[str, Any], request_map: dict[tuple[str,
         "approval_mode": approval_mode,
         "target_env": "captured_target",
         "auth_context_required": bool(fixture.get("auth_hints")),
-        "max_replay_attempts": 1 if allowed else 0,
+        "reviewable_with_auth_context": reviewable_with_auth,
+        "max_replay_attempts": 1 if allowed or reviewable_with_auth else 0,
         "side_effect_risk": _side_effect_risk(fixture),
         "allowed": allowed,
         "reasons": fixture.get("reasons", []),
@@ -56,7 +58,8 @@ def build_execution_policy(fixture: dict[str, Any]) -> dict[str, Any]:
         "approval_mode": _approval_mode(execution_mode),
         "target_env": "captured_target",
         "auth_context_required": bool(fixture.get("auth_hints")),
-        "max_replay_attempts": 1 if allowed else 0,
+        "reviewable_with_auth_context": execution_mode == "live_safe_read_with_approved_auth",
+        "max_replay_attempts": 1 if execution_mode in {"live_safe_read", "live_safe_read_with_approved_auth"} else 0,
         "side_effect_risk": _side_effect_risk(fixture),
         "allowed": allowed,
     }
@@ -102,6 +105,8 @@ def _execution_mode(fixture: dict[str, Any]) -> str:
     auth_required = bool(fixture.get("auth_hints"))
     if fixture.get("replay_class") == "safe_read" and method == "GET" and not auth_required:
         return "live_safe_read"
+    if fixture.get("replay_class") in {"safe_read", "safe_read_with_review"} and method == "GET" and auth_required:
+        return "live_safe_read_with_approved_auth"
     if fixture.get("replay_class") in {"safe_read", "safe_read_with_review"} and method == "GET":
         return "live_safe_read_with_review"
     if fixture.get("replay_class") == "sandbox_only":
@@ -112,7 +117,7 @@ def _execution_mode(fixture: dict[str, Any]) -> str:
 def _approval_mode(execution_mode: str) -> str:
     if execution_mode == "live_safe_read":
         return "auto"
-    if execution_mode in {"live_safe_read_with_review", "manual_review"}:
+    if execution_mode in {"live_safe_read_with_approved_auth", "live_safe_read_with_review", "manual_review"}:
         return "human_review"
     return "blocked"
 

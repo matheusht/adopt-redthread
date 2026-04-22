@@ -16,12 +16,14 @@ What works today:
 - we can use a **live ZAPI capture runner** that saves HAR and feeds the selected HAR into the bridge automatically
 - we now have an explicit **interactive human-guided capture mode** with saved capture metadata
 - we now generate a **machine-readable live attack plan** and can execute the first **policy-gated live safe-read GET lane**
+- we can now execute reviewed **auth-bound safe-read GETs** only when explicit approved auth context is supplied
 
 What does **not** work yet:
 - one-button fully live flow from **running ZAPI session -> automatic RedThread attack loop -> live target execution**
 - direct live pull from Adopt services
 - full production-grade publish gate
 - full live attack execution against a real Adopt-managed runtime/session
+- full session-aware authenticated replay beyond approved header reuse
 
 So the honest status is:
 

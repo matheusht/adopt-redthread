@@ -29,16 +29,17 @@ That is now the implemented shape.
 | Phase 1 — Interactive capture | done | human-guided ZAPI capture is now an explicit first-class mode |
 | Phase 2 — Machine-readable live plan | done | bridge emits `live_attack_plan.json` with execution policy per case |
 | Phase 3 — Safe-read live lane | done | policy-allowed GET read cases can be executed live |
+| Phase 4 — Auth-aware safe reads | done | reviewed auth-bound GET read cases can run only with explicit approved auth context |
 
 So the current system now has a real ladder:
 
 ```text
-interactive capture -> normalized fixtures -> live attack plan -> safe-read live replay -> replay gate -> dry-run
+interactive capture -> normalized fixtures -> live attack plan -> safe-read live replay -> auth-aware safe-read replay -> replay gate -> dry-run
 ```
 
 Still honest:
 - writes are not auto-executed
-- auth/session replay is not finished
+- full session/workflow replay is not finished
 - reviewed write lanes are still future work
 
 ---
@@ -308,17 +309,67 @@ This is safer and easier to explain.
 
 These are future phases, not part of the now-completed ladder.
 
-## Future Phase 4 — Auth-aware safe reads
+## Phase 4 — Auth-aware safe reads
 
-Goal:
-- reuse approved captured auth context safely
-- support low-risk authenticated GET replay
+## Goal
 
-Needs:
-- redaction-safe header/session handling
-- explicit approval source
-- auth-expiry handling
-- stronger audit logs
+Reuse approved captured auth context safely for low-risk authenticated GET replay.
+
+## Delivered
+
+### New rule
+
+Auth-bound safe reads are no longer treated the same as anonymous safe reads.
+
+They now become:
+- `live_safe_read_with_approved_auth`
+
+That means:
+- not auto-run by default
+- still human-reviewed
+- only executable when explicit approved auth context is supplied
+
+### New executor support
+
+The safe replay executor now accepts:
+- `--auth-context`
+- `--allow-reviewed-auth`
+
+### Approved auth context shape
+
+```json
+{
+  "approved": true,
+  "target_hosts": ["example.com"],
+  "allowed_header_names": ["authorization", "cookie"],
+  "headers": {
+    "authorization": "Bearer demo-token"
+  }
+}
+```
+
+### Safety rules
+
+Even with auth context, the executor still only allows:
+- `GET`
+- safe-read cases
+- approved hosts only
+- allowlisted auth header names only
+- headers already observed in the captured request blueprint only
+
+So it still does **not**:
+- invent new auth headers
+- send auth to the wrong host
+- replay writes
+- bypass approval
+
+### Why it matters
+
+This is the first real bridge from:
+- captured authenticated reality
+- into bounded authenticated replay
+
+without pretending full session-aware live attack is done.
 
 ## Future Phase 5 — Reviewed writes in staging
 

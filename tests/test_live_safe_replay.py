@@ -8,13 +8,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from adapters.bridge.live_attack import build_live_attack_plan
+from adapters.bridge.workflow import run_bridge_workflow
 from adapters.live_replay.executor import execute_live_safe_replay
 from adapters.zapi.loader import build_fixture_bundle
-from adapters.bridge.workflow import run_bridge_workflow
 
 
 class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
+        auth = self.headers.get("Authorization")
         if self.path.startswith("/api/v1/public/profile"):
             body = b'{"ok":true,"profile":"demo"}'
             self.send_response(200)
@@ -23,7 +24,15 @@ class _Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
-        self.send_response(404)
+        if self.path.startswith("/api/v1/private/profile") and auth == "Bearer demo-token":
+            body = b'{"ok":true,"profile":"private"}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(401 if self.path.startswith("/api/v1/private/profile") else 404)
         self.end_headers()
 
     def log_message(self, *_args: object) -> None:
@@ -42,6 +51,28 @@ class LiveSafeReplayTests(unittest.TestCase):
             self.assertEqual(summary["executed_case_count"], 1)
             self.assertEqual(summary["success_count"], 1)
             self.assertEqual(summary["results"][0]["status_code"], 200)
+
+    def test_reviewed_auth_case_needs_approved_auth_context(self) -> None:
+        with _server() as base_url, tempfile.TemporaryDirectory() as tmp:
+            har_path = _write_har(Path(tmp) / "auth_safe_read.har", base_url, include_auth=True)
+            bundle = build_fixture_bundle(har_path)
+            plan = build_live_attack_plan(bundle)
+
+            without_auth = execute_live_safe_replay(plan, allow_reviewed_auth=True)
+            self.assertEqual(without_auth["executed_case_count"], 0)
+
+            auth_context = {
+                "approved": True,
+                "target_hosts": [base_url.replace("http://", "")],
+                "allowed_header_names": ["authorization"],
+                "headers": {"authorization": "Bearer demo-token"},
+            }
+            with_auth = execute_live_safe_replay(plan, auth_context=auth_context, allow_reviewed_auth=True)
+
+            self.assertEqual(with_auth["executed_case_count"], 1)
+            self.assertEqual(with_auth["success_count"], 1)
+            self.assertTrue(with_auth["results"][0]["auth_applied"])
+            self.assertIn("authorization", with_auth["results"][0]["auth_header_names_sent"])
 
     def test_workflow_can_emit_live_safe_replay_artifact(self) -> None:
         with _server() as base_url, tempfile.TemporaryDirectory() as tmp:
@@ -63,6 +94,37 @@ class LiveSafeReplayTests(unittest.TestCase):
             self.assertEqual(summary["live_safe_replay_count"], 1)
             self.assertEqual(replay["success_count"], 1)
 
+    def test_workflow_can_run_reviewed_auth_safe_read(self) -> None:
+        with _server() as base_url, tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            har_path = _write_har(root / "auth_safe_read.har", base_url, include_auth=True)
+            auth_context = {
+                "approved": True,
+                "target_hosts": [base_url.replace("http://", "")],
+                "allowed_header_names": ["authorization"],
+                "headers": {"authorization": "Bearer demo-token"},
+            }
+            auth_path = root / "auth_context.json"
+            auth_path.write_text(json.dumps(auth_context, indent=2) + "\n")
+            output_dir = root / "workflow"
+            summary = run_bridge_workflow(
+                har_path,
+                ingestion="zapi",
+                output_dir=output_dir,
+                run_dryrun=False,
+                run_live_safe_replay=True,
+                auth_context=auth_path,
+                allow_reviewed_auth=True,
+                redthread_python="../redthread/.venv/bin/python",
+                redthread_src="../redthread/src",
+            )
+
+            replay = json.loads((output_dir / "live_safe_replay.json").read_text())
+            self.assertTrue(summary["live_safe_replay_executed"])
+            self.assertTrue(summary["live_safe_replay_used_auth_context"])
+            self.assertEqual(summary["live_safe_replay_count"], 1)
+            self.assertEqual(replay["success_count"], 1)
+
 
 class _server:
     def __enter__(self) -> str:
@@ -78,15 +140,20 @@ class _server:
         self.thread.join(timeout=1)
 
 
-def _write_har(path: Path, base_url: str) -> str:
+def _write_har(path: Path, base_url: str, *, include_auth: bool = False) -> str:
+    headers = [{"name": "accept", "value": "application/json"}]
+    url = f"{base_url}/api/v1/public/profile?view=summary"
+    if include_auth:
+        headers.append({"name": "authorization", "value": "Bearer captured-token"})
+        url = f"{base_url}/api/v1/private/profile?view=summary"
     payload = {
         "log": {
             "entries": [
                 {
                     "request": {
                         "method": "GET",
-                        "url": f"{base_url}/api/v1/public/profile?view=summary",
-                        "headers": [{"name": "accept", "value": "application/json"}],
+                        "url": url,
+                        "headers": headers,
                         "queryString": [{"name": "view", "value": "summary"}],
                     },
                     "response": {"status": 200, "content": {"mimeType": "application/json"}},

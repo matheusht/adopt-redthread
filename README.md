@@ -22,6 +22,7 @@ What works today:
 - evaluate those replay traces with RedThread's actual promotion-gate code
 - generate a machine-readable live attack plan with execution policy fields
 - execute the first policy-gated live safe-read replay lane for allowed GET cases
+- execute reviewed auth-bound safe-read GET cases only when explicit approved auth context is supplied
 - run generated bridge cases through a real RedThread dry-run campaign path
 - run a one-command bridge workflow from one artifact input
 - run a live ZAPI capture and hand its selected HAR into that one-command workflow
@@ -30,7 +31,7 @@ What works today:
 What is **not** live yet:
 - direct pull from real Adopt services
 - broad support for all real-world NoUI output families beyond the first MCP server shape
-- live authenticated replay with real session/header reuse
+- full session-aware authenticated replay beyond approved header reuse
 - reviewed write execution lanes
 - fully automatic live ZAPI runtime -> RedThread attack loop against a real Adopt-managed session
 - production-grade publish gating
@@ -210,7 +211,7 @@ That gives RedThread more realistic surfaces to validate.
 This repo now has two higher-level runners:
 
 - `scripts/generate_live_attack_plan.py` — build `live_attack_plan.json` from one supported bridge input
-- `scripts/run_live_safe_replay.py` — execute only policy-allowed live safe-read GET cases from a plan
+- `scripts/run_live_safe_replay.py` — execute policy-allowed live safe-read GET cases, plus reviewed auth-safe-read GETs when approved auth context is supplied
 - `scripts/run_bridge_pipeline.py` — one input artifact in, full bridge outputs out
 - `scripts/run_live_zapi_bridge.py` — live ZAPI capture in, then full bridge workflow out
 

@@ -20,6 +20,8 @@ def main() -> None:
     parser.add_argument("--allow-sandbox-only", action="store_true", help="Allow sandbox-only items to downgrade gate block to review")
     parser.add_argument("--skip-dryrun", action="store_true", help="Skip the RedThread dry-run step")
     parser.add_argument("--run-live-safe-replay", action="store_true", help="Execute policy-allowed safe-read live replay cases after planning")
+    parser.add_argument("--auth-context", help="Path to approved auth context JSON for reviewed auth-safe-read GET cases")
+    parser.add_argument("--allow-reviewed-auth", action="store_true", help="Allow reviewed auth-safe-read GET cases when approved auth context is supplied")
     parser.add_argument("--redthread-python", default=str(DEFAULT_REDTHREAD_PYTHON))
     parser.add_argument("--redthread-src", default=str(DEFAULT_REDTHREAD_SRC))
     args = parser.parse_args()
@@ -31,6 +33,8 @@ def main() -> None:
         allow_sandbox_only=args.allow_sandbox_only,
         run_dryrun=not args.skip_dryrun,
         run_live_safe_replay=args.run_live_safe_replay,
+        auth_context=args.auth_context,
+        allow_reviewed_auth=args.allow_reviewed_auth,
         redthread_python=args.redthread_python,
         redthread_src=args.redthread_src,
     )

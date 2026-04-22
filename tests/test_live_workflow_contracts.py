@@ -56,7 +56,11 @@ class LiveWorkflowContractTests(unittest.TestCase):
 
         self.assertEqual(summary["blocked_workflow_count"], 1)
         self.assertEqual(summary["reason_counts"], {"auth_header_family_mismatch": 1})
+        self.assertEqual(summary["workflow_requirement_summary"]["auth_header_contract_required_count"], 1)
+        self.assertEqual(summary["workflow_requirement_summary"]["same_auth_context_required_count"], 1)
+        self.assertEqual(summary["workflow_requirement_summary"]["approved_auth_context_required_count"], 1)
         self.assertEqual(summary["workflow_requirement_summary"]["context_contract_failure_counts"], {"auth_header_family_mismatch": 1})
+        self.assertEqual(summary["workflow_failure_class_summary"], {"context_contract_failure": 1})
         self.assertEqual(summary["results"][0]["failure_reason_code"], "auth_header_family_mismatch")
 
     def test_bridge_summary_surfaces_workflow_requirement_summary_when_replay_runs(self) -> None:
@@ -84,6 +88,7 @@ class LiveWorkflowContractTests(unittest.TestCase):
                 workflow_summary["live_workflow_requirement_summary"]["same_host_continuity_required_count"],
                 1,
             )
+            self.assertIn("live_workflow_failure_class_summary", workflow_summary)
 
 
 if __name__ == "__main__":

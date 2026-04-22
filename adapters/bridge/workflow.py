@@ -118,6 +118,7 @@ def run_bridge_workflow(
         "live_workflow_aborted_count": 0 if live_workflow_summary is None else live_workflow_summary.get("aborted_workflow_count", 0),
         "live_workflow_reason_counts": {} if live_workflow_summary is None else live_workflow_summary.get("reason_counts", {}),
         "live_workflow_requirement_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_requirement_summary", {}),
+        "live_workflow_failure_class_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_failure_class_summary", {}),
         "live_workflow_binding_review_artifacts": [] if live_workflow_summary is None else live_workflow_summary.get("workflow_binding_review_artifacts", []),
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,

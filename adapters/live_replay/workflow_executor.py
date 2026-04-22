@@ -6,7 +6,7 @@ from typing import Any
 
 from adapters.live_replay.executor import execute_live_case, is_live_case_executable
 from adapters.live_replay.workflow_bindings import apply_response_bindings, binding_review_required, extract_response_binding_values
-from adapters.live_replay.workflow_requirements import step_block_reason, summarize_workflow_requirements, validate_workflow_context
+from adapters.live_replay.workflow_requirements import step_block_reason, summarize_failure_classes, summarize_workflow_requirements, validate_workflow_context
 from adapters.live_replay.workflow_state import initial_workflow_state, snapshot_workflow_state, step_evidence, update_workflow_state, workflow_reason_code
 
 
@@ -49,6 +49,7 @@ def execute_live_workflow_replay(
         "total_executed_step_count": sum(int(result.get("executed_step_count", 0)) for result in results),
         "reason_counts": _reason_counts(results),
         "workflow_requirement_summary": summarize_workflow_requirements(workflows, results),
+        "workflow_failure_class_summary": summarize_failure_classes(results),
         "workflow_binding_review_artifacts": [_binding_review_artifact(workflow) for workflow in workflows],
         "auth_context_used": bool(auth_payload),
         "write_context_used": bool(write_payload),

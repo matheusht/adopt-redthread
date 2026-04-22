@@ -709,6 +709,23 @@ Still honest:
 - it does not infer browser/session state
 - it does not claim all real workflows will bind automatically
 
+### Phase 9.5 — richer operator workflow context and failure summaries
+
+This pass does not add new execution power.
+It makes the bounded contract easier to inspect.
+
+Workflow/session contracts now surface more explicit shape for operators and gates:
+- `same_auth_context_required`
+- `same_write_context_required`
+- `approved_auth_context_required`
+- `approved_write_context_required`
+- `required_auth_header_names`
+
+Workflow replay and bridge summaries now also surface:
+- richer workflow requirement counts for auth/write context continuity and header-contract requirements
+- `workflow_failure_class_summary` so operators can quickly see review gaps vs context-contract failures vs runtime failures
+- richer gate notes that mirror those bounded contract summaries
+
 New structured workflow reasons now also include:
 - `response_binding_missing`
 - `response_binding_target_missing`

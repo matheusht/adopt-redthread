@@ -16,7 +16,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Execute grouped live workflow replay cases from workflow and attack plans. "
-            "This uses bounded workflow/session context requirements only. "
+            "This uses bounded workflow/session context requirements only and emits workflow requirement/failure summaries. "
             "It does not do browser orchestration or session repair."
         )
     )

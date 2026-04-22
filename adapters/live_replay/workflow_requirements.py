@@ -6,6 +6,16 @@ from adapters.live_replay.workflow_bindings import applied_response_binding_coun
 
 
 AUTH_HEADER_NAMES = {"authorization", "cookie", "x-api-key", "x-token", "x-sign"}
+REVIEW_GAP_REASONS = {"missing_auth_context", "missing_write_context", "binding_review_required"}
+CONTEXT_CONTRACT_REASONS = {
+    "auth_header_family_mismatch",
+    "host_continuity_mismatch",
+    "target_env_mismatch",
+    "prior_step_missing",
+    "response_binding_missing",
+    "response_binding_target_missing",
+}
+RUNTIME_FAILURE_REASONS = {"url_error"}
 
 
 def summarize_workflow_requirements(workflows: list[dict[str, Any]], results: list[dict[str, Any]]) -> dict[str, Any]:
@@ -23,7 +33,12 @@ def summarize_workflow_requirements(workflows: list[dict[str, Any]], results: li
         "same_host_continuity_required_count": _count(workflows, "workflow_context_requirements", "same_host_continuity_required"),
         "same_target_env_required_count": _count(workflows, "workflow_context_requirements", "same_target_env_required"),
         "shared_auth_context_required_count": _count(workflows, "session_context_requirements", "shared_auth_context_required"),
+        "same_auth_context_required_count": _count(workflows, "session_context_requirements", "same_auth_context_required"),
+        "approved_auth_context_required_count": _count(workflows, "session_context_requirements", "approved_auth_context_required"),
         "shared_write_context_required_count": _count(workflows, "session_context_requirements", "shared_write_context_required"),
+        "same_write_context_required_count": _count(workflows, "session_context_requirements", "same_write_context_required"),
+        "approved_write_context_required_count": _count(workflows, "session_context_requirements", "approved_write_context_required"),
+        "auth_header_contract_required_count": sum(1 for workflow in workflows if workflow.get("session_context_requirements", {}).get("required_auth_header_names")),
         "declared_response_binding_count": declared_response_binding_count(workflows),
         "applied_response_binding_count": applied_response_binding_count(results),
         "inferred_response_binding_count": _review_count(workflows, "inferred_response_binding_count"),
@@ -33,6 +48,7 @@ def summarize_workflow_requirements(workflows: list[dict[str, Any]], results: li
         "replaced_response_binding_count": _review_count(workflows, "replaced_response_binding_count"),
         "required_header_family_counts": required_header_families,
         "context_contract_failure_counts": _failure_counts(results),
+        "failure_class_counts": _failure_class_counts(results),
     }
 
 
@@ -112,7 +128,28 @@ def _failure_counts(results: list[dict[str, Any]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for result in results:
         reason = str(result.get("failure_reason_code", "")).strip()
-        if reason not in {"missing_auth_context", "missing_write_context", "auth_header_family_mismatch", "host_continuity_mismatch", "target_env_mismatch", "prior_step_missing", "response_binding_missing", "response_binding_target_missing", "binding_review_required"}:
+        if reason not in REVIEW_GAP_REASONS | CONTEXT_CONTRACT_REASONS:
             continue
         counts[reason] = counts.get(reason, 0) + 1
     return counts
+
+
+def summarize_failure_classes(results: list[dict[str, Any]]) -> dict[str, int]:
+    return _failure_class_counts(results)
+
+
+def _failure_class_counts(results: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {"review_gap": 0, "context_contract_failure": 0, "runtime_failure": 0, "other_failure": 0}
+    for result in results:
+        reason = str(result.get("failure_reason_code", "")).strip()
+        if not reason:
+            continue
+        if reason in REVIEW_GAP_REASONS:
+            counts["review_gap"] += 1
+        elif reason in CONTEXT_CONTRACT_REASONS:
+            counts["context_contract_failure"] += 1
+        elif reason in RUNTIME_FAILURE_REASONS or reason.startswith("http_status_"):
+            counts["runtime_failure"] += 1
+        else:
+            counts["other_failure"] += 1
+    return {key: value for key, value in counts.items() if value > 0}

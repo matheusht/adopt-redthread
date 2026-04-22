@@ -131,7 +131,12 @@ class PrepublishGateTests(unittest.TestCase):
                     "same_host_continuity_required_count": 1,
                     "same_target_env_required_count": 1,
                     "shared_auth_context_required_count": 1,
+                    "same_auth_context_required_count": 1,
+                    "approved_auth_context_required_count": 1,
                     "shared_write_context_required_count": 0,
+                    "same_write_context_required_count": 0,
+                    "approved_write_context_required_count": 0,
+                    "auth_header_contract_required_count": 1,
                     "declared_response_binding_count": 2,
                     "applied_response_binding_count": 1,
                     "inferred_response_binding_count": 1,
@@ -141,7 +146,9 @@ class PrepublishGateTests(unittest.TestCase):
                     "replaced_response_binding_count": 1,
                     "required_header_family_counts": {"auth": 1},
                     "context_contract_failure_counts": {},
+                    "failure_class_counts": {},
                 },
+                "workflow_failure_class_summary": {"review_gap": 1},
                 "results": [],
             },
             redthread_replay_verdict={"passed": True},
@@ -153,6 +160,9 @@ class PrepublishGateTests(unittest.TestCase):
         )
         self.assertIn("live_workflow_classes=auth_safe_read_workflow:1", verdict["notes"])
         self.assertIn("live_workflow_same_target_env_required_count=1", verdict["notes"])
+        self.assertIn("live_workflow_same_auth_context_required_count=1", verdict["notes"])
+        self.assertIn("live_workflow_approved_auth_context_required_count=1", verdict["notes"])
+        self.assertIn("live_workflow_auth_header_contract_required_count=1", verdict["notes"])
         self.assertIn("live_workflow_declared_response_binding_count=2", verdict["notes"])
         self.assertIn("live_workflow_applied_response_binding_count=1", verdict["notes"])
         self.assertIn("live_workflow_inferred_response_binding_count=1", verdict["notes"])
@@ -162,6 +172,7 @@ class PrepublishGateTests(unittest.TestCase):
         self.assertIn("live_workflow_replaced_response_binding_count=1", verdict["notes"])
         self.assertIn("live_workflow_required_header_families=auth:1", verdict["notes"])
         self.assertIn("live_workflow_context_contract_failures=none", verdict["notes"])
+        self.assertIn("live_workflow_failure_classes=review_gap:1", verdict["notes"])
 
 
 if __name__ == "__main__":

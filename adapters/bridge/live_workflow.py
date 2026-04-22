@@ -73,8 +73,10 @@ def _build_workflow(group: str, cases: list[dict[str, Any]], overrides: dict[str
         },
         "session_context_requirements": {
             "shared_auth_context_required": any(case.get("execution_mode") == "live_safe_read_with_approved_auth" for case in cases),
+            "same_auth_context_required": any(case.get("execution_mode") == "live_safe_read_with_approved_auth" for case in cases),
             "approved_auth_context_required": any(case.get("execution_mode") == "live_safe_read_with_approved_auth" for case in cases),
             "shared_write_context_required": any(case.get("execution_mode") == "live_reviewed_write_staging" for case in cases),
+            "same_write_context_required": any(case.get("execution_mode") == "live_reviewed_write_staging" for case in cases),
             "approved_write_context_required": any(case.get("execution_mode") == "live_reviewed_write_staging" for case in cases),
             "required_auth_header_names": _required_auth_header_names(cases),
         },

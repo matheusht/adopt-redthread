@@ -62,6 +62,8 @@ class LiveWorkflowReplayTests(unittest.TestCase):
             {"step_b": ["step_a"]},
         )
         self.assertEqual(workflow_plan["workflows"][0]["workflow_context_requirements"]["required_header_families"], [])
+        self.assertFalse(workflow_plan["workflows"][0]["session_context_requirements"]["same_auth_context_required"])
+        self.assertFalse(workflow_plan["workflows"][0]["session_context_requirements"]["same_write_context_required"])
 
     def test_executor_runs_two_step_safe_read_workflow(self) -> None:
         with _server() as base_url, tempfile.TemporaryDirectory() as tmp:
@@ -80,6 +82,9 @@ class LiveWorkflowReplayTests(unittest.TestCase):
             self.assertEqual(summary["reason_counts"], {})
             self.assertEqual(summary["workflow_requirement_summary"]["workflow_class_counts"], {"safe_read_workflow": 1})
             self.assertEqual(summary["workflow_requirement_summary"]["same_host_continuity_required_count"], 1)
+            self.assertEqual(summary["workflow_requirement_summary"]["same_auth_context_required_count"], 0)
+            self.assertEqual(summary["workflow_requirement_summary"]["same_write_context_required_count"], 0)
+            self.assertEqual(summary["workflow_failure_class_summary"], {})
             self.assertEqual(summary["results"][0]["status"], "completed")
             self.assertEqual(summary["results"][0]["executed_step_count"], 2)
             self.assertEqual(summary["results"][0]["final_state"]["completed_case_ids"], [

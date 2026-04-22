@@ -19,6 +19,7 @@ Current scripts:
 - `run_redthread_dryrun.py` — run one exported case through a real RedThread dry-run campaign path
 - `run_bridge_pipeline.py` — run the full bridge flow from one artifact input
   - writes a unified `workflow_review_manifest.json` when workflow planning is present
+  - writes that manifest before live workflow replay, then refreshes it after replay with enriched candidate detection and failure narratives when live results exist
 - `run_live_zapi_bridge.py` — run live ZAPI capture, then feed the selected HAR into the full bridge flow
   - supports `--interactive` for human-guided capture
   - writes `zapi_capture/capture_metadata.json`

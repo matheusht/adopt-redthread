@@ -4,6 +4,8 @@ import json
 from typing import Any
 from urllib.parse import urlparse
 
+from adapters.live_replay.workflow_narrative import build_failure_narrative
+
 
 def initial_workflow_state() -> dict[str, Any]:
     return {
@@ -92,6 +94,10 @@ def step_evidence(
         evidence["extracted_response_bindings"] = extracted_response_bindings
     if applied_response_bindings:
         evidence["applied_response_bindings"] = applied_response_bindings
+    if result.get("success"):
+        evidence["result_narrative"] = "Step completed successfully."
+    else:
+        evidence["result_narrative"] = build_failure_narrative(workflow_reason_code(result), str(case.get("case_id", "")), case=case, result=result)
     return evidence
 
 

@@ -745,6 +745,17 @@ This puts the important bounded workflow review facts in one place:
 
 This makes it easier to use real HAR captures without jumping across several JSON files just to review one workflow lane.
 
+The manifest is now stronger for operator review too:
+- top-level and per-workflow `required_contexts`
+- `body_template_gaps` for missing or still-static body-template seams
+- `open_questions` that call out unresolved body/path/session review gaps in plain words
+- bridge workflow now writes the manifest before live replay and refreshes it after replay with enriched candidates and failure narratives
+
+Replay output is also easier to read:
+- per-workflow `failure_narrative`
+- top-level `workflow_failure_narratives`
+- per-step `workflow_evidence.result_narrative`
+
 New structured workflow reasons now also include:
 - `response_binding_missing`
 - `response_binding_target_missing`

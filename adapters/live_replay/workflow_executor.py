@@ -6,6 +6,7 @@ from typing import Any
 
 from adapters.live_replay.executor import execute_live_case, is_live_case_executable
 from adapters.live_replay.workflow_bindings import apply_response_bindings, binding_review_required, extract_response_binding_values
+from adapters.live_replay.workflow_narrative import build_failure_narrative, summarize_failure_narratives
 from adapters.live_replay.workflow_requirements import step_block_reason, summarize_failure_classes, summarize_workflow_requirements, validate_workflow_context
 from adapters.live_replay.workflow_state import initial_workflow_state, snapshot_workflow_state, step_evidence, update_workflow_state, workflow_reason_code
 from adapters.live_replay.workflow_support import approved_write_body_json, approved_write_headers, binding_review_artifact
@@ -52,6 +53,7 @@ def execute_live_workflow_replay(
         "workflow_requirement_summary": summarize_workflow_requirements(workflows, results),
         "workflow_failure_class_summary": summarize_failure_classes(results),
         "workflow_binding_review_artifacts": [binding_review_artifact(workflow) for workflow in workflows],
+        "workflow_failure_narratives": summarize_failure_narratives(results),
         "auth_context_used": bool(auth_payload),
         "write_context_used": bool(write_payload),
         "results": results,
@@ -89,15 +91,24 @@ def _execute_workflow(
             return _blocked_workflow(workflow, step_results, workflow_state, "binding_review_required", str(case.get("case_id")), review_artifact)
         if not is_live_case_executable(case, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes):
             return _blocked_workflow(workflow, step_results, workflow_state, step_block_reason(step), str(case.get("case_id")), review_artifact)
+        approved_body = approved_write_body_json(case, write_payload, allow_reviewed_writes)
         bound_case, applied_bindings, binding_error = apply_response_bindings(
             case,
             step,
             workflow_state,
-            approved_write_body_json(case, write_payload, allow_reviewed_writes),
+            approved_body,
             approved_write_headers(case, write_payload, allow_reviewed_writes),
         )
         if binding_error is not None:
-            return _blocked_workflow(workflow, step_results, workflow_state, binding_error[0], binding_error[1], review_artifact)
+            return _blocked_workflow(
+                workflow,
+                step_results,
+                workflow_state,
+                binding_error[0],
+                binding_error[1],
+                review_artifact,
+                build_failure_narrative(binding_error[0], binding_error[1], case=case, approved_write_body_json_present=isinstance(approved_body, dict)),
+            )
         assert bound_case is not None
         state_before = snapshot_workflow_state(workflow_state)
         result = execute_live_case(bound_case, timeout_seconds, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes)
@@ -129,6 +140,8 @@ def _execute_workflow(
                 "step_count": workflow.get("step_count", len(workflow.get("steps", []))),
                 "failed_step": case.get("case_id"),
                 "failure_reason_code": workflow_reason_code(result),
+                "failure_detail": str(case.get("case_id", "")),
+                "failure_narrative": build_failure_narrative(workflow_reason_code(result), str(case.get("case_id", "")), case=case, result=result),
                 "binding_review_artifact": review_artifact,
                 "final_state": snapshot_workflow_state(workflow_state),
                 "results": step_results,
@@ -151,6 +164,7 @@ def _blocked_workflow(
     reason_code: str,
     reason_detail: str,
     review_artifact: dict[str, Any],
+    narrative: str | None = None,
 ) -> dict[str, Any]:
     return {
         "workflow_id": workflow.get("workflow_id", "unknown"),
@@ -161,6 +175,7 @@ def _blocked_workflow(
         "failure_detail": reason_detail,
         "error": f"{reason_code}:{reason_detail}",
         "binding_review_artifact": review_artifact,
+        "failure_narrative": narrative or build_failure_narrative(reason_code, reason_detail),
         "final_state": snapshot_workflow_state(workflow_state),
         "results": step_results,
     }
@@ -177,13 +192,9 @@ def _reason_counts(results: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _load_optional_context(value: dict[str, Any] | str | Path | None) -> dict[str, Any] | None:
-    if value is None:
-        return None
-    payload = _load_jsonish(value)
+    payload = None if value is None else _load_jsonish(value)
     return payload if isinstance(payload, dict) else None
 
 
 def _load_jsonish(value: dict[str, Any] | str | Path) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return value
-    return json.loads(Path(value).read_text())
+    return value if isinstance(value, dict) else json.loads(Path(value).read_text())

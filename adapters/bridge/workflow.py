@@ -9,7 +9,7 @@ from typing import Any
 from adapters.adopt_actions.loader import build_action_fixture_bundle
 from adapters.bridge.live_attack import build_live_attack_plan
 from adapters.bridge.live_workflow import build_live_workflow_plan
-from adapters.bridge.workflow_review_manifest import build_workflow_review_manifest
+from adapters.bridge.workflow_review_manifest import build_workflow_review_manifest, enrich_manifest_candidates
 from adapters.live_replay.executor import execute_live_safe_replay
 from adapters.live_replay.workflow_executor import execute_live_workflow_replay
 from adapters.noui.loader import build_noui_fixture_bundle
@@ -57,6 +57,10 @@ def run_bridge_workflow(
     _write_json(paths["live_attack_plan"], live_attack_plan)
     _write_json(paths["live_workflow_plan"], live_workflow_plan)
 
+    cases = {str(case.get("case_id", "")): case for case in live_attack_plan.get("cases", [])}
+    workflow_review_manifest = build_workflow_review_manifest(live_workflow_plan, None, cases)
+    _write_json(paths["workflow_review_manifest"], workflow_review_manifest)
+
     live_safe_replay_summary: dict[str, Any] | None = None
     if run_live_safe_replay:
         live_safe_replay_summary = execute_live_safe_replay(
@@ -80,8 +84,10 @@ def run_bridge_workflow(
             output_path=paths["live_workflow_replay"],
         )
 
-    workflow_review_manifest = build_workflow_review_manifest(live_workflow_plan, live_workflow_summary)
-    _write_json(paths["workflow_review_manifest"], workflow_review_manifest)
+    if live_workflow_summary is not None:
+        workflow_review_manifest = build_workflow_review_manifest(live_workflow_plan, live_workflow_summary, cases)
+        workflow_review_manifest = enrich_manifest_candidates(workflow_review_manifest, live_workflow_summary, cases)
+        _write_json(paths["workflow_review_manifest"], workflow_review_manifest)
 
     replay_verdict = _run_replay(runtime_input=paths["runtime_inputs"], output_path=paths["replay_verdict"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))
     gate_verdict = build_gate_verdict(

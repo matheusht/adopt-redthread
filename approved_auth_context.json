@@ -1,0 +1,12 @@
+{
+    "approved": true,
+    "target_hosts": [
+        "atp-tennis-bot.vercel.app"
+    ],
+    "allowed_header_names": [
+        "cookie"
+    ],
+    "headers": {
+        "cookie": "0f169690-8672-44a4-8c20-5067d139e018"
+    }
+}

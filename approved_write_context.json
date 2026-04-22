@@ -1,0 +1,43 @@
+{
+    "approved": true,
+    "target_env": "staging",
+    "target_hosts": [
+        "atp-tennis-bot.vercel.app"
+    ],
+    "case_approvals": {
+        "post_api_chats": {
+            "method": "POST",
+            "path": "/api/chats",
+            "headers": {
+                "cookie": "0f169690-8672-44a4-8c20-5067d139e018"
+            },
+            "json_body": {}
+        },
+        "post_api_chat": {
+            "method": "POST",
+            "path": "/api/chat",
+            "use_bound_body_json": true,
+            "use_bound_headers": true,
+            "headers": {
+                "cookie": "tennisbot_session={{SESSION_ID}}"
+            },
+            "json_body": {
+                "chatId": "test_chat_123",
+                "id": "test_msg_123",
+                "messages": [
+                    {
+                        "id": "test_msg_123",
+                        "role": "user",
+                        "parts": [
+                            {
+                                "type": "text",
+                                "text": "Who is currently the #1 ATP player?"
+                            }
+                        ]
+                    }
+                ],
+                "trigger": "submit-message"
+            }
+        }
+    }
+}

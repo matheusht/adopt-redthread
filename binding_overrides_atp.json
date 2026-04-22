@@ -1,0 +1,33 @@
+{
+  "case_bindings": {
+    "post_api_chat": {
+      "replace_response_bindings": [
+        {
+          "binding_id": "chat_id_from_post_api_chats",
+          "source_case_id": "post_api_chats",
+          "source_type": "response_json",
+          "source_key": "chat.id",
+          "target_field": "request_body_json",
+          "target_path": "chatId"
+        },
+        {
+          "binding_id": "msg_id_from_post_api_chats",
+          "source_case_id": "post_api_chats",
+          "source_type": "response_json",
+          "source_key": "chat.id",
+          "target_field": "request_body_json",
+          "target_path": "id"
+        },
+        {
+          "binding_id": "session_id_from_post_api_chats",
+          "source_case_id": "post_api_chats",
+          "source_type": "response_json",
+          "source_key": "chat.sessionId",
+          "target_field": "request_header",
+          "target_path": "cookie",
+          "placeholder": "{{SESSION_ID}}"
+        }
+      ]
+    }
+  }
+}

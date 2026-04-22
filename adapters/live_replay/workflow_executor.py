@@ -49,6 +49,7 @@ def execute_live_workflow_replay(
         "total_executed_step_count": sum(int(result.get("executed_step_count", 0)) for result in results),
         "reason_counts": _reason_counts(results),
         "workflow_requirement_summary": summarize_workflow_requirements(workflows, results),
+        "workflow_binding_review_artifacts": [_binding_review_artifact(workflow) for workflow in workflows],
         "auth_context_used": bool(auth_payload),
         "write_context_used": bool(write_payload),
         "results": results,
@@ -69,25 +70,26 @@ def _execute_workflow(
     write_payload: dict[str, Any] | None,
     allow_reviewed_writes: bool,
 ) -> dict[str, Any]:
+    review_artifact = _binding_review_artifact(workflow)
     precheck = validate_workflow_context(workflow, auth_payload, write_payload, cases)
     if precheck is not None:
-        return _blocked_workflow(workflow, [], initial_workflow_state(), precheck[0], precheck[1])
+        return _blocked_workflow(workflow, [], initial_workflow_state(), precheck[0], precheck[1], review_artifact)
 
     step_results: list[dict[str, Any]] = []
     workflow_state = initial_workflow_state()
     for index, step in enumerate(workflow.get("steps", [])):
         case = cases.get(str(step.get("case_id")))
         if not case:
-            return _blocked_workflow(workflow, step_results, workflow_state, "missing_case", str(step.get("case_id")))
+            return _blocked_workflow(workflow, step_results, workflow_state, "missing_case", str(step.get("case_id")), review_artifact)
         if step.get("depends_on_previous_step") and len(workflow_state.get("completed_case_ids", [])) != index:
-            return _blocked_workflow(workflow, step_results, workflow_state, "prior_step_missing", str(case.get("case_id")))
+            return _blocked_workflow(workflow, step_results, workflow_state, "prior_step_missing", str(case.get("case_id")), review_artifact)
         if binding_review_required(step):
-            return _blocked_workflow(workflow, step_results, workflow_state, "binding_review_required", str(case.get("case_id")))
+            return _blocked_workflow(workflow, step_results, workflow_state, "binding_review_required", str(case.get("case_id")), review_artifact)
         if not is_live_case_executable(case, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes):
-            return _blocked_workflow(workflow, step_results, workflow_state, step_block_reason(step), str(case.get("case_id")))
+            return _blocked_workflow(workflow, step_results, workflow_state, step_block_reason(step), str(case.get("case_id")), review_artifact)
         bound_case, applied_bindings, binding_error = apply_response_bindings(case, step, workflow_state)
         if binding_error is not None:
-            return _blocked_workflow(workflow, step_results, workflow_state, binding_error[0], binding_error[1])
+            return _blocked_workflow(workflow, step_results, workflow_state, binding_error[0], binding_error[1], review_artifact)
         assert bound_case is not None
         state_before = snapshot_workflow_state(workflow_state)
         result = execute_live_case(bound_case, timeout_seconds, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes)
@@ -119,6 +121,7 @@ def _execute_workflow(
                 "step_count": workflow.get("step_count", len(workflow.get("steps", []))),
                 "failed_step": case.get("case_id"),
                 "failure_reason_code": workflow_reason_code(result),
+                "binding_review_artifact": review_artifact,
                 "final_state": snapshot_workflow_state(workflow_state),
                 "results": step_results,
             }
@@ -127,8 +130,25 @@ def _execute_workflow(
         "status": "completed",
         "executed_step_count": len(step_results),
         "step_count": workflow.get("step_count", len(workflow.get("steps", []))),
+        "binding_review_artifact": review_artifact,
         "final_state": snapshot_workflow_state(workflow_state),
         "results": step_results,
+    }
+
+
+def _binding_review_artifact(workflow: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "workflow_id": workflow.get("workflow_id", "unknown"),
+        "steps": [
+            {
+                "case_id": step.get("case_id"),
+                "workflow_step_index": step.get("workflow_step_index", 0),
+                "binding_review_summary": step.get("binding_review_summary", {}),
+                "binding_review_decisions": step.get("binding_review_decisions", []),
+            }
+            for step in workflow.get("steps", [])
+            if step.get("binding_review_summary") or step.get("binding_review_decisions")
+        ],
     }
 
 
@@ -138,6 +158,7 @@ def _blocked_workflow(
     workflow_state: dict[str, Any],
     reason_code: str,
     reason_detail: str,
+    review_artifact: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "workflow_id": workflow.get("workflow_id", "unknown"),
@@ -147,6 +168,7 @@ def _blocked_workflow(
         "failure_reason_code": reason_code,
         "failure_detail": reason_detail,
         "error": f"{reason_code}:{reason_detail}",
+        "binding_review_artifact": review_artifact,
         "final_state": snapshot_workflow_state(workflow_state),
         "results": step_results,
     }

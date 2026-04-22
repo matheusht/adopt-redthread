@@ -63,7 +63,7 @@ def _build_workflow(group: str, cases: list[dict[str, Any]], overrides: dict[str
             "response_binding_contract": {
                 "mode": "declared_allowlist",
                 "supported_sources": ["response_json", "response_header"],
-                "supported_targets": ["request_url", "request_body_json"],
+                "supported_targets": ["request_url", "request_path", "request_body_json"],
                 "declared_binding_count": sum(len(step.get("response_bindings", [])) for step in steps),
             },
             "dependency_contract": {

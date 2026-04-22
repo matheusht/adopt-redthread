@@ -68,6 +68,54 @@ class LiveWorkflowBindingTests(unittest.TestCase):
             {"account_id": "acct-123", "trace_id": "trace-abc"},
         )
 
+    def test_executor_applies_request_path_response_bindings(self) -> None:
+        with binding_server() as base_url:
+            attack_plan = {
+                "cases": [
+                    {
+                        "case_id": "step_a",
+                        "method": "GET",
+                        "path": "/api/v1/account/profile",
+                        "workflow_group": "account",
+                        "workflow_step_index": 0,
+                        "execution_mode": "live_safe_read",
+                        "approval_mode": "auto",
+                        "allowed": True,
+                        "request_blueprint": {"url": f"{base_url}/api/v1/account/profile", "host": base_url.replace("http://", "")},
+                    },
+                    {
+                        "case_id": "step_b",
+                        "method": "GET",
+                        "path": "/api/v1/account/items/{{account_id}}",
+                        "workflow_group": "account",
+                        "workflow_step_index": 1,
+                        "execution_mode": "live_safe_read",
+                        "approval_mode": "auto",
+                        "allowed": True,
+                        "request_blueprint": {
+                            "url": f"{base_url}/api/v1/account/items/{{{{account_id}}}}",
+                            "host": base_url.replace("http://", ""),
+                        },
+                        "response_bindings": [
+                            {
+                                "binding_id": "account_id",
+                                "source_case_id": "step_a",
+                                "source_type": "response_json",
+                                "source_key": "account_id",
+                                "target_field": "request_path",
+                                "placeholder": "{{account_id}}",
+                            }
+                        ],
+                    },
+                ]
+            }
+            workflow_plan = build_live_workflow_plan(attack_plan)
+            summary = execute_live_workflow_replay(workflow_plan, attack_plan)
+
+        self.assertEqual(summary["successful_workflow_count"], 1)
+        evidence = summary["results"][0]["results"][1]["workflow_evidence"]
+        self.assertEqual(evidence["applied_response_bindings"][0]["target_field"], "request_path")
+
     def test_executor_blocks_when_required_response_binding_is_missing(self) -> None:
         with binding_server() as base_url:
             attack_plan = {

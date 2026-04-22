@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 
 SUPPORTED_BINDING_SOURCES = {"response_json", "response_header"}
-SUPPORTED_BINDING_TARGETS = {"request_url", "request_body_json"}
+SUPPORTED_BINDING_TARGETS = {"request_url", "request_path", "request_body_json"}
 
 
 def extract_response_binding_values(
@@ -47,6 +48,7 @@ def apply_response_bindings(
     bound_case = deepcopy(case)
     request_blueprint = bound_case.setdefault("request_blueprint", {})
     request_url = str(step.get("request_url_template") or request_blueprint.get("url", ""))
+    request_path = str(bound_case.get("path", ""))
     request_body_json = deepcopy(request_blueprint.get("body_json"))
     applied: list[dict[str, Any]] = []
     binding_values = workflow_state.get("response_binding_values", {})
@@ -68,6 +70,10 @@ def apply_response_bindings(
                     return None, applied, ("response_binding_target_missing", binding_id)
                 continue
             request_url = request_url.replace(placeholder, value)
+        elif target_field == "request_path":
+            request_url, request_path, error = _apply_request_path_binding(request_url, request_path, placeholder, value, required, binding_id)
+            if error is not None:
+                return None, applied, error
         elif target_field == "request_body_json":
             target_path = str(binding.get("target_path", "")).strip()
             if not target_path or not _set_json_path_value(request_body_json, target_path, value):
@@ -85,6 +91,7 @@ def apply_response_bindings(
                 "value_preview": value[:120],
             }
         )
+    bound_case["path"] = request_path
     request_blueprint["url"] = request_url
     if request_body_json is not None:
         request_blueprint["body_json"] = request_body_json
@@ -101,6 +108,33 @@ def declared_response_binding_count(workflows: list[dict[str, Any]]) -> int:
 
 def applied_response_binding_count(results: list[dict[str, Any]]) -> int:
     return sum(len(step.get("workflow_evidence", {}).get("applied_response_bindings", [])) for result in results for step in result.get("results", []))
+
+
+def _apply_request_path_binding(
+    request_url: str,
+    request_path: str,
+    placeholder: str,
+    value: str,
+    required: bool,
+    binding_id: str,
+) -> tuple[str, str, tuple[str, str] | None]:
+    path_target = request_path
+    if placeholder in path_target:
+        path_target = path_target.replace(placeholder, value)
+        return _replace_url_path(request_url, placeholder, value), path_target, None
+    if placeholder in request_url:
+        replaced_url = _replace_url_path(request_url, placeholder, value)
+        replaced_path = urlsplit(replaced_url).path or request_path
+        return replaced_url, replaced_path, None
+    if required:
+        return request_url, request_path, ("response_binding_target_missing", binding_id)
+    return request_url, request_path, None
+
+
+def _replace_url_path(request_url: str, placeholder: str, value: str) -> str:
+    parsed = urlsplit(request_url)
+    replaced_path = parsed.path.replace(placeholder, value)
+    return urlunsplit((parsed.scheme, parsed.netloc, replaced_path, parsed.query, parsed.fragment))
 
 
 def _set_json_path_value(payload: Any, dotted_path: str, value: str) -> bool:

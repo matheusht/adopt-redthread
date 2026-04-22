@@ -8,7 +8,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 def build_step(case: dict[str, Any], cases: list[dict[str, Any]], overrides: dict[str, Any], case_host: str) -> dict[str, Any]:
     request_url_template, response_bindings = step_response_binding_contract(case, cases)
-    request_url_template, response_bindings = apply_binding_override(case, request_url_template, response_bindings, overrides)
+    request_url_template, response_bindings, review_decisions = apply_binding_override(case, request_url_template, response_bindings, overrides)
+    review_summary = binding_review_summary(response_bindings, review_decisions)
     step = {
         "case_id": case.get("case_id"),
         "workflow_step_index": case.get("workflow_step_index", 0),
@@ -25,7 +26,9 @@ def build_step(case: dict[str, Any], cases: list[dict[str, Any]], overrides: dic
             "expected_host": case_host,
         },
         "response_bindings": response_bindings,
-        "binding_review_required": any(str(binding.get("review_status", "approved")) != "approved" for binding in response_bindings),
+        "binding_review_required": review_summary["pending_review_response_binding_count"] > 0,
+        "binding_review_summary": review_summary,
+        "binding_review_decisions": review_decisions,
     }
     if request_url_template:
         step["request_url_template"] = request_url_template
@@ -97,19 +100,23 @@ def apply_binding_override(
     request_url_template: str | None,
     response_bindings: list[dict[str, Any]],
     overrides: dict[str, Any],
-) -> tuple[str | None, list[dict[str, Any]]]:
+) -> tuple[str | None, list[dict[str, Any]], list[dict[str, Any]]]:
     case_override = overrides.get("case_bindings", {}).get(str(case.get("case_id")), {})
+    inferred_bindings = [binding for binding in response_bindings if binding.get("inferred")]
     if not case_override:
-        return request_url_template, response_bindings
+        return request_url_template, response_bindings, pending_review_decisions(inferred_bindings)
     if case_override.get("review_status") == "rejected":
-        return None, []
+        return None, [], decision_records(inferred_bindings, "rejected")
     if case_override.get("replace_response_bindings") is not None:
-        response_bindings = [normalized_binding(binding, inferred=False) for binding in case_override.get("replace_response_bindings", [])]
-    elif case_override.get("review_status"):
-        review_status = str(case_override.get("review_status"))
-        response_bindings = [{**binding, "review_status": review_status} for binding in response_bindings]
-    override_template = str(case_override.get("request_url_template", "")).strip()
-    return override_template or request_url_template, response_bindings
+        replaced_bindings = [normalized_binding(binding, inferred=False) for binding in case_override.get("replace_response_bindings", [])]
+        return _override_template(case_override, request_url_template), replaced_bindings, decision_records(inferred_bindings, "replaced")
+    review_status = str(case_override.get("review_status", "")).strip()
+    if review_status:
+        updated = [{**binding, "review_status": review_status} for binding in response_bindings]
+        if review_status == "approved":
+            return _override_template(case_override, request_url_template), updated, decision_records(inferred_bindings, "approved")
+        return _override_template(case_override, request_url_template), updated, decision_records(inferred_bindings, review_status)
+    return _override_template(case_override, request_url_template), response_bindings, pending_review_decisions(inferred_bindings)
 
 
 def normalized_binding(binding: dict[str, Any], *, inferred: bool) -> dict[str, Any]:
@@ -120,6 +127,40 @@ def normalized_binding(binding: dict[str, Any], *, inferred: bool) -> dict[str, 
     normalized.setdefault("inference_reason", "manual_declared" if not inferred else "auto_query_param_previous_step")
     normalized.setdefault("review_status", "pending_review" if normalized["inferred"] else "approved")
     return normalized
+
+
+def binding_review_summary(bindings: list[dict[str, Any]], decisions: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "inferred_response_binding_count": sum(1 for decision in decisions if decision.get("decision") in {"pending_review", "approved", "rejected", "replaced"}),
+        "approved_response_binding_count": sum(1 for decision in decisions if decision.get("decision") == "approved"),
+        "pending_review_response_binding_count": sum(1 for decision in decisions if decision.get("decision") == "pending_review"),
+        "rejected_response_binding_count": sum(1 for decision in decisions if decision.get("decision") == "rejected"),
+        "replaced_response_binding_count": sum(1 for decision in decisions if decision.get("decision") == "replaced"),
+        "active_declared_response_binding_count": len(bindings),
+    }
+
+
+def pending_review_decisions(bindings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return decision_records(bindings, "pending_review")
+
+
+def decision_records(bindings: list[dict[str, Any]], decision: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "binding_id": binding.get("binding_id"),
+            "source_case_id": binding.get("source_case_id"),
+            "target_field": binding.get("target_field"),
+            "inference_reason": binding.get("inference_reason"),
+            "confidence": binding.get("confidence"),
+            "decision": decision,
+        }
+        for binding in bindings
+    ]
+
+
+def _override_template(case_override: dict[str, Any], request_url_template: str | None) -> str | None:
+    override_template = str(case_override.get("request_url_template", "")).strip()
+    return override_template or request_url_template
 
 
 def looks_like_binding_query(name: str, value: str) -> bool:

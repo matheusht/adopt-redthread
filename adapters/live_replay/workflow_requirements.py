@@ -13,7 +13,6 @@ def summarize_workflow_requirements(workflows: list[dict[str, Any]], results: li
     required_header_families: dict[str, int] = {}
     for workflow in workflows:
         context = workflow.get("workflow_context_requirements", {})
-        session = workflow.get("session_context_requirements", {})
         workflow_class = str(context.get("workflow_class", "unknown"))
         class_counts[workflow_class] = class_counts.get(workflow_class, 0) + 1
         for family in context.get("required_header_families", []):
@@ -27,9 +26,11 @@ def summarize_workflow_requirements(workflows: list[dict[str, Any]], results: li
         "shared_write_context_required_count": _count(workflows, "session_context_requirements", "shared_write_context_required"),
         "declared_response_binding_count": declared_response_binding_count(workflows),
         "applied_response_binding_count": applied_response_binding_count(results),
-        "inferred_response_binding_count": _binding_count(workflows, lambda binding: bool(binding.get("inferred"))),
-        "approved_response_binding_count": _binding_count(workflows, lambda binding: str(binding.get("review_status", "approved")) == "approved"),
-        "pending_review_response_binding_count": _binding_count(workflows, lambda binding: str(binding.get("review_status", "approved")) != "approved"),
+        "inferred_response_binding_count": _review_count(workflows, "inferred_response_binding_count"),
+        "approved_response_binding_count": _review_count(workflows, "approved_response_binding_count"),
+        "pending_review_response_binding_count": _review_count(workflows, "pending_review_response_binding_count"),
+        "rejected_response_binding_count": _review_count(workflows, "rejected_response_binding_count"),
+        "replaced_response_binding_count": _review_count(workflows, "replaced_response_binding_count"),
         "required_header_family_counts": required_header_families,
         "context_contract_failure_counts": _failure_counts(results),
     }
@@ -91,9 +92,7 @@ def _validate_auth_header_contract(
     if "auth" not in {str(name) for name in context.get("required_header_families", [])}:
         return None
     required_names = {str(name).lower() for name in session.get("required_auth_header_names", []) if str(name).strip()}
-    if not required_names:
-        return None
-    if not auth_payload or not auth_payload.get("approved"):
+    if not required_names or not auth_payload or not auth_payload.get("approved"):
         return None
     allowed_names = {str(name).lower() for name in auth_payload.get("allowed_header_names", []) if str(name).strip()}
     if required_names.issubset(allowed_names):
@@ -105,8 +104,8 @@ def _count(workflows: list[dict[str, Any]], section: str, key: str) -> int:
     return sum(1 for workflow in workflows if workflow.get(section, {}).get(key))
 
 
-def _binding_count(workflows: list[dict[str, Any]], predicate: Any) -> int:
-    return sum(1 for workflow in workflows for step in workflow.get("steps", []) for binding in step.get("response_bindings", []) if predicate(binding))
+def _review_count(workflows: list[dict[str, Any]], key: str) -> int:
+    return sum(int(step.get("binding_review_summary", {}).get(key, 0)) for workflow in workflows for step in workflow.get("steps", []))
 
 
 def _failure_counts(results: list[dict[str, Any]]) -> dict[str, int]:

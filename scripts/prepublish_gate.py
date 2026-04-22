@@ -142,6 +142,8 @@ def _workflow_requirement_notes(summary: dict[str, Any]) -> list[str]:
         f"live_workflow_inferred_response_binding_count={summary.get('inferred_response_binding_count', 0)}",
         f"live_workflow_approved_response_binding_count={summary.get('approved_response_binding_count', 0)}",
         f"live_workflow_pending_review_response_binding_count={summary.get('pending_review_response_binding_count', 0)}",
+        f"live_workflow_rejected_response_binding_count={summary.get('rejected_response_binding_count', 0)}",
+        f"live_workflow_replaced_response_binding_count={summary.get('replaced_response_binding_count', 0)}",
         f"live_workflow_required_header_families={_flat_counts(summary.get('required_header_family_counts', {}))}",
         f"live_workflow_context_contract_failures={_flat_counts(failure_counts)}",
     ]

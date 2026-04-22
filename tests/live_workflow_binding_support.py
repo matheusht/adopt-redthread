@@ -24,6 +24,14 @@ class BindingHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if self.path == "/api/v1/account/items/acct-123":
+            body = json.dumps({"ok": True, "mode": "path_binding"}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path == "/api/v1/account/preferences?account_id=acct-123":
             body = json.dumps({"ok": True, "mode": "query_binding"}).encode("utf-8")
             self.send_response(200)

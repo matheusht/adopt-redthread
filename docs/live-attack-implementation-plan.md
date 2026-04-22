@@ -677,6 +677,17 @@ One additional safe binding target now exists:
 This only becomes live for reviewed write steps when the write approval explicitly says:
 - `use_bound_body_json: true`
 
+### Phase 9.3 — reviewed path-binding and decision artifacts
+
+The binding system now adds one more bounded target:
+- `request_path`
+
+This lets approved bindings replace placeholders inside a request path without enabling freeform URL mutation.
+
+Workflow replay and bridge summaries now also expose reviewed binding decision artifacts:
+- per-workflow reviewed binding decisions
+- counts for inferred / approved / pending-review / rejected / replaced inferred bindings
+
 Still honest:
 - this is only a small query-parameter heuristic plus explicit operator review/override
 - it does not infer arbitrary body/path bindings automatically

@@ -44,7 +44,6 @@ def run_bridge_workflow(
 
     bundle = _build_bundle(input_file, ingestion)
     replay_pack = build_replay_pack(bundle)
-    gate_verdict = build_gate_verdict(replay_pack, allow_sandbox_only=allow_sandbox_only)
     runtime_inputs = build_redthread_runtime_inputs(bundle)
     live_attack_plan = build_live_attack_plan(bundle)
     live_workflow_plan = build_live_workflow_plan(live_attack_plan)
@@ -52,7 +51,6 @@ def run_bridge_workflow(
     paths = _artifact_paths(output_root)
     _write_json(paths["fixture_bundle"], bundle)
     _write_json(paths["replay_plan"], replay_pack)
-    _write_json(paths["gate_verdict"], gate_verdict)
     _write_json(paths["runtime_inputs"], runtime_inputs)
     _write_json(paths["live_attack_plan"], live_attack_plan)
     _write_json(paths["live_workflow_plan"], live_workflow_plan)
@@ -81,6 +79,14 @@ def run_bridge_workflow(
         )
 
     replay_verdict = _run_replay(runtime_input=paths["runtime_inputs"], output_path=paths["replay_verdict"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))
+    gate_verdict = build_gate_verdict(
+        replay_pack,
+        allow_sandbox_only=allow_sandbox_only,
+        live_safe_replay=live_safe_replay_summary,
+        live_workflow_replay=live_workflow_summary,
+        redthread_replay_verdict=replay_verdict,
+    )
+    _write_json(paths["gate_verdict"], gate_verdict)
     dryrun_summary: dict[str, Any] | None = None
     if run_dryrun:
         dryrun_summary = _run_dryrun(runtime_input=paths["runtime_inputs"], output_path=paths["dryrun_case0"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))

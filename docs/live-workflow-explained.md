@@ -189,6 +189,7 @@ The intended workflow is:
    - approve
    - review
    - block
+   - and now it can include live replay/workflow evidence plus the RedThread replay verdict
 
 That is the intended product behavior.
 

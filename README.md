@@ -18,6 +18,7 @@ What works today:
 - ingest an Adopt-style action catalog
 - generate replay-pack groups
 - generate a prototype pre-publish gate verdict
+- feed live replay/workflow evidence and real RedThread replay verdicts back into that gate
 - export normalized fixtures into real RedThread replay-bundle inputs
 - evaluate those replay traces with RedThread's actual promotion-gate code
 - generate a machine-readable live attack plan with execution policy fields
@@ -39,6 +40,7 @@ What is **not** live yet:
 - full reviewed write coverage beyond the first non-destructive staging lane
 - fully automatic live ZAPI runtime -> RedThread attack loop against a real Adopt-managed session
 - production-grade publish gating
+- richer gate policy beyond the first evidence-aware prototype
 
 So the honest status is:
 
@@ -63,6 +65,7 @@ It is the integration lab for:
 - replay-pack generation
 - RedThread runtime export
 - pre-publish security gates
+- evidence-aware publish recommendations from replay/runtime results
 - recruiter-ready demos for practical agent hardening
 
 ## Quick architecture

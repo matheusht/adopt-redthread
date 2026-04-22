@@ -7,7 +7,7 @@ Current scripts:
 - `ingest_noui.py` — normalize a NoUI MCP server output into fixtures
 - `ingest_adopt_actions.py` — normalize an Adopt action catalog into fixtures
 - `generate_replay_pack.py` — turn normalized fixtures into replay-pack groups
-- `prepublish_gate.py` — prototype gate for approve/review/block decisions
+- `prepublish_gate.py` — prototype gate for approve/review/block decisions, now able to include live replay/workflow evidence and RedThread replay verdicts
 - `generate_live_attack_plan.py` — create `live_attack_plan.json` with execution policy for each normalized fixture
 - `run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
 - `run_live_workflow_replay.py` — execute grouped sequential workflow replay from workflow and attack plans using the same auth/write guardrails
@@ -142,6 +142,7 @@ python3 scripts/run_live_zapi_bridge.py \
 What this proves:
 - artifact capture/export can now be chained directly into bridge normalization
 - a machine-readable live attack plan now exists alongside replay and gate artifacts
+- the gate can now include live replay/workflow evidence and the RedThread replay verdict
 - a machine-readable live workflow plan now exists for grouped multi-step cases
 - the first live safe-read execution lane can run against allowed GET cases
 - reviewed auth-bound safe-read GETs can run only with explicit approved auth context

@@ -34,9 +34,11 @@ class BridgeWorkflowTests(unittest.TestCase):
 
         workflow_summary = json.loads((output_dir / "workflow_summary.json").read_text())
         live_attack_plan = json.loads((output_dir / "live_attack_plan.json").read_text())
+        gate_verdict = json.loads((output_dir / "gate_verdict.json").read_text())
         self.assertEqual(workflow_summary["gate_decision"], "review")
         self.assertIn("live_attack_allowed_count", workflow_summary)
         self.assertEqual(live_attack_plan["fixture_count"], 4)
+        self.assertTrue(gate_verdict["evidence_summary"]["redthread_replay_verdict"]["passed"])
 
     def test_cli_bridge_pipeline_emits_summary_json(self) -> None:
         output_dir = Path("runs/test_cli_bridge")

@@ -36,13 +36,14 @@ That is now the implemented shape.
 So the current system now has a real ladder:
 
 ```text
-interactive capture -> normalized fixtures -> live attack plan -> live workflow plan -> safe-read live replay -> auth-aware safe-read replay -> reviewed staging writes -> grouped workflow replay -> replay gate -> dry-run
+interactive capture -> normalized fixtures -> live attack plan -> live workflow plan -> safe-read live replay -> auth-aware safe-read replay -> reviewed staging writes -> grouped workflow replay -> evidence-aware replay gate -> dry-run
 ```
 
 Still honest:
 - writes are not auto-executed
 - only the first non-destructive staging write lane exists
 - workflow replay is bounded sequential replay, not full browser/session-state orchestration
+- the gate is now evidence-aware, but still a first prototype rather than a full release-control system
 
 ---
 

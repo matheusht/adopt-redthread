@@ -17,6 +17,20 @@ def approved_write_body_json(
     return body if isinstance(body, dict) else None
 
 
+def approved_write_headers(
+    case: dict[str, Any],
+    write_payload: dict[str, Any] | None,
+    allow_reviewed_writes: bool,
+) -> dict[str, Any] | None:
+    if case.get("execution_mode") != "live_reviewed_write_staging":
+        return None
+    if not allow_reviewed_writes or not write_payload or not write_payload.get("approved"):
+        return None
+    case_approval = write_payload.get("case_approvals", {}).get(str(case.get("case_id")), {})
+    headers = case_approval.get("headers") if case_approval.get("use_bound_headers") else None
+    return headers if isinstance(headers, dict) else None
+
+
 def binding_review_artifact(workflow: dict[str, Any]) -> dict[str, Any]:
     return {
         "workflow_id": workflow.get("workflow_id", "unknown"),

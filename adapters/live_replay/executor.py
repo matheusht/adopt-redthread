@@ -107,6 +107,15 @@ def execute_live_case(
             "header_names_sent": sorted(headers.keys()),
             "error": f"url_error: {exc.reason}",
         }
+    except TimeoutError:
+        return {
+            "case_id": case.get("case_id", "unknown"),
+            "method": method,
+            "success": False,
+            "auth_applied": bool(headers),
+            "header_names_sent": sorted(headers.keys()),
+            "error": "timeout",
+        }
 
 
 def is_live_case_executable(
@@ -158,6 +167,9 @@ def _approved_write_request(
     approvals = write_payload.get("case_approvals", {})
     case_approval = approvals.get(case.get("case_id"), {})
     headers = {str(key).lower(): str(value) for key, value in case_approval.get("headers", {}).items()}
+    if case_approval.get("use_bound_headers") and case.get("request_blueprint", {}).get("headers"):
+        headers.update({str(key).lower(): str(value) for key, value in case.get("request_blueprint", {}).get("headers", {}).items()})
+        
     body = case_approval.get("json_body")
     if case_approval.get("use_bound_body_json") and case.get("request_blueprint", {}).get("body_json") is not None:
         body = case.get("request_blueprint", {}).get("body_json")

@@ -8,7 +8,7 @@ from adapters.live_replay.executor import execute_live_case, is_live_case_execut
 from adapters.live_replay.workflow_bindings import apply_response_bindings, binding_review_required, extract_response_binding_values
 from adapters.live_replay.workflow_requirements import step_block_reason, summarize_failure_classes, summarize_workflow_requirements, validate_workflow_context
 from adapters.live_replay.workflow_state import initial_workflow_state, snapshot_workflow_state, step_evidence, update_workflow_state, workflow_reason_code
-from adapters.live_replay.workflow_support import approved_write_body_json, binding_review_artifact
+from adapters.live_replay.workflow_support import approved_write_body_json, approved_write_headers, binding_review_artifact
 
 
 def execute_live_workflow_replay(
@@ -94,6 +94,7 @@ def _execute_workflow(
             step,
             workflow_state,
             approved_write_body_json(case, write_payload, allow_reviewed_writes),
+            approved_write_headers(case, write_payload, allow_reviewed_writes),
         )
         if binding_error is not None:
             return _blocked_workflow(workflow, step_results, workflow_state, binding_error[0], binding_error[1], review_artifact)

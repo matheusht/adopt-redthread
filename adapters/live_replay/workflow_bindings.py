@@ -6,7 +6,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 
 SUPPORTED_BINDING_SOURCES = {"response_json", "response_header"}
-SUPPORTED_BINDING_TARGETS = {"request_url", "request_path", "request_body_json"}
+SUPPORTED_BINDING_TARGETS = {"request_url", "request_path", "request_body_json", "request_header"}
 
 
 def extract_response_binding_values(
@@ -42,6 +42,7 @@ def apply_response_bindings(
     step: dict[str, Any],
     workflow_state: dict[str, Any],
     approved_write_body_json: dict[str, Any] | None = None,
+    approved_write_headers: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], tuple[str, str] | None]:
     bindings = step.get("response_bindings", [])
     if not bindings:
@@ -53,6 +54,13 @@ def apply_response_bindings(
     request_body_json = deepcopy(request_blueprint.get("body_json"))
     if request_body_json is None and isinstance(approved_write_body_json, dict):
         request_body_json = deepcopy(approved_write_body_json)
+        
+    request_headers = deepcopy(request_blueprint.get("headers", {}))
+    if isinstance(approved_write_headers, dict):
+        for k, v in approved_write_headers.items():
+            if k not in request_headers:
+                request_headers[k] = v
+    request_blueprint["headers"] = request_headers
     applied: list[dict[str, Any]] = []
     binding_values = workflow_state.get("response_binding_values", {})
     for binding in bindings:
@@ -83,6 +91,16 @@ def apply_response_bindings(
                 if required:
                     return None, applied, ("response_binding_target_missing", binding_id)
                 continue
+        elif target_field == "request_header":
+            target_path = str(binding.get("target_path", "")).strip().lower()
+            if not target_path:
+                continue
+            request_blueprint.setdefault("headers", {})
+            header_value = request_blueprint["headers"].get(target_path, "")
+            if placeholder and placeholder in header_value:
+                request_blueprint["headers"][target_path] = header_value.replace(placeholder, value)
+            else:
+                request_blueprint["headers"][target_path] = value
         applied.append(
             {
                 "binding_id": binding_id,

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -9,6 +7,7 @@ from typing import Any
 from adapters.adopt_actions.loader import build_action_fixture_bundle
 from adapters.bridge.live_attack import build_live_attack_plan
 from adapters.bridge.live_workflow import build_live_workflow_plan
+from adapters.bridge.workflow_io import artifact_paths, run_redthread_dryrun, run_redthread_replay, write_json
 from adapters.bridge.workflow_review_manifest import build_workflow_review_manifest, enrich_manifest_candidates
 from adapters.live_replay.executor import execute_live_safe_replay
 from adapters.live_replay.workflow_executor import execute_live_workflow_replay
@@ -36,6 +35,7 @@ def run_bridge_workflow(
     allow_reviewed_auth: bool = False,
     write_context: dict[str, Any] | str | Path | None = None,
     allow_reviewed_writes: bool = False,
+    stream_max_bytes: int = 512,
     binding_overrides: dict[str, Any] | str | Path | None = None,
     redthread_python: str | Path = DEFAULT_REDTHREAD_PYTHON,
     redthread_src: str | Path = DEFAULT_REDTHREAD_SRC,
@@ -50,16 +50,16 @@ def run_bridge_workflow(
     live_attack_plan = build_live_attack_plan(bundle)
     live_workflow_plan = build_live_workflow_plan(live_attack_plan, binding_overrides)
 
-    paths = _artifact_paths(output_root)
-    _write_json(paths["fixture_bundle"], bundle)
-    _write_json(paths["replay_plan"], replay_pack)
-    _write_json(paths["runtime_inputs"], runtime_inputs)
-    _write_json(paths["live_attack_plan"], live_attack_plan)
-    _write_json(paths["live_workflow_plan"], live_workflow_plan)
+    paths = artifact_paths(output_root)
+    write_json(paths["fixture_bundle"], bundle)
+    write_json(paths["replay_plan"], replay_pack)
+    write_json(paths["runtime_inputs"], runtime_inputs)
+    write_json(paths["live_attack_plan"], live_attack_plan)
+    write_json(paths["live_workflow_plan"], live_workflow_plan)
 
     cases = {str(case.get("case_id", "")): case for case in live_attack_plan.get("cases", [])}
     workflow_review_manifest = build_workflow_review_manifest(live_workflow_plan, None, cases)
-    _write_json(paths["workflow_review_manifest"], workflow_review_manifest)
+    write_json(paths["workflow_review_manifest"], workflow_review_manifest)
 
     live_safe_replay_summary: dict[str, Any] | None = None
     if run_live_safe_replay:
@@ -70,6 +70,7 @@ def run_bridge_workflow(
             write_context=write_context,
             allow_reviewed_writes=allow_reviewed_writes,
             output_path=paths["live_safe_replay"],
+            stream_max_bytes=stream_max_bytes,
         )
 
     live_workflow_summary: dict[str, Any] | None = None
@@ -82,14 +83,21 @@ def run_bridge_workflow(
             write_context=write_context,
             allow_reviewed_writes=allow_reviewed_writes,
             output_path=paths["live_workflow_replay"],
+            stream_max_bytes=stream_max_bytes,
         )
 
     if live_workflow_summary is not None:
         workflow_review_manifest = build_workflow_review_manifest(live_workflow_plan, live_workflow_summary, cases)
         workflow_review_manifest = enrich_manifest_candidates(workflow_review_manifest, live_workflow_summary, cases)
-        _write_json(paths["workflow_review_manifest"], workflow_review_manifest)
+        write_json(paths["workflow_review_manifest"], workflow_review_manifest)
 
-    replay_verdict = _run_replay(runtime_input=paths["runtime_inputs"], output_path=paths["replay_verdict"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))
+    replay_verdict = run_redthread_replay(
+        repo_root=REPO_ROOT,
+        runtime_input=paths["runtime_inputs"],
+        output_path=paths["replay_verdict"],
+        redthread_python=Path(redthread_python),
+        redthread_src=Path(redthread_src),
+    )
     gate_verdict = build_gate_verdict(
         replay_pack,
         allow_sandbox_only=allow_sandbox_only,
@@ -97,12 +105,18 @@ def run_bridge_workflow(
         live_workflow_replay=live_workflow_summary,
         redthread_replay_verdict=replay_verdict,
     )
-    _write_json(paths["gate_verdict"], gate_verdict)
+    write_json(paths["gate_verdict"], gate_verdict)
     dryrun_summary: dict[str, Any] | None = None
     if run_dryrun:
-        dryrun_summary = _run_dryrun(runtime_input=paths["runtime_inputs"], output_path=paths["dryrun_case0"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))
+        dryrun_summary = run_redthread_dryrun(
+            repo_root=REPO_ROOT,
+            runtime_input=paths["runtime_inputs"],
+            output_path=paths["dryrun_case0"],
+            redthread_python=Path(redthread_python),
+            redthread_src=Path(redthread_src),
+        )
 
-    artifact_paths = {
+    visible_artifacts = {
         name: str(path)
         for name, path in paths.items()
         if (name != "live_safe_replay" or live_safe_replay_summary is not None)
@@ -134,12 +148,12 @@ def run_bridge_workflow(
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "artifacts": artifact_paths,
+        "artifacts": visible_artifacts,
     }
     if dryrun_summary is not None:
         summary["dryrun_case_id"] = dryrun_summary["case_id"]
         summary["dryrun_rubric_name"] = dryrun_summary["rubric_name"]
-    _write_json(paths["summary"], summary)
+    write_json(paths["summary"], summary)
     return summary
 
 
@@ -152,55 +166,3 @@ def _build_bundle(input_file: Path, ingestion: str) -> dict[str, Any]:
     if ingestion not in builders:
         raise ValueError(f"Unsupported ingestion mode: {ingestion}")
     return builders[ingestion](input_file)
-
-
-def _run_replay(*, runtime_input: Path, output_path: Path, redthread_python: Path, redthread_src: Path) -> dict[str, Any]:
-    subprocess.run(
-        [
-            str(redthread_python),
-            str(REPO_ROOT / "scripts" / "evaluate_redthread_replay.py"),
-            str(runtime_input),
-            str(output_path),
-            "--redthread-src",
-            str(redthread_src),
-        ],
-        check=True,
-    )
-    return json.loads(output_path.read_text())
-
-
-def _run_dryrun(*, runtime_input: Path, output_path: Path, redthread_python: Path, redthread_src: Path) -> dict[str, Any]:
-    subprocess.run(
-        [
-            str(redthread_python),
-            str(REPO_ROOT / "scripts" / "run_redthread_dryrun.py"),
-            str(runtime_input),
-            str(output_path),
-            "--redthread-src",
-            str(redthread_src),
-        ],
-        check=True,
-    )
-    return json.loads(output_path.read_text())
-
-
-def _artifact_paths(output_root: Path) -> dict[str, Path]:
-    return {
-        "fixture_bundle": output_root / "fixture_bundle.json",
-        "replay_plan": output_root / "replay_plan.json",
-        "gate_verdict": output_root / "gate_verdict.json",
-        "runtime_inputs": output_root / "redthread_runtime_inputs.json",
-        "live_attack_plan": output_root / "live_attack_plan.json",
-        "live_workflow_plan": output_root / "live_workflow_plan.json",
-        "live_safe_replay": output_root / "live_safe_replay.json",
-        "live_workflow_replay": output_root / "live_workflow_replay.json",
-        "replay_verdict": output_root / "redthread_replay_verdict.json",
-        "dryrun_case0": output_root / "redthread_dryrun_case0.json",
-        "summary": output_root / "workflow_summary.json",
-        "workflow_review_manifest": output_root / "workflow_review_manifest.json",
-    }
-
-
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n")

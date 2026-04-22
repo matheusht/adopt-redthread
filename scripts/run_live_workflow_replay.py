@@ -28,6 +28,7 @@ def main() -> None:
     parser.add_argument("--write-context", help="Path to approved staging write context JSON for reviewed write workflow steps")
     parser.add_argument("--allow-reviewed-writes", action="store_true", help="Allow reviewed staging write workflow steps when approved write context is supplied")
     parser.add_argument("--timeout-seconds", type=int, default=10)
+    parser.add_argument("--stream-max-bytes", type=int, default=512, help="Bounded first-read budget for streaming responses")
     args = parser.parse_args()
 
     payload = execute_live_workflow_replay(
@@ -39,6 +40,7 @@ def main() -> None:
         allow_reviewed_writes=args.allow_reviewed_writes,
         output_path=args.output,
         timeout_seconds=args.timeout_seconds,
+        stream_max_bytes=args.stream_max_bytes,
     )
     print(json.dumps(payload, indent=2))
 

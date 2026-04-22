@@ -35,7 +35,12 @@ def build_failure_narrative(
             )
         return f"Replay blocked: target request field for binding '{reason_detail}' was not present in the request blueprint/template."
     if reason_code == "timeout":
-        return "Request was sent, but the response did not complete before the timeout budget. This often happens on streaming AI endpoints."
+        return "Request was sent, but no useful response bytes arrived before the timeout budget ended. This can happen when a streaming endpoint never produces its first chunk."
+    if reason_code == "stream_open_partial_read":
+        bytes_read = None if result is None else result.get("first_chunk_bytes")
+        if bytes_read is not None:
+            return f"Request reached the server and opened a streaming response. Engine captured the first {bytes_read} bytes only, then stopped because stream reading is intentionally bounded."
+        return "Request reached the server and opened a streaming response. Engine captured only the first bounded chunk, then stopped on purpose."
     if reason_code == "url_error":
         return f"Network/URL failure prevented the request from completing: {reason_detail}."
     if reason_code == "http_error":

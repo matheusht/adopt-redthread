@@ -15,7 +15,7 @@ CONTEXT_CONTRACT_REASONS = {
     "response_binding_missing",
     "response_binding_target_missing",
 }
-RUNTIME_FAILURE_REASONS = {"url_error"}
+RUNTIME_FAILURE_REASONS = {"url_error", "http_error", "timeout", "stream_open_partial_read"}
 
 
 def summarize_workflow_requirements(workflows: list[dict[str, Any]], results: list[dict[str, Any]]) -> dict[str, Any]:

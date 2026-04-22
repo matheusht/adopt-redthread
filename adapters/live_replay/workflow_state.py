@@ -94,6 +94,9 @@ def step_evidence(
         evidence["extracted_response_bindings"] = extracted_response_bindings
     if applied_response_bindings:
         evidence["applied_response_bindings"] = applied_response_bindings
+    for key in ("stream_opened", "first_chunk_bytes", "first_chunk_preview", "stream_content_type", "stream_read_budget_bytes"):
+        if key in result:
+            evidence[key] = result.get(key)
     if result.get("success"):
         evidence["result_narrative"] = "Step completed successfully."
     else:

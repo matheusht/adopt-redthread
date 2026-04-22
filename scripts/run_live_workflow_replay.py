@@ -13,7 +13,13 @@ from adapters.live_replay.workflow_executor import execute_live_workflow_replay
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Execute grouped live workflow replay cases from workflow and attack plans.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Execute grouped live workflow replay cases from workflow and attack plans. "
+            "This uses bounded workflow/session context requirements only. "
+            "It does not do browser orchestration or session repair."
+        )
+    )
     parser.add_argument("workflow_plan", help="Path to live_workflow_plan.json")
     parser.add_argument("live_attack_plan", help="Path to live_attack_plan.json")
     parser.add_argument("output", help="Path to write live workflow replay summary")

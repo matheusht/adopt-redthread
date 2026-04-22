@@ -3,6 +3,18 @@ from __future__ import annotations
 from typing import Any
 
 
+REVIEW_GAP_REASONS = {"step_not_executable", "missing_auth_context", "missing_write_context", "binding_review_required"}
+CONTEXT_MISMATCH_REASONS = {
+    "auth_header_family_mismatch",
+    "host_continuity_mismatch",
+    "target_env_mismatch",
+    "prior_step_missing",
+    "response_binding_missing",
+    "response_binding_target_missing",
+}
+RUNTIME_FAILURE_REASONS = {"url_error"}
+
+
 def apply_live_safe_replay_rules(
     live_safe_replay: dict[str, Any] | None,
     blockers: list[str],
@@ -30,15 +42,18 @@ def apply_live_workflow_rules(
     executed = int(live_workflow_replay.get("executed_workflow_count", 0))
     successful = int(live_workflow_replay.get("successful_workflow_count", 0))
     reason_counts = live_workflow_replay.get("reason_counts", {})
+    reasons = {str(key) for key in reason_counts}
     if executed == 0 and workflow_count > 0:
         warnings.append("live_workflow_replay_not_executed")
     if successful < executed:
         blockers.append("live_workflow_replay_failures_present")
     if int(live_workflow_replay.get("blocked_workflow_count", 0)) > 0:
         blockers.append("live_workflow_blocked_steps_present")
-    if reason_counts.get("step_not_executable", 0) > 0:
+    if reasons & REVIEW_GAP_REASONS:
         warnings.append("live_workflow_review_gap_present")
-    if any(key.startswith("http_status_") or key == "url_error" for key in reason_counts):
+    if reasons & CONTEXT_MISMATCH_REASONS:
+        blockers.append("live_workflow_context_mismatch_present")
+    if any(key.startswith("http_status_") or key in RUNTIME_FAILURE_REASONS for key in reasons):
         blockers.append("live_workflow_runtime_failures_present")
 
 
@@ -64,6 +79,7 @@ def evidence_counts(payload: dict[str, Any] | None) -> dict[str, Any] | None:
         "aborted_workflow_count",
         "total_executed_step_count",
         "reason_counts",
+        "workflow_requirement_summary",
         "passed",
     ):
         if key in payload:

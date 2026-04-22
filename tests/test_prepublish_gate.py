@@ -77,7 +77,7 @@ class PrepublishGateTests(unittest.TestCase):
                 "successful_workflow_count": 0,
                 "blocked_workflow_count": 1,
                 "aborted_workflow_count": 0,
-                "reason_counts": {"step_not_executable": 1},
+                "reason_counts": {"missing_auth_context": 1},
                 "results": [],
             },
             redthread_replay_verdict={"passed": True},
@@ -89,6 +89,75 @@ class PrepublishGateTests(unittest.TestCase):
         self.assertIn("live_workflow_review_gap_present", verdict["warnings"])
         self.assertIn("live_workflow_blocked_steps_present", verdict["blockers"])
         self.assertNotIn("redthread_replay_verdict_failed", verdict["blockers"])
+
+    def test_prepublish_gate_blocks_on_workflow_context_mismatch(self) -> None:
+        bundle = build_fixture_bundle("fixtures/zapi_samples/sample_filtered_har.json")
+        replay_pack = build_replay_pack(bundle)
+
+        verdict = build_gate_verdict(
+            replay_pack,
+            allow_sandbox_only=True,
+            live_workflow_replay={
+                "workflow_count": 1,
+                "executed_workflow_count": 0,
+                "successful_workflow_count": 0,
+                "blocked_workflow_count": 1,
+                "aborted_workflow_count": 0,
+                "reason_counts": {"host_continuity_mismatch": 1},
+                "results": [],
+            },
+            redthread_replay_verdict={"passed": True},
+        )
+
+        self.assertEqual(verdict["decision"], "block")
+        self.assertIn("live_workflow_context_mismatch_present", verdict["blockers"])
+
+    def test_prepublish_gate_surfaces_workflow_requirement_summary(self) -> None:
+        bundle = build_fixture_bundle("fixtures/zapi_samples/sample_filtered_har.json")
+        replay_pack = build_replay_pack(bundle)
+
+        verdict = build_gate_verdict(
+            replay_pack,
+            allow_sandbox_only=True,
+            live_workflow_replay={
+                "workflow_count": 1,
+                "executed_workflow_count": 1,
+                "successful_workflow_count": 1,
+                "blocked_workflow_count": 0,
+                "aborted_workflow_count": 0,
+                "reason_counts": {},
+                "workflow_requirement_summary": {
+                    "workflow_class_counts": {"auth_safe_read_workflow": 1},
+                    "same_host_continuity_required_count": 1,
+                    "same_target_env_required_count": 1,
+                    "shared_auth_context_required_count": 1,
+                    "shared_write_context_required_count": 0,
+                    "declared_response_binding_count": 2,
+                    "applied_response_binding_count": 1,
+                    "inferred_response_binding_count": 1,
+                    "approved_response_binding_count": 1,
+                    "pending_review_response_binding_count": 0,
+                    "required_header_family_counts": {"auth": 1},
+                    "context_contract_failure_counts": {},
+                },
+                "results": [],
+            },
+            redthread_replay_verdict={"passed": True},
+        )
+
+        self.assertEqual(
+            verdict["evidence_summary"]["live_workflow_replay"]["workflow_requirement_summary"]["workflow_class_counts"],
+            {"auth_safe_read_workflow": 1},
+        )
+        self.assertIn("live_workflow_classes=auth_safe_read_workflow:1", verdict["notes"])
+        self.assertIn("live_workflow_same_target_env_required_count=1", verdict["notes"])
+        self.assertIn("live_workflow_declared_response_binding_count=2", verdict["notes"])
+        self.assertIn("live_workflow_applied_response_binding_count=1", verdict["notes"])
+        self.assertIn("live_workflow_inferred_response_binding_count=1", verdict["notes"])
+        self.assertIn("live_workflow_approved_response_binding_count=1", verdict["notes"])
+        self.assertIn("live_workflow_pending_review_response_binding_count=0", verdict["notes"])
+        self.assertIn("live_workflow_required_header_families=auth:1", verdict["notes"])
+        self.assertIn("live_workflow_context_contract_failures=none", verdict["notes"])
 
 
 if __name__ == "__main__":

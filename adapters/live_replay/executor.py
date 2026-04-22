@@ -80,6 +80,8 @@ def execute_live_case(
                 "success": True,
                 "status_code": response.status,
                 "content_type": response.headers.get("Content-Type"),
+                "response_headers": {str(key).lower(): str(value) for key, value in response.headers.items()},
+                "response_json": _response_json(body),
                 "auth_applied": bool(headers),
                 "header_names_sent": sorted(headers.keys()),
                 "body_preview": body,
@@ -90,6 +92,8 @@ def execute_live_case(
             "method": method,
             "success": False,
             "status_code": exc.code,
+            "response_headers": {str(key).lower(): str(value) for key, value in exc.headers.items()},
+            "response_json": None,
             "auth_applied": bool(headers),
             "header_names_sent": sorted(headers.keys()),
             "error": "http_error",
@@ -155,6 +159,8 @@ def _approved_write_request(
     case_approval = approvals.get(case.get("case_id"), {})
     headers = {str(key).lower(): str(value) for key, value in case_approval.get("headers", {}).items()}
     body = case_approval.get("json_body")
+    if case_approval.get("use_bound_body_json") and case.get("request_blueprint", {}).get("body_json") is not None:
+        body = case.get("request_blueprint", {}).get("body_json")
     if body is None:
         return headers, None
     headers.setdefault("content-type", "application/json")
@@ -206,6 +212,14 @@ def _request_url(case: dict[str, Any], write_payload: dict[str, Any] | None) -> 
         if base and path:
             return f"{base}{path}"
     return str(case.get("request_blueprint", {}).get("url", ""))
+
+
+def _response_json(body: str) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def _load_optional_context(value: dict[str, Any] | str | Path | None) -> dict[str, Any] | None:

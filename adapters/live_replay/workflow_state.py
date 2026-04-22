@@ -13,6 +13,8 @@ def initial_workflow_state() -> dict[str, Any]:
         "last_case_id": None,
         "last_status_code": None,
         "auth_applied_any": False,
+        "response_binding_values": {},
+        "binding_source_case_ids": [],
     }
 
 
@@ -24,10 +26,17 @@ def snapshot_workflow_state(state: dict[str, Any]) -> dict[str, Any]:
         "last_case_id": state.get("last_case_id"),
         "last_status_code": state.get("last_status_code"),
         "auth_applied_any": bool(state.get("auth_applied_any", False)),
+        "response_binding_values": dict(state.get("response_binding_values", {})),
+        "binding_source_case_ids": list(state.get("binding_source_case_ids", [])),
     }
 
 
-def update_workflow_state(state: dict[str, Any], case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+def update_workflow_state(
+    state: dict[str, Any],
+    case: dict[str, Any],
+    result: dict[str, Any],
+    extracted_binding_values: dict[str, str] | None = None,
+) -> dict[str, Any]:
     next_state = snapshot_workflow_state(state)
     case_id = str(case.get("case_id", "unknown"))
     next_state["completed_case_ids"] = list(next_state.get("completed_case_ids", [])) + [case_id]
@@ -40,6 +49,12 @@ def update_workflow_state(state: dict[str, Any], case: dict[str, Any], result: d
     for key in _response_json_keys(result):
         if key not in next_state["response_json_keys"]:
             next_state["response_json_keys"] = list(next_state.get("response_json_keys", [])) + [key]
+    if extracted_binding_values:
+        merged = dict(next_state.get("response_binding_values", {}))
+        merged.update(extracted_binding_values)
+        next_state["response_binding_values"] = merged
+        if case_id not in next_state["binding_source_case_ids"]:
+            next_state["binding_source_case_ids"] = list(next_state.get("binding_source_case_ids", [])) + [case_id]
     return next_state
 
 
@@ -54,7 +69,14 @@ def workflow_reason_code(result: dict[str, Any]) -> str:
     return "unknown_error"
 
 
-def step_evidence(case: dict[str, Any], result: dict[str, Any], state_before: dict[str, Any], state_after: dict[str, Any] | None = None) -> dict[str, Any]:
+def step_evidence(
+    case: dict[str, Any],
+    result: dict[str, Any],
+    state_before: dict[str, Any],
+    state_after: dict[str, Any] | None = None,
+    extracted_response_bindings: list[dict[str, Any]] | None = None,
+    applied_response_bindings: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     evidence = {
         "case_id": case.get("case_id", "unknown"),
         "workflow_step_index": case.get("workflow_step_index", 0),
@@ -66,6 +88,10 @@ def step_evidence(case: dict[str, Any], result: dict[str, Any], state_before: di
     }
     if state_after is not None:
         evidence["state_after"] = state_after
+    if extracted_response_bindings:
+        evidence["extracted_response_bindings"] = extracted_response_bindings
+    if applied_response_bindings:
+        evidence["applied_response_bindings"] = applied_response_bindings
     return evidence
 
 

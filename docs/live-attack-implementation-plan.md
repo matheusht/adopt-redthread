@@ -33,17 +33,19 @@ That is now the implemented shape.
 | Phase 5 — Reviewed writes in staging | done | reviewed non-destructive write cases can run only in staging with explicit per-case approved write context |
 | Phase 6 — Workflow/session live execution | done (bounded) | grouped multi-step cases can replay in sequence with stop-on-first-failure using existing per-step guardrails |
 | Phase 7 — Workflow evidence and gate mapping | done (bounded) | workflow replay now carries bounded state/evidence forward, emits structured reason codes, and maps those reasons into the replay gate |
+| Phase 8 — Session-aware workflow context packs | done (bounded) | workflow plans now declare workflow/session context requirements, validate supplied context, and surface clearer gate reasons for review gaps vs context mismatches |
 
 So the current system now has a real ladder:
 
 ```text
-interactive capture -> normalized fixtures -> live attack plan -> live workflow plan -> safe-read live replay -> auth-aware safe-read replay -> reviewed staging writes -> grouped workflow replay with evidence carry-forward -> evidence-aware replay gate with workflow reason mapping -> dry-run
+interactive capture -> normalized fixtures -> live attack plan -> live workflow plan -> safe-read live replay -> auth-aware safe-read replay -> reviewed staging writes -> grouped workflow replay with evidence carry-forward -> evidence-aware replay gate with workflow reason mapping -> session-aware workflow context packs -> dry-run
 ```
 
 Still honest:
 - writes are not auto-executed
 - only the first non-destructive staging write lane exists
 - workflow replay is bounded sequential replay with bounded evidence carry-forward, not full browser/session-state orchestration
+- workflow context packs declare and validate context needs, but they do not create or repair browser/session state
 - the gate is now evidence-aware, but still a first prototype rather than a full release-control system
 
 ---
@@ -560,6 +562,138 @@ This is still **not**:
 - autonomous stateful attack planning
 
 ---
+
+## Phase 8 — Session-aware workflow context packs
+
+## Goal
+
+Add a bounded layer that says what a workflow needs before replay starts.
+
+Not full session automation.
+Just explicit contracts.
+
+## Delivered
+
+### New plan metadata
+
+`live_workflow_plan.json` now declares:
+- `workflow_context_requirements`
+- `session_context_requirements`
+- per-step `step_context_requirements`
+
+Current bounded checks include:
+- shared approved auth context required for auth-bound workflow steps
+- shared approved staging write context required for reviewed write workflows
+- same-host continuity when the captured workflow stayed on one host
+- same target environment continuity when the captured workflow stayed in one env
+- required header-family hints for workflow class reasoning
+- prior-step-success dependency contract for later steps
+
+### New structured workflow reasons
+
+Workflow replay can now fail with clearer blocked reasons like:
+- `missing_auth_context`
+- `missing_write_context`
+- `auth_header_family_mismatch`
+- `host_continuity_mismatch`
+- `target_env_mismatch`
+- `prior_step_missing`
+
+### New gate honesty
+
+The pre-publish gate now separates:
+- review/context supply gaps
+- workflow context mismatch
+- runtime failures
+
+That means the gate is less likely to flatten everything into generic `step_not_executable`.
+
+### Phase 8.1 follow-through
+
+The workflow replay summary now also surfaces a machine-readable `workflow_requirement_summary` so operators and the gate can see:
+- workflow class counts
+- same-host requirement counts
+- same-target-env requirement counts
+- shared auth/write context requirement counts
+- required header-family counts
+- context contract failure counts
+
+The pre-publish gate notes and top bridge `workflow_summary.json` now echo that bounded summary so humans can read the contract state without opening nested replay artifacts.
+
+### Phase 9 — Bounded response-derived value carry-forward
+
+## Goal
+
+Let one workflow step feed a small declared value into a later step.
+
+Still bounded.
+Still explicit.
+Still not freeform mutation.
+
+## Delivered
+
+`live_workflow_plan.json` can now declare per-step `response_bindings` with an explicit allowlist contract:
+- source step id
+- source type: `response_json` or `response_header`
+- source key/path
+- target field: currently `request_url` only
+- placeholder string to replace
+
+Workflow replay now:
+- extracts declared scalar values from successful prior step responses
+- stores them in bounded workflow state
+- applies them to later request URLs only when explicitly declared
+- records `extracted_response_bindings` and `applied_response_bindings` in workflow evidence
+- surfaces declared/applied binding counts in `workflow_requirement_summary`
+
+### Phase 9.1 — bridge-emitted binding hints
+
+The normal bridge flow now emits a first bounded class of response bindings automatically:
+- preserve the full captured request URL, including query string
+- if a later workflow step has an id-like query parameter such as `id` or `*_id`
+- and that step follows another step in the same workflow
+- emit a declared response binding from the previous step response JSON into that later request URL placeholder
+
+### Phase 9.2 — reviewed binding inference pack
+
+Auto-inferred bindings now carry explicit metadata:
+- `inferred`
+- `confidence`
+- `inference_reason`
+- `review_status`
+
+Workflow replay now blocks inferred bindings that are still pending review with:
+- `binding_review_required`
+
+Operators can now pass a binding override file through the bridge pipeline to:
+- approve inferred bindings
+- reject inferred bindings
+- replace inferred bindings with explicit approved bindings
+- override the request URL template for a step
+
+One additional safe binding target now exists:
+- `request_body_json`
+
+This only becomes live for reviewed write steps when the write approval explicitly says:
+- `use_bound_body_json: true`
+
+Still honest:
+- this is only a small query-parameter heuristic plus explicit operator review/override
+- it does not infer arbitrary body/path bindings automatically
+- it does not infer browser/session state
+- it does not claim all real workflows will bind automatically
+
+New structured workflow reasons now also include:
+- `response_binding_missing`
+- `response_binding_target_missing`
+
+### Still honest
+
+This is still **not**:
+- browser orchestration
+- cookie refresh logic
+- freeform request mutation
+- autonomous session repair
 
 ## Final judgment
 

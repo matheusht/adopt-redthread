@@ -35,6 +35,7 @@ def run_bridge_workflow(
     allow_reviewed_auth: bool = False,
     write_context: dict[str, Any] | str | Path | None = None,
     allow_reviewed_writes: bool = False,
+    binding_overrides: dict[str, Any] | str | Path | None = None,
     redthread_python: str | Path = DEFAULT_REDTHREAD_PYTHON,
     redthread_src: str | Path = DEFAULT_REDTHREAD_SRC,
 ) -> dict[str, Any]:
@@ -46,7 +47,7 @@ def run_bridge_workflow(
     replay_pack = build_replay_pack(bundle)
     runtime_inputs = build_redthread_runtime_inputs(bundle)
     live_attack_plan = build_live_attack_plan(bundle)
-    live_workflow_plan = build_live_workflow_plan(live_attack_plan)
+    live_workflow_plan = build_live_workflow_plan(live_attack_plan, binding_overrides)
 
     paths = _artifact_paths(output_root)
     _write_json(paths["fixture_bundle"], bundle)
@@ -116,6 +117,7 @@ def run_bridge_workflow(
         "live_workflow_blocked_count": 0 if live_workflow_summary is None else live_workflow_summary.get("blocked_workflow_count", 0),
         "live_workflow_aborted_count": 0 if live_workflow_summary is None else live_workflow_summary.get("aborted_workflow_count", 0),
         "live_workflow_reason_counts": {} if live_workflow_summary is None else live_workflow_summary.get("reason_counts", {}),
+        "live_workflow_requirement_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_requirement_summary", {}),
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),

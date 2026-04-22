@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from adapters.live_replay.executor import execute_live_case, is_live_case_executable
+from adapters.live_replay.workflow_bindings import apply_response_bindings, binding_review_required, extract_response_binding_values
+from adapters.live_replay.workflow_requirements import step_block_reason, summarize_workflow_requirements, validate_workflow_context
 from adapters.live_replay.workflow_state import initial_workflow_state, snapshot_workflow_state, step_evidence, update_workflow_state, workflow_reason_code
 
 
@@ -24,6 +26,7 @@ def execute_live_workflow_replay(
     auth_payload = _load_optional_context(auth_context)
     write_payload = _load_optional_context(write_context)
     cases = {str(case.get("case_id")): case for case in attack_payload.get("cases", [])}
+    workflows = workflow_payload.get("workflows", [])
     results = [
         _execute_workflow(
             workflow,
@@ -34,7 +37,7 @@ def execute_live_workflow_replay(
             write_payload,
             allow_reviewed_writes,
         )
-        for workflow in workflow_payload.get("workflows", [])
+        for workflow in workflows
     ]
     summary = {
         "plan_id": workflow_payload.get("plan_id", "unknown"),
@@ -45,6 +48,7 @@ def execute_live_workflow_replay(
         "aborted_workflow_count": sum(1 for result in results if result["status"] == "aborted"),
         "total_executed_step_count": sum(int(result.get("executed_step_count", 0)) for result in results),
         "reason_counts": _reason_counts(results),
+        "workflow_requirement_summary": summarize_workflow_requirements(workflows, results),
         "auth_context_used": bool(auth_payload),
         "write_context_used": bool(write_payload),
         "results": results,
@@ -65,21 +69,47 @@ def _execute_workflow(
     write_payload: dict[str, Any] | None,
     allow_reviewed_writes: bool,
 ) -> dict[str, Any]:
+    precheck = validate_workflow_context(workflow, auth_payload, write_payload, cases)
+    if precheck is not None:
+        return _blocked_workflow(workflow, [], initial_workflow_state(), precheck[0], precheck[1])
+
     step_results: list[dict[str, Any]] = []
     workflow_state = initial_workflow_state()
-    for step in workflow.get("steps", []):
+    for index, step in enumerate(workflow.get("steps", [])):
         case = cases.get(str(step.get("case_id")))
         if not case:
             return _blocked_workflow(workflow, step_results, workflow_state, "missing_case", str(step.get("case_id")))
+        if step.get("depends_on_previous_step") and len(workflow_state.get("completed_case_ids", [])) != index:
+            return _blocked_workflow(workflow, step_results, workflow_state, "prior_step_missing", str(case.get("case_id")))
+        if binding_review_required(step):
+            return _blocked_workflow(workflow, step_results, workflow_state, "binding_review_required", str(case.get("case_id")))
         if not is_live_case_executable(case, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes):
-            return _blocked_workflow(workflow, step_results, workflow_state, "step_not_executable", str(case.get("case_id")))
+            return _blocked_workflow(workflow, step_results, workflow_state, step_block_reason(step), str(case.get("case_id")))
+        bound_case, applied_bindings, binding_error = apply_response_bindings(case, step, workflow_state)
+        if binding_error is not None:
+            return _blocked_workflow(workflow, step_results, workflow_state, binding_error[0], binding_error[1])
+        assert bound_case is not None
         state_before = snapshot_workflow_state(workflow_state)
-        result = execute_live_case(case, timeout_seconds, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes)
+        result = execute_live_case(bound_case, timeout_seconds, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes)
+        extracted_binding_values, extracted_bindings = extract_response_binding_values(workflow, str(case.get("case_id")), result)
         if result.get("success"):
-            workflow_state = update_workflow_state(workflow_state, case, result)
-            result["workflow_evidence"] = step_evidence(case, result, state_before, snapshot_workflow_state(workflow_state))
+            workflow_state = update_workflow_state(workflow_state, case, result, extracted_binding_values)
+            result["workflow_evidence"] = step_evidence(
+                case,
+                result,
+                state_before,
+                snapshot_workflow_state(workflow_state),
+                extracted_response_bindings=extracted_bindings,
+                applied_response_bindings=applied_bindings,
+            )
         else:
-            result["workflow_evidence"] = step_evidence(case, result, state_before)
+            result["workflow_evidence"] = step_evidence(
+                case,
+                result,
+                state_before,
+                extracted_response_bindings=extracted_bindings,
+                applied_response_bindings=applied_bindings,
+            )
         step_results.append(result)
         if not result.get("success"):
             return {

@@ -91,7 +91,7 @@ def _request_map(bundle: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]
         mapping.setdefault(
             key,
             {
-                "url": f"{parsed.scheme}://{parsed.netloc}{parsed.path or '/'}",
+                "url": url,
                 "host": parsed.netloc,
                 "header_names": sorted(
                     {

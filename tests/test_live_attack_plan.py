@@ -72,6 +72,53 @@ class LiveAttackPlanTests(unittest.TestCase):
         self.assertTrue(plan["cases"][0]["reviewable_write_in_staging"])
         self.assertEqual(plan["cases"][0]["target_env"], "staging")
 
+    def test_har_plan_preserves_full_query_url(self) -> None:
+        bundle = {
+            "source": "zapi",
+            "input_file": "fixtures/zapi_samples/sample_filtered_har.json",
+            "fixtures": [
+                {
+                    "name": "get_api_v1_user_profile",
+                    "method": "GET",
+                    "path": "/api/v1/user/profile",
+                    "summary": "Read user profile",
+                    "query_params": ["account_id"],
+                    "auth_hints": [],
+                    "replay_class": "safe_read",
+                    "workflow_group": "user",
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            har = Path(tmp) / "sample.har"
+            har.write_text(
+                json.dumps(
+                    {
+                        "log": {
+                            "entries": [
+                                {
+                                    "request": {
+                                        "method": "GET",
+                                        "url": "https://example.test/api/v1/user/profile?account_id=acct-123",
+                                        "headers": [{"name": "accept", "value": "application/json"}],
+                                    },
+                                    "response": {"status": 200, "content": {"mimeType": "application/json"}},
+                                }
+                            ]
+                        }
+                    },
+                    indent=2,
+                )
+                + "\n"
+            )
+            bundle["input_file"] = str(har)
+            plan = build_live_attack_plan(bundle)
+
+        self.assertEqual(
+            plan["cases"][0]["request_blueprint"]["url"],
+            "https://example.test/api/v1/user/profile?account_id=acct-123",
+        )
+
     def test_cli_writes_plan_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "live_attack_plan.json"

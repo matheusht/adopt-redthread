@@ -25,6 +25,7 @@ def main() -> None:
     parser.add_argument("--allow-reviewed-auth", action="store_true", help="Allow reviewed auth-safe-read GET cases when approved auth context is supplied")
     parser.add_argument("--write-context", help="Path to approved staging write context JSON for reviewed write cases")
     parser.add_argument("--allow-reviewed-writes", action="store_true", help="Allow reviewed staging write cases when approved write context is supplied")
+    parser.add_argument("--binding-overrides", help="Path to approved binding override JSON for inferred workflow bindings")
     parser.add_argument("--redthread-python", default=str(DEFAULT_REDTHREAD_PYTHON))
     parser.add_argument("--redthread-src", default=str(DEFAULT_REDTHREAD_SRC))
     args = parser.parse_args()
@@ -41,6 +42,7 @@ def main() -> None:
         allow_reviewed_auth=args.allow_reviewed_auth,
         write_context=args.write_context,
         allow_reviewed_writes=args.allow_reviewed_writes,
+        binding_overrides=args.binding_overrides,
         redthread_python=args.redthread_python,
         redthread_src=args.redthread_src,
     )

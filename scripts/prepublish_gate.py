@@ -119,9 +119,39 @@ def _build_notes(
     if live_workflow_replay is not None:
         notes.append(f"live_workflow_replay_executed_workflow_count={live_workflow_replay.get('executed_workflow_count', 0)}")
         notes.append(f"live_workflow_replay_successful_workflow_count={live_workflow_replay.get('successful_workflow_count', 0)}")
+        notes.extend(_workflow_requirement_notes(live_workflow_replay.get("workflow_requirement_summary", {})))
     if redthread_replay_verdict is not None:
         notes.append(f"redthread_replay_passed={bool(redthread_replay_verdict.get('passed'))}")
     return notes
+
+
+
+def _workflow_requirement_notes(summary: dict[str, Any]) -> list[str]:
+    if not summary:
+        return []
+    class_counts = summary.get("workflow_class_counts", {})
+    failure_counts = summary.get("context_contract_failure_counts", {})
+    return [
+        f"live_workflow_classes={_flat_counts(class_counts)}",
+        f"live_workflow_same_host_required_count={summary.get('same_host_continuity_required_count', 0)}",
+        f"live_workflow_same_target_env_required_count={summary.get('same_target_env_required_count', 0)}",
+        f"live_workflow_shared_auth_context_required_count={summary.get('shared_auth_context_required_count', 0)}",
+        f"live_workflow_shared_write_context_required_count={summary.get('shared_write_context_required_count', 0)}",
+        f"live_workflow_declared_response_binding_count={summary.get('declared_response_binding_count', 0)}",
+        f"live_workflow_applied_response_binding_count={summary.get('applied_response_binding_count', 0)}",
+        f"live_workflow_inferred_response_binding_count={summary.get('inferred_response_binding_count', 0)}",
+        f"live_workflow_approved_response_binding_count={summary.get('approved_response_binding_count', 0)}",
+        f"live_workflow_pending_review_response_binding_count={summary.get('pending_review_response_binding_count', 0)}",
+        f"live_workflow_required_header_families={_flat_counts(summary.get('required_header_family_counts', {}))}",
+        f"live_workflow_context_contract_failures={_flat_counts(failure_counts)}",
+    ]
+
+
+
+def _flat_counts(payload: dict[str, Any]) -> str:
+    if not payload:
+        return "none"
+    return ",".join(f"{key}:{payload[key]}" for key in sorted(payload))
 
 
 

@@ -55,6 +55,13 @@ class LiveWorkflowReplayTests(unittest.TestCase):
         self.assertEqual(workflow_plan["workflow_count"], 1)
         self.assertEqual([step["case_id"] for step in workflow_plan["workflows"][0]["steps"]], ["step_a", "step_b"])
         self.assertTrue(workflow_plan["workflows"][0]["steps"][1]["depends_on_previous_step"])
+        self.assertEqual(workflow_plan["workflows"][0]["workflow_context_requirements"]["workflow_class"], "safe_read_workflow")
+        self.assertEqual(workflow_plan["workflows"][0]["workflow_context_requirements"]["expected_hosts"], [])
+        self.assertEqual(
+            workflow_plan["workflows"][0]["workflow_context_requirements"]["dependency_contract"]["required_predecessor_case_ids"],
+            {"step_b": ["step_a"]},
+        )
+        self.assertEqual(workflow_plan["workflows"][0]["workflow_context_requirements"]["required_header_families"], [])
 
     def test_executor_runs_two_step_safe_read_workflow(self) -> None:
         with _server() as base_url, tempfile.TemporaryDirectory() as tmp:
@@ -71,6 +78,8 @@ class LiveWorkflowReplayTests(unittest.TestCase):
             self.assertEqual(summary["blocked_workflow_count"], 0)
             self.assertEqual(summary["aborted_workflow_count"], 0)
             self.assertEqual(summary["reason_counts"], {})
+            self.assertEqual(summary["workflow_requirement_summary"]["workflow_class_counts"], {"safe_read_workflow": 1})
+            self.assertEqual(summary["workflow_requirement_summary"]["same_host_continuity_required_count"], 1)
             self.assertEqual(summary["results"][0]["status"], "completed")
             self.assertEqual(summary["results"][0]["executed_step_count"], 2)
             self.assertEqual(summary["results"][0]["final_state"]["completed_case_ids"], [
@@ -81,7 +90,7 @@ class LiveWorkflowReplayTests(unittest.TestCase):
             self.assertEqual(second_step["state_before"]["completed_case_ids"], ["get_api_v1_account_profile"])
             self.assertIn("ok", second_step["response_json_keys"])
 
-    def test_executor_aborts_when_later_step_is_not_executable(self) -> None:
+    def test_executor_blocks_when_required_auth_context_is_missing(self) -> None:
         with _server() as base_url:
             attack_plan = {
                 "cases": [
@@ -116,14 +125,86 @@ class LiveWorkflowReplayTests(unittest.TestCase):
             workflow_plan = build_live_workflow_plan(attack_plan)
             summary = execute_live_workflow_replay(workflow_plan, attack_plan)
 
-            self.assertEqual(summary["executed_workflow_count"], 1)
+            self.assertEqual(summary["executed_workflow_count"], 0)
             self.assertEqual(summary["successful_workflow_count"], 0)
             self.assertEqual(summary["blocked_workflow_count"], 1)
-            self.assertEqual(summary["reason_counts"], {"step_not_executable": 1})
+            self.assertEqual(summary["reason_counts"], {"missing_auth_context": 1})
             self.assertEqual(summary["results"][0]["status"], "blocked")
-            self.assertEqual(summary["results"][0]["executed_step_count"], 1)
-            self.assertEqual(summary["results"][0]["failure_reason_code"], "step_not_executable")
-            self.assertIn("step_not_executable", summary["results"][0]["error"])
+            self.assertEqual(summary["results"][0]["executed_step_count"], 0)
+            self.assertEqual(summary["results"][0]["failure_reason_code"], "missing_auth_context")
+            self.assertIn("missing_auth_context", summary["results"][0]["error"])
+
+    def test_executor_blocks_on_target_env_mismatch(self) -> None:
+        attack_plan = {
+            "cases": [
+                {
+                    "case_id": "step_a",
+                    "method": "GET",
+                    "path": "/api/v1/account/profile",
+                    "workflow_group": "account",
+                    "workflow_step_index": 0,
+                    "execution_mode": "live_safe_read",
+                    "approval_mode": "auto",
+                    "allowed": True,
+                    "target_env": "staging",
+                    "request_blueprint": {"url": "http://one.example/api/v1/account/profile", "host": "one.example"},
+                },
+                {
+                    "case_id": "step_b",
+                    "method": "GET",
+                    "path": "/api/v1/account/preferences",
+                    "workflow_group": "account",
+                    "workflow_step_index": 1,
+                    "execution_mode": "live_safe_read",
+                    "approval_mode": "auto",
+                    "allowed": True,
+                    "target_env": "staging",
+                    "request_blueprint": {"url": "http://one.example/api/v1/account/preferences", "host": "one.example"},
+                },
+            ]
+        }
+        workflow_plan = build_live_workflow_plan(attack_plan)
+        workflow_plan["workflows"][0]["workflow_context_requirements"]["expected_target_envs"] = ["prod"]
+        summary = execute_live_workflow_replay(workflow_plan, attack_plan)
+
+        self.assertEqual(summary["blocked_workflow_count"], 1)
+        self.assertEqual(summary["reason_counts"], {"target_env_mismatch": 1})
+        self.assertEqual(summary["results"][0]["failure_reason_code"], "target_env_mismatch")
+
+    def test_executor_blocks_on_host_continuity_mismatch(self) -> None:
+        attack_plan = {
+            "cases": [
+                {
+                    "case_id": "step_a",
+                    "method": "GET",
+                    "path": "/api/v1/account/profile",
+                    "workflow_group": "account",
+                    "workflow_step_index": 0,
+                    "execution_mode": "live_safe_read",
+                    "approval_mode": "auto",
+                    "allowed": True,
+                    "request_blueprint": {"url": "http://one.example/api/v1/account/profile", "host": "one.example"},
+                },
+                {
+                    "case_id": "step_b",
+                    "method": "GET",
+                    "path": "/api/v1/account/preferences",
+                    "workflow_group": "account",
+                    "workflow_step_index": 1,
+                    "execution_mode": "live_safe_read",
+                    "approval_mode": "auto",
+                    "allowed": True,
+                    "request_blueprint": {"url": "http://one.example/api/v1/account/preferences", "host": "one.example"},
+                },
+            ]
+        }
+        workflow_plan = build_live_workflow_plan(attack_plan)
+        workflow_plan["workflows"][0]["workflow_context_requirements"]["expected_hosts"] = ["other.example"]
+        summary = execute_live_workflow_replay(workflow_plan, attack_plan)
+
+        self.assertEqual(summary["blocked_workflow_count"], 1)
+        self.assertEqual(summary["reason_counts"], {"host_continuity_mismatch": 1})
+        self.assertEqual(summary["results"][0]["failure_reason_code"], "host_continuity_mismatch")
 
     def test_workflow_pipeline_emits_workflow_artifacts(self) -> None:
         with _server() as base_url, tempfile.TemporaryDirectory() as tmp:

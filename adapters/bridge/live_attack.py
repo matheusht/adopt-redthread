@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 def build_live_attack_plan(bundle: dict[str, Any]) -> dict[str, Any]:
     request_map = _request_map(bundle)
-    cases = [build_live_attack_case(fixture, request_map) for fixture in bundle.get("fixtures", [])]
+    cases = [build_live_attack_case(index, fixture, request_map) for index, fixture in enumerate(bundle.get("fixtures", []))]
     return {
         "plan_id": _plan_id(bundle),
         "source": bundle.get("source", "unknown"),
@@ -21,7 +21,7 @@ def build_live_attack_plan(bundle: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_live_attack_case(fixture: dict[str, Any], request_map: dict[tuple[str, str], dict[str, Any]]) -> dict[str, Any]:
+def build_live_attack_case(index: int, fixture: dict[str, Any], request_map: dict[tuple[str, str], dict[str, Any]]) -> dict[str, Any]:
     request = request_map.get((fixture["method"], fixture["path"]), {})
     execution_mode = _execution_mode(fixture)
     approval_mode = _approval_mode(execution_mode)
@@ -32,6 +32,8 @@ def build_live_attack_case(fixture: dict[str, Any], request_map: dict[tuple[str,
         "case_id": fixture["name"],
         "method": fixture["method"],
         "path": fixture["path"],
+        "workflow_group": fixture.get("workflow_group", "default"),
+        "workflow_step_index": index,
         "execution_mode": execution_mode,
         "approval_mode": approval_mode,
         "target_env": "staging" if reviewable_write else "captured_target",

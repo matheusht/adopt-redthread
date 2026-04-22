@@ -31,17 +31,18 @@ That is now the implemented shape.
 | Phase 3 — Safe-read live lane | done | policy-allowed GET read cases can be executed live |
 | Phase 4 — Auth-aware safe reads | done | reviewed auth-bound GET read cases can run only with explicit approved auth context |
 | Phase 5 — Reviewed writes in staging | done | reviewed non-destructive write cases can run only in staging with explicit per-case approved write context |
+| Phase 6 — Workflow/session live execution | done (bounded) | grouped multi-step cases can replay in sequence with stop-on-first-failure using existing per-step guardrails |
 
 So the current system now has a real ladder:
 
 ```text
-interactive capture -> normalized fixtures -> live attack plan -> safe-read live replay -> auth-aware safe-read replay -> reviewed staging writes -> replay gate -> dry-run
+interactive capture -> normalized fixtures -> live attack plan -> live workflow plan -> safe-read live replay -> auth-aware safe-read replay -> reviewed staging writes -> grouped workflow replay -> replay gate -> dry-run
 ```
 
 Still honest:
 - writes are not auto-executed
 - only the first non-destructive staging write lane exists
-- full session/workflow replay is not finished
+- workflow replay is bounded sequential replay, not full browser/session-state orchestration
 
 ---
 
@@ -444,16 +445,55 @@ This is the first real move from:
 
 without pretending full live workflow attack is finished.
 
-## Future Phase 6 — Workflow/session live execution
+## Phase 6 — Workflow/session live execution
 
-Goal:
-- replay multi-step workflows, not single requests only
+## Goal
 
-Needs:
-- step sequencing
-- state tracking
-- workflow abort rules
-- richer judgment
+Replay grouped multi-step workflows, not single requests only.
+
+## Delivered
+
+### New artifact
+
+The bridge now emits:
+- `live_workflow_plan.json`
+
+This groups `live_attack_plan.json` cases by `workflow_group` and preserves step order.
+
+### New script
+
+The repo now has:
+- `scripts/run_live_workflow_replay.py`
+
+### New pipeline flag
+
+The top-level runners now accept:
+- `--run-live-workflow-replay`
+
+### New behavior
+
+The workflow lane now:
+- groups multi-step cases by workflow group
+- reuses existing per-step auth/write safety rules
+- runs steps in sequence
+- stops on first failure
+- blocks the workflow if a later step is not executable under current review context
+
+### Why it matters
+
+This is the first real move from:
+- single-request live replay
+- into bounded multi-step workflow replay
+
+without pretending full browser/session orchestration is finished.
+
+### Still honest
+
+This is **not yet**:
+- browser state automation
+- cookie/session mutation learning
+- branching workflow exploration
+- autonomous workflow attack planning
 
 ---
 

@@ -26,9 +26,9 @@ def execute_live_safe_replay(
     auth_payload = _load_optional_context(auth_context)
     write_payload = _load_optional_context(write_context)
     results = [
-        _execute_case(case, timeout_seconds, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes)
+        execute_live_case(case, timeout_seconds, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes)
         for case in payload.get("cases", [])
-        if _is_executable(case, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes)
+        if is_live_case_executable(case, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes)
     ]
     summary = {
         "plan_id": payload.get("plan_id", "unknown"),
@@ -46,7 +46,7 @@ def execute_live_safe_replay(
     return summary
 
 
-def _execute_case(
+def execute_live_case(
     case: dict[str, Any],
     timeout_seconds: int,
     auth_payload: dict[str, Any] | None,
@@ -105,7 +105,7 @@ def _execute_case(
         }
 
 
-def _is_executable(
+def is_live_case_executable(
     case: dict[str, Any],
     auth_payload: dict[str, Any] | None,
     allow_reviewed_auth: bool,

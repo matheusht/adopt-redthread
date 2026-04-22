@@ -8,7 +8,9 @@ from typing import Any
 
 from adapters.adopt_actions.loader import build_action_fixture_bundle
 from adapters.bridge.live_attack import build_live_attack_plan
+from adapters.bridge.live_workflow import build_live_workflow_plan
 from adapters.live_replay.executor import execute_live_safe_replay
+from adapters.live_replay.workflow_executor import execute_live_workflow_replay
 from adapters.noui.loader import build_noui_fixture_bundle
 from adapters.redthread_runtime.runtime_adapter import build_redthread_runtime_inputs
 from adapters.zapi.loader import build_fixture_bundle as build_zapi_fixture_bundle
@@ -28,6 +30,7 @@ def run_bridge_workflow(
     allow_sandbox_only: bool = False,
     run_dryrun: bool = True,
     run_live_safe_replay: bool = False,
+    run_live_workflow_replay: bool = False,
     auth_context: dict[str, Any] | str | Path | None = None,
     allow_reviewed_auth: bool = False,
     write_context: dict[str, Any] | str | Path | None = None,
@@ -44,6 +47,7 @@ def run_bridge_workflow(
     gate_verdict = build_gate_verdict(replay_pack, allow_sandbox_only=allow_sandbox_only)
     runtime_inputs = build_redthread_runtime_inputs(bundle)
     live_attack_plan = build_live_attack_plan(bundle)
+    live_workflow_plan = build_live_workflow_plan(live_attack_plan)
 
     paths = _artifact_paths(output_root)
     _write_json(paths["fixture_bundle"], bundle)
@@ -51,6 +55,7 @@ def run_bridge_workflow(
     _write_json(paths["gate_verdict"], gate_verdict)
     _write_json(paths["runtime_inputs"], runtime_inputs)
     _write_json(paths["live_attack_plan"], live_attack_plan)
+    _write_json(paths["live_workflow_plan"], live_workflow_plan)
 
     live_safe_replay_summary: dict[str, Any] | None = None
     if run_live_safe_replay:
@@ -63,12 +68,29 @@ def run_bridge_workflow(
             output_path=paths["live_safe_replay"],
         )
 
+    live_workflow_summary: dict[str, Any] | None = None
+    if run_live_workflow_replay:
+        live_workflow_summary = execute_live_workflow_replay(
+            live_workflow_plan,
+            live_attack_plan,
+            auth_context=auth_context,
+            allow_reviewed_auth=allow_reviewed_auth,
+            write_context=write_context,
+            allow_reviewed_writes=allow_reviewed_writes,
+            output_path=paths["live_workflow_replay"],
+        )
+
     replay_verdict = _run_replay(runtime_input=paths["runtime_inputs"], output_path=paths["replay_verdict"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))
     dryrun_summary: dict[str, Any] | None = None
     if run_dryrun:
         dryrun_summary = _run_dryrun(runtime_input=paths["runtime_inputs"], output_path=paths["dryrun_case0"], redthread_python=Path(redthread_python), redthread_src=Path(redthread_src))
 
-    artifact_paths = {name: str(path) for name, path in paths.items() if name != "live_safe_replay" or live_safe_replay_summary is not None}
+    artifact_paths = {
+        name: str(path)
+        for name, path in paths.items()
+        if (name != "live_safe_replay" or live_safe_replay_summary is not None)
+        and (name != "live_workflow_replay" or live_workflow_summary is not None)
+    }
     summary = {
         "status": "completed",
         "ingestion": ingestion,
@@ -78,10 +100,13 @@ def run_bridge_workflow(
         "gate_decision": gate_verdict["decision"],
         "live_attack_allowed_count": live_attack_plan["allowed_case_count"],
         "live_attack_blocked_count": live_attack_plan["blocked_case_count"],
+        "live_workflow_count": live_workflow_plan["workflow_count"],
         "live_safe_replay_executed": live_safe_replay_summary is not None,
         "live_safe_replay_count": 0 if live_safe_replay_summary is None else live_safe_replay_summary["executed_case_count"],
         "live_safe_replay_used_auth_context": False if live_safe_replay_summary is None else live_safe_replay_summary.get("auth_context_used", False),
         "live_safe_replay_used_write_context": False if live_safe_replay_summary is None else live_safe_replay_summary.get("write_context_used", False),
+        "live_workflow_replay_executed": live_workflow_summary is not None,
+        "live_workflow_replay_count": 0 if live_workflow_summary is None else live_workflow_summary["executed_workflow_count"],
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -142,7 +167,9 @@ def _artifact_paths(output_root: Path) -> dict[str, Path]:
         "gate_verdict": output_root / "gate_verdict.json",
         "runtime_inputs": output_root / "redthread_runtime_inputs.json",
         "live_attack_plan": output_root / "live_attack_plan.json",
+        "live_workflow_plan": output_root / "live_workflow_plan.json",
         "live_safe_replay": output_root / "live_safe_replay.json",
+        "live_workflow_replay": output_root / "live_workflow_replay.json",
         "replay_verdict": output_root / "redthread_replay_verdict.json",
         "dryrun_case0": output_root / "redthread_dryrun_case0.json",
         "summary": output_root / "workflow_summary.json",

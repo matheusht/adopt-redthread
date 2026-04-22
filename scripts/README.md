@@ -10,6 +10,7 @@ Current scripts:
 - `prepublish_gate.py` — prototype gate for approve/review/block decisions
 - `generate_live_attack_plan.py` — create `live_attack_plan.json` with execution policy for each normalized fixture
 - `run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
+- `run_live_workflow_replay.py` — execute grouped sequential workflow replay from workflow and attack plans using the same auth/write guardrails
 - `export_redthread_runtime_inputs.py` — convert normalized fixture bundles into real RedThread replay and dry-run campaign input shapes
 - `evaluate_redthread_replay.py` — evaluate exported replay traces with RedThread's actual promotion-gate code
 - `run_redthread_dryrun.py` — run one exported case through a real RedThread dry-run campaign path
@@ -117,6 +118,16 @@ python3 scripts/run_bridge_pipeline.py \
   --write-context /path/to/approved_write_context.json
 ```
 
+If grouped multi-step cases should replay in sequence too:
+
+```bash
+python3 scripts/run_bridge_pipeline.py \
+  /path/to/workflow_capture.har \
+  runs/live_workflow_pipeline \
+  --ingestion zapi \
+  --run-live-workflow-replay
+```
+
 For a live ZAPI session:
 
 ```bash
@@ -131,9 +142,11 @@ python3 scripts/run_live_zapi_bridge.py \
 What this proves:
 - artifact capture/export can now be chained directly into bridge normalization
 - a machine-readable live attack plan now exists alongside replay and gate artifacts
+- a machine-readable live workflow plan now exists for grouped multi-step cases
 - the first live safe-read execution lane can run against allowed GET cases
 - reviewed auth-bound safe-read GETs can run only with explicit approved auth context
 - reviewed non-destructive writes can run only in staging with explicit per-case approved write context
+- grouped multi-step workflows can replay in sequence with stop-on-first-failure behavior
 - replay/gate/runtime export no longer need separate manual commands
 - RedThread replay + dry-run checks can be triggered from one top-level runner
 

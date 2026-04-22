@@ -10,6 +10,7 @@
 - `live_safe_replay_demo.md` — first policy-gated live safe-read GET replay lane
 - `auth_safe_replay_demo.md` — reviewed auth-bound safe-read GET replay with approved auth context
 - `reviewed_staging_write_demo.md` — reviewed non-destructive staging write replay with approved write context
+- `live_workflow_replay_demo.md` — grouped multi-step workflow replay with stop-on-first-failure behavior
 
 ## First MVP flow
 

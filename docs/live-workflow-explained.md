@@ -18,6 +18,7 @@ What works today:
 - we now generate a **machine-readable live attack plan** and can execute the first **policy-gated live safe-read GET lane**
 - we can now execute reviewed **auth-bound safe-read GETs** only when explicit approved auth context is supplied
 - we can now execute the first **reviewed non-destructive staging write lane** only when explicit approved write context is supplied
+- we can now execute the first **grouped sequential workflow replay lane** for multi-step cases with stop-on-first-failure behavior
 
 What does **not** work yet:
 - one-button fully live flow from **running ZAPI session -> automatic RedThread attack loop -> live target execution**
@@ -26,6 +27,7 @@ What does **not** work yet:
 - full live attack execution against a real Adopt-managed runtime/session
 - full session-aware authenticated replay beyond approved header reuse
 - broader reviewed write coverage beyond the first non-destructive staging lane
+- richer workflow state beyond grouped sequential replay
 
 So the honest status is:
 
@@ -132,7 +134,7 @@ This is also real working integration.
 What we do **not** have yet:
 - RedThread fully driving a live target discovered moments earlier by ZAPI
 - RedThread doing live authenticated attack execution against a real Adopt-managed runtime
-- reviewed write lanes
+- broader reviewed write lanes beyond the first staging slice
 - full continuous closed-loop publish gating
 
 ---

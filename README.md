@@ -24,6 +24,8 @@ What works today:
 - execute the first policy-gated live safe-read replay lane for allowed GET cases
 - execute reviewed auth-bound safe-read GET cases only when explicit approved auth context is supplied
 - execute reviewed non-destructive write cases in staging only when explicit approved write context is supplied
+- generate a machine-readable live workflow plan for grouped multi-step cases
+- execute the first bounded sequential workflow replay lane for grouped multi-step cases
 - run generated bridge cases through a real RedThread dry-run campaign path
 - run a one-command bridge workflow from one artifact input
 - run a live ZAPI capture and hand its selected HAR into that one-command workflow
@@ -33,6 +35,7 @@ What is **not** live yet:
 - direct pull from real Adopt services
 - broad support for all real-world NoUI output families beyond the first MCP server shape
 - full session-aware authenticated replay beyond approved header reuse
+- richer workflow state beyond bounded sequential grouped replay
 - full reviewed write coverage beyond the first non-destructive staging lane
 - fully automatic live ZAPI runtime -> RedThread attack loop against a real Adopt-managed session
 - production-grade publish gating
@@ -169,6 +172,7 @@ Generated outputs:
 - `examples/noui_to_redthread_demo.md` — walkthrough from NoUI MCP output into normalized fixtures and then into RedThread
 - `examples/live_zapi_bridge_demo.md` — one-command live ZAPI capture into bridge outputs and RedThread checks
 - `examples/reviewed_staging_write_demo.md` — reviewed non-destructive staging write replay with explicit approved write context
+- `examples/live_workflow_replay_demo.md` — grouped multi-step workflow replay with stop-on-first-failure behavior
 
 ## Repo structure
 
@@ -214,6 +218,7 @@ This repo now has two higher-level runners:
 
 - `scripts/generate_live_attack_plan.py` — build `live_attack_plan.json` from one supported bridge input
 - `scripts/run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
+- `scripts/run_live_workflow_replay.py` — execute grouped sequential workflow replay from `live_workflow_plan.json` + `live_attack_plan.json`
 - `scripts/run_bridge_pipeline.py` — one input artifact in, full bridge outputs out
 - `scripts/run_live_zapi_bridge.py` — live ZAPI capture in, then full bridge workflow out
 

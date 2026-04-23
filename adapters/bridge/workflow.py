@@ -9,6 +9,7 @@ from adapters.bridge.live_attack import build_live_attack_plan
 from adapters.bridge.live_workflow import build_live_workflow_plan
 from adapters.bridge.workflow_io import artifact_paths, run_redthread_dryrun, run_redthread_replay, write_json
 from adapters.bridge.workflow_review_manifest import build_workflow_review_manifest, enrich_manifest_candidates
+from adapters.live_replay.binding_patterns import build_binding_pattern_candidates
 from adapters.live_replay.executor import execute_live_safe_replay
 from adapters.live_replay.workflow_executor import execute_live_workflow_replay
 from adapters.noui.loader import build_noui_fixture_bundle
@@ -87,10 +88,15 @@ def run_bridge_workflow(
             stream_max_bytes=stream_max_bytes,
         )
 
+    binding_pattern_candidates: dict[str, Any] | None = None
     if live_workflow_summary is not None:
         workflow_review_manifest = build_workflow_review_manifest(live_workflow_plan, live_workflow_summary, cases)
         workflow_review_manifest = enrich_manifest_candidates(workflow_review_manifest, live_workflow_summary, cases)
         write_json(paths["workflow_review_manifest"], workflow_review_manifest)
+        binding_pattern_candidates = build_binding_pattern_candidates(
+            paths["binding_history"],
+            output_path=paths["binding_pattern_candidates"],
+        )
 
     replay_verdict = run_redthread_replay(
         repo_root=REPO_ROOT,
@@ -123,6 +129,7 @@ def run_bridge_workflow(
         if (name != "live_safe_replay" or live_safe_replay_summary is not None)
         and (name != "live_workflow_replay" or live_workflow_summary is not None)
         and (name != "binding_history" or (live_workflow_summary is not None and live_workflow_summary.get("binding_history_rows_written", 0) > 0))
+        and (name != "binding_pattern_candidates" or binding_pattern_candidates is not None)
     }
     summary = {
         "status": "completed",
@@ -148,6 +155,8 @@ def run_bridge_workflow(
         "live_workflow_binding_review_artifacts": [] if live_workflow_summary is None else live_workflow_summary.get("workflow_binding_review_artifacts", []),
         "live_workflow_review_manifest_ready": bool(workflow_review_manifest.get("workflows")),
         "binding_history_rows_written": 0 if live_workflow_summary is None else live_workflow_summary.get("binding_history_rows_written", 0),
+        "binding_pattern_candidate_count": 0 if binding_pattern_candidates is None else binding_pattern_candidates.get("candidate_count", 0),
+        "binding_pattern_promotion_ready_count": 0 if binding_pattern_candidates is None else binding_pattern_candidates.get("promotion_ready_count", 0),
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),

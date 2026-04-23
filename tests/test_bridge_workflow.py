@@ -42,6 +42,8 @@ class BridgeWorkflowTests(unittest.TestCase):
         self.assertIn("live_workflow_failure_class_summary", workflow_summary)
         self.assertIn("live_workflow_binding_review_artifacts", workflow_summary)
         self.assertIn("live_workflow_review_manifest_ready", workflow_summary)
+        self.assertIn("binding_pattern_candidate_count", workflow_summary)
+        self.assertIn("binding_pattern_promotion_ready_count", workflow_summary)
         self.assertEqual(workflow_summary["live_workflow_requirement_summary"], {})
         self.assertEqual(workflow_summary["live_workflow_failure_class_summary"], {})
         self.assertEqual(workflow_summary["live_workflow_binding_review_artifacts"], [])
@@ -73,6 +75,7 @@ class BridgeWorkflowTests(unittest.TestCase):
         self.assertTrue(summary["redthread_replay_passed"])
         self.assertIn("live_attack_allowed_count", summary)
         self.assertIn("live_workflow_review_manifest_ready", summary)
+        self.assertIn("binding_pattern_candidate_count", summary)
         self.assertIn("workflow_review_manifest", summary["artifacts"])
 
 

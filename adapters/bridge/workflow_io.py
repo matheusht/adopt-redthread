@@ -47,6 +47,7 @@ def artifact_paths(output_root: Path) -> dict[str, Path]:
         "live_safe_replay": output_root / "live_safe_replay.json",
         "live_workflow_replay": output_root / "live_workflow_replay.json",
         "binding_history": output_root / "binding_history.jsonl",
+        "binding_pattern_candidates": output_root / "binding_pattern_candidates.json",
         "replay_verdict": output_root / "redthread_replay_verdict.json",
         "dryrun_case0": output_root / "redthread_dryrun_case0.json",
         "summary": output_root / "workflow_summary.json",

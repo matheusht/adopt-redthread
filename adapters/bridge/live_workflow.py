@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from adapters.bridge.workflow_binding_plan import build_step, load_binding_overrides
+from adapters.bridge.workflow_binding_plan import build_step, load_approved_aliases, load_binding_overrides
 
 
 SUPPORTED_WORKFLOW_MODES = {
@@ -16,15 +17,22 @@ SUPPORTED_WORKFLOW_MODES = {
 def build_live_workflow_plan(
     live_attack_plan: dict[str, Any],
     binding_overrides: dict[str, Any] | str | Path | None = None,
+    approved_binding_aliases: dict[str, Any] | str | Path | None = None,
 ) -> dict[str, Any]:
     overrides = load_binding_overrides(binding_overrides)
-    workflows = [_build_workflow(group, cases, overrides) for group, cases in _group_cases(live_attack_plan).items() if len(cases) > 1]
+    approved_aliases = load_approved_aliases(approved_binding_aliases)
+    workflows = [
+        _build_workflow(group, cases, overrides, approved_aliases)
+        for group, cases in _group_cases(live_attack_plan).items()
+        if len(cases) > 1
+    ]
     return {
         "plan_id": f"{live_attack_plan.get('plan_id', 'unknown')}-workflows",
         "source": live_attack_plan.get("source", "unknown"),
         "input_file": live_attack_plan.get("input_file", "unknown"),
         "workflow_count": len(workflows),
         "state_model": "bounded_evidence_carry_forward",
+        "approved_binding_alias_count": len(approved_aliases),
         "workflows": workflows,
     }
 
@@ -39,13 +47,18 @@ def _group_cases(live_attack_plan: dict[str, Any]) -> dict[str, list[dict[str, A
     return grouped
 
 
-def _build_workflow(group: str, cases: list[dict[str, Any]], overrides: dict[str, Any]) -> dict[str, Any]:
+def _build_workflow(
+    group: str,
+    cases: list[dict[str, Any]],
+    overrides: dict[str, Any],
+    approved_aliases: list[dict[str, Any]],
+) -> dict[str, Any]:
     executable_step_count = sum(1 for case in cases if case.get("execution_mode") in SUPPORTED_WORKFLOW_MODES)
     review_required = any(not case.get("allowed") for case in cases)
     hosts = sorted({host for host in (_case_host(case) for case in cases) if host})
     target_envs = sorted({str(case.get("target_env", "")).strip() for case in cases if str(case.get("target_env", "")).strip()})
     required_header_families = _required_header_families(cases)
-    steps = [build_step(case, cases, overrides, _case_host(case)) for case in cases]
+    steps = [build_step(case, cases, overrides, _case_host(case), approved_aliases) for case in cases]
     return {
         "workflow_id": group,
         "step_count": len(cases),

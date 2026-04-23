@@ -13,7 +13,10 @@ from __future__ import annotations
 #   - This table is human-curated; programmatic extension is Phase E territory
 # ---------------------------------------------------------------------------
 
-from typing import NamedTuple
+from pathlib import Path
+from typing import Any, NamedTuple
+
+from adapters.live_replay.binding_alias_reviews import load_approved_binding_aliases
 
 
 class AliasEntry(NamedTuple):
@@ -44,7 +47,7 @@ _ALIAS_TABLE: list[AliasEntry] = [
 _HEURISTIC_SUFFIX = ".id"
 
 
-def alias_lookup(source_key: str) -> list[tuple[str, str]]:
+def alias_lookup(source_key: str, approved_aliases: list[dict[str, Any]] | None = None) -> list[tuple[str, str]]:
     """Return a list of (target_path, tier) for a given source_key.
 
     Performs three passes in priority order:
@@ -61,7 +64,7 @@ def alias_lookup(source_key: str) -> list[tuple[str, str]]:
     seen_targets.add(leaf)
 
     # Pass 2 — alias table
-    for entry in _ALIAS_TABLE:
+    for entry in _runtime_entries(approved_aliases):
         if entry.source_key == source_key and entry.target_path not in seen_targets:
             results.append((entry.target_path, entry.tier))
             seen_targets.add(entry.target_path)
@@ -79,6 +82,44 @@ def alias_lookup(source_key: str) -> list[tuple[str, str]]:
     return results
 
 
+def reverse_alias_lookup(target_path: str, approved_aliases: list[dict[str, Any]] | None = None) -> list[tuple[str, str]]:
+    results: list[tuple[str, str]] = []
+    seen_sources: set[str] = set()
+    for entry in _runtime_entries(approved_aliases):
+        if entry.target_path == target_path and entry.source_key not in seen_sources:
+            results.append((entry.source_key, entry.tier))
+            seen_sources.add(entry.source_key)
+    if target_path not in seen_sources:
+        results.append((target_path, "exact_name_match"))
+        seen_sources.add(target_path)
+    heuristic = _reverse_heuristic_source(target_path)
+    if heuristic and heuristic not in seen_sources:
+        results.append((heuristic, "heuristic_match"))
+    return results
+
+
+def approved_alias_entries(value: dict[str, Any] | str | Path | None) -> list[dict[str, str]]:
+    return load_approved_binding_aliases(value)
+
+
 def all_entries() -> list[AliasEntry]:
     """Return the full alias table for inspection or testing."""
     return list(_ALIAS_TABLE)
+
+
+def _runtime_entries(approved_aliases: list[dict[str, Any]] | None = None) -> list[AliasEntry]:
+    approved = [
+        AliasEntry(str(item.get("source_key", "")), str(item.get("target_path", "")), str(item.get("tier", "reviewed_pattern")))
+        for item in (approved_aliases or [])
+        if str(item.get("source_key", "")).strip() and str(item.get("target_path", "")).strip()
+    ]
+    return approved + list(_ALIAS_TABLE)
+
+
+def _reverse_heuristic_source(target_path: str) -> str | None:
+    if not target_path.endswith("Id") or len(target_path) <= 2:
+        return None
+    parent = target_path[:-2]
+    if not parent:
+        return None
+    return f"{parent.lower()}.id"

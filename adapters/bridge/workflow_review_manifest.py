@@ -54,6 +54,7 @@ def build_workflow_review_manifest(
     return {
         "plan_id": workflow_plan.get("plan_id", "unknown"),
         "workflow_count": workflow_plan.get("workflow_count", len(workflow_plan.get("workflows", []))),
+        "approved_binding_alias_count": workflow_plan.get("approved_binding_alias_count", 0),
         "workflow_requirement_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_requirement_summary", {}),
         "workflow_failure_class_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_failure_class_summary", {}),
         "reason_counts": {} if live_workflow_summary is None else live_workflow_summary.get("reason_counts", {}),

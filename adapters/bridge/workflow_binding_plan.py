@@ -4,11 +4,18 @@ import json
 from pathlib import Path
 from typing import Any
 
+from adapters.bridge.binding_alias_table import approved_alias_entries
 from adapters.bridge.workflow_binding_inference import infer_step_bindings
 
 
-def build_step(case: dict[str, Any], cases: list[dict[str, Any]], overrides: dict[str, Any], case_host: str) -> dict[str, Any]:
-    request_url_template, response_bindings = step_response_binding_contract(case, cases)
+def build_step(
+    case: dict[str, Any],
+    cases: list[dict[str, Any]],
+    overrides: dict[str, Any],
+    case_host: str,
+    approved_aliases: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    request_url_template, response_bindings = step_response_binding_contract(case, cases, approved_aliases)
     request_url_template, response_bindings, review_decisions = apply_binding_override(case, request_url_template, response_bindings, overrides)
     review_summary = binding_review_summary(response_bindings, review_decisions)
     step = {
@@ -44,7 +51,15 @@ def load_binding_overrides(value: dict[str, Any] | str | Path | None) -> dict[st
     return json.loads(Path(value).read_text())
 
 
-def step_response_binding_contract(case: dict[str, Any], cases: list[dict[str, Any]]) -> tuple[str | None, list[dict[str, Any]]]:
+def load_approved_aliases(value: dict[str, Any] | str | Path | None) -> list[dict[str, Any]]:
+    return approved_alias_entries(value)
+
+
+def step_response_binding_contract(
+    case: dict[str, Any],
+    cases: list[dict[str, Any]],
+    approved_aliases: list[dict[str, Any]] | None = None,
+) -> tuple[str | None, list[dict[str, Any]]]:
     explicit_bindings = [normalized_binding(binding, inferred=False) for binding in case.get("response_bindings", [])]
     if explicit_bindings:
         return str(case.get("request_blueprint", {}).get("url", "")).strip() or None, explicit_bindings
@@ -54,7 +69,7 @@ def step_response_binding_contract(case: dict[str, Any], cases: list[dict[str, A
     source_case = next((item for item in cases if int(item.get("workflow_step_index", 0)) == index - 1), None)
     if source_case is None:
         return None, []
-    request_url_template, inferred_bindings = infer_step_bindings(case, source_case)
+    request_url_template, inferred_bindings = infer_step_bindings(case, source_case, approved_aliases)
     return request_url_template, [normalized_binding(binding, inferred=True) for binding in inferred_bindings]
 
 
@@ -67,7 +82,7 @@ def apply_binding_override(
     case_override = overrides.get("case_bindings", {}).get(str(case.get("case_id")), {})
     inferred_bindings = [binding for binding in response_bindings if binding.get("inferred")]
     if not case_override:
-        return request_url_template, response_bindings, pending_review_decisions(inferred_bindings)
+        return request_url_template, response_bindings, review_status_decisions(inferred_bindings)
     if case_override.get("review_status") == "rejected":
         return None, [], decision_records(inferred_bindings, "rejected")
     if case_override.get("replace_response_bindings") is not None:
@@ -79,7 +94,7 @@ def apply_binding_override(
         if review_status == "approved":
             return _override_template(case_override, request_url_template), updated, decision_records(inferred_bindings, "approved")
         return _override_template(case_override, request_url_template), updated, decision_records(inferred_bindings, review_status)
-    return _override_template(case_override, request_url_template), response_bindings, pending_review_decisions(inferred_bindings)
+    return _override_template(case_override, request_url_template), response_bindings, review_status_decisions(inferred_bindings)
 
 
 def normalized_binding(binding: dict[str, Any], *, inferred: bool) -> dict[str, Any]:
@@ -103,22 +118,23 @@ def binding_review_summary(bindings: list[dict[str, Any]], decisions: list[dict[
     }
 
 
-def pending_review_decisions(bindings: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return decision_records(bindings, "pending_review")
+def review_status_decisions(bindings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [decision_record(binding, str(binding.get("review_status", "pending_review"))) for binding in bindings]
 
 
 def decision_records(bindings: list[dict[str, Any]], decision: str) -> list[dict[str, Any]]:
-    return [
-        {
-            "binding_id": binding.get("binding_id"),
-            "source_case_id": binding.get("source_case_id"),
-            "target_field": binding.get("target_field"),
-            "inference_reason": binding.get("inference_reason"),
-            "confidence": binding.get("confidence"),
-            "decision": decision,
-        }
-        for binding in bindings
-    ]
+    return [decision_record(binding, decision) for binding in bindings]
+
+
+def decision_record(binding: dict[str, Any], decision: str) -> dict[str, Any]:
+    return {
+        "binding_id": binding.get("binding_id"),
+        "source_case_id": binding.get("source_case_id"),
+        "target_field": binding.get("target_field"),
+        "inference_reason": binding.get("inference_reason"),
+        "confidence": binding.get("confidence"),
+        "decision": decision,
+    }
 
 
 def _override_template(case_override: dict[str, Any], request_url_template: str | None) -> str | None:

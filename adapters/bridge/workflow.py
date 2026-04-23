@@ -38,6 +38,7 @@ def run_bridge_workflow(
     allow_reviewed_writes: bool = False,
     stream_max_bytes: int = 512,
     binding_overrides: dict[str, Any] | str | Path | None = None,
+    approved_binding_aliases: dict[str, Any] | str | Path | None = None,
     redthread_python: str | Path = DEFAULT_REDTHREAD_PYTHON,
     redthread_src: str | Path = DEFAULT_REDTHREAD_SRC,
 ) -> dict[str, Any]:
@@ -49,7 +50,11 @@ def run_bridge_workflow(
     replay_pack = build_replay_pack(bundle)
     runtime_inputs = build_redthread_runtime_inputs(bundle)
     live_attack_plan = build_live_attack_plan(bundle)
-    live_workflow_plan = build_live_workflow_plan(live_attack_plan, binding_overrides)
+    live_workflow_plan = build_live_workflow_plan(
+        live_attack_plan,
+        binding_overrides,
+        approved_binding_aliases,
+    )
 
     paths = artifact_paths(output_root)
     write_json(paths["fixture_bundle"], bundle)
@@ -141,6 +146,7 @@ def run_bridge_workflow(
         "live_attack_allowed_count": live_attack_plan["allowed_case_count"],
         "live_attack_blocked_count": live_attack_plan["blocked_case_count"],
         "live_workflow_count": live_workflow_plan["workflow_count"],
+        "approved_binding_alias_count": live_workflow_plan.get("approved_binding_alias_count", 0),
         "live_safe_replay_executed": live_safe_replay_summary is not None,
         "live_safe_replay_count": 0 if live_safe_replay_summary is None else live_safe_replay_summary["executed_case_count"],
         "live_safe_replay_used_auth_context": False if live_safe_replay_summary is None else live_safe_replay_summary.get("auth_context_used", False),

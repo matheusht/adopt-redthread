@@ -60,6 +60,7 @@ class WorkflowReviewManifestPhaseCTests(unittest.TestCase):
         manifest = build_workflow_review_manifest(workflow_plan, None, cases)
 
         self.assertTrue(manifest["review_recommended_before_live_execution"])
+        self.assertEqual(manifest["approved_binding_alias_count"], 0)
         self.assertTrue(manifest["required_contexts"]["auth_context_required"])
         self.assertTrue(manifest["required_contexts"]["write_context_required"])
         self.assertEqual(manifest["required_contexts"]["auth_context_case_ids"], ["step_a"])
@@ -104,6 +105,7 @@ class WorkflowReviewManifestPhaseCTests(unittest.TestCase):
         cases = {str(case["case_id"]): case for case in attack_plan["cases"]}
         manifest = build_workflow_review_manifest(workflow_plan, summary, cases)
 
+        self.assertEqual(manifest["approved_binding_alias_count"], 0)
         self.assertEqual(summary["workflow_failure_narratives"][0]["failure_reason_code"], "missing_auth_context")
         self.assertIn("approved auth context", summary["workflow_failure_narratives"][0]["failure_narrative"])
         self.assertIn("approved auth context", summary["results"][0]["failure_narrative"])

@@ -7,7 +7,7 @@ from typing import Any
 from adapters.adopt_actions.loader import build_action_fixture_bundle
 from adapters.bridge.live_attack import build_live_attack_plan
 from adapters.bridge.live_workflow import build_live_workflow_plan
-from adapters.bridge.workflow_io import artifact_paths, run_redthread_dryrun, run_redthread_replay, write_json
+from adapters.bridge.workflow_io import artifact_paths, export_optional_json_artifact, run_redthread_dryrun, run_redthread_replay, write_json
 from adapters.bridge.workflow_review_manifest import build_workflow_review_manifest, enrich_manifest_candidates
 from adapters.live_replay.binding_patterns import build_binding_pattern_candidates
 from adapters.live_replay.executor import execute_live_safe_replay
@@ -48,7 +48,6 @@ def run_bridge_workflow(
 
     bundle = _build_bundle(input_file, ingestion)
     replay_pack = build_replay_pack(bundle)
-    runtime_inputs = build_redthread_runtime_inputs(bundle)
     live_attack_plan = build_live_attack_plan(bundle)
     live_workflow_plan = build_live_workflow_plan(
         live_attack_plan,
@@ -56,12 +55,14 @@ def run_bridge_workflow(
         approved_binding_aliases,
     )
 
+    runtime_inputs = build_redthread_runtime_inputs(bundle, live_workflow_plan)
     paths = artifact_paths(output_root)
     write_json(paths["fixture_bundle"], bundle)
     write_json(paths["replay_plan"], replay_pack)
     write_json(paths["runtime_inputs"], runtime_inputs)
     write_json(paths["live_attack_plan"], live_attack_plan)
     write_json(paths["live_workflow_plan"], live_workflow_plan)
+    approved_alias_artifact_ready = export_optional_json_artifact(paths["approved_binding_aliases"], approved_binding_aliases)
 
     cases = {str(case.get("case_id", "")): case for case in live_attack_plan.get("cases", [])}
     workflow_review_manifest = build_workflow_review_manifest(live_workflow_plan, None, cases)
@@ -116,6 +117,7 @@ def run_bridge_workflow(
         live_safe_replay=live_safe_replay_summary,
         live_workflow_replay=live_workflow_summary,
         redthread_replay_verdict=replay_verdict,
+        workflow_plan=live_workflow_plan,
     )
     write_json(paths["gate_verdict"], gate_verdict)
     dryrun_summary: dict[str, Any] | None = None
@@ -135,6 +137,7 @@ def run_bridge_workflow(
         and (name != "live_workflow_replay" or live_workflow_summary is not None)
         and (name != "binding_history" or (live_workflow_summary is not None and live_workflow_summary.get("binding_history_rows_written", 0) > 0))
         and (name != "binding_pattern_candidates" or binding_pattern_candidates is not None)
+        and (name != "approved_binding_aliases" or approved_alias_artifact_ready)
     }
     summary = {
         "status": "completed",
@@ -147,6 +150,7 @@ def run_bridge_workflow(
         "live_attack_blocked_count": live_attack_plan["blocked_case_count"],
         "live_workflow_count": live_workflow_plan["workflow_count"],
         "approved_binding_alias_count": live_workflow_plan.get("approved_binding_alias_count", 0),
+        "approved_binding_alias_summary": live_workflow_plan.get("approved_binding_alias_summary", {}),
         "live_safe_replay_executed": live_safe_replay_summary is not None,
         "live_safe_replay_count": 0 if live_safe_replay_summary is None else live_safe_replay_summary["executed_case_count"],
         "live_safe_replay_used_auth_context": False if live_safe_replay_summary is None else live_safe_replay_summary.get("auth_context_used", False),

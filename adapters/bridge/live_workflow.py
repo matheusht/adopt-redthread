@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from adapters.bridge.approved_alias_summary import summarize_approved_aliases, workflow_alias_usage_summary
 from adapters.bridge.workflow_binding_plan import build_step, load_approved_aliases, load_binding_overrides
 
 
@@ -26,6 +27,7 @@ def build_live_workflow_plan(
         for group, cases in _group_cases(live_attack_plan).items()
         if len(cases) > 1
     ]
+    approved_alias_summary = summarize_approved_aliases(approved_aliases, workflows)
     return {
         "plan_id": f"{live_attack_plan.get('plan_id', 'unknown')}-workflows",
         "source": live_attack_plan.get("source", "unknown"),
@@ -33,6 +35,7 @@ def build_live_workflow_plan(
         "workflow_count": len(workflows),
         "state_model": "bounded_evidence_carry_forward",
         "approved_binding_alias_count": len(approved_aliases),
+        "approved_binding_alias_summary": approved_alias_summary,
         "workflows": workflows,
     }
 
@@ -59,6 +62,7 @@ def _build_workflow(
     target_envs = sorted({str(case.get("target_env", "")).strip() for case in cases if str(case.get("target_env", "")).strip()})
     required_header_families = _required_header_families(cases)
     steps = [build_step(case, cases, overrides, _case_host(case), approved_aliases) for case in cases]
+    alias_usage = workflow_alias_usage_summary({"workflow_id": group, "steps": steps}, approved_aliases)
     return {
         "workflow_id": group,
         "step_count": len(cases),
@@ -93,6 +97,8 @@ def _build_workflow(
             "approved_write_context_required": any(case.get("execution_mode") == "live_reviewed_write_staging" for case in cases),
             "required_auth_header_names": _required_auth_header_names(cases),
         },
+        "approved_binding_alias_used_count": alias_usage["approved_binding_alias_used_count"],
+        "approved_binding_alias_usages": alias_usage["approved_binding_alias_usages"],
         "state_contract": {
             "carry_forward": [
                 "completed_case_ids",

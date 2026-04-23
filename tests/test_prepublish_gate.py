@@ -152,6 +152,14 @@ class PrepublishGateTests(unittest.TestCase):
                 "results": [],
             },
             redthread_replay_verdict={"passed": True},
+            workflow_plan={
+                "approved_binding_alias_count": 1,
+                "approved_binding_alias_summary": {
+                    "used_alias_count": 1,
+                    "used_workflow_count": 1,
+                    "used_aliases": [{"target_path": "profileKey"}],
+                },
+            },
         )
 
         self.assertEqual(
@@ -173,6 +181,9 @@ class PrepublishGateTests(unittest.TestCase):
         self.assertIn("live_workflow_required_header_families=auth:1", verdict["notes"])
         self.assertIn("live_workflow_context_contract_failures=none", verdict["notes"])
         self.assertIn("live_workflow_failure_classes=review_gap:1", verdict["notes"])
+        self.assertIn("live_workflow_approved_binding_alias_count=1", verdict["notes"])
+        self.assertIn("live_workflow_approved_binding_alias_used_count=1", verdict["notes"])
+        self.assertIn("live_workflow_approved_binding_alias_targets=profileKey", verdict["notes"])
 
 
 if __name__ == "__main__":

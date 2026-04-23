@@ -12,7 +12,18 @@ from adapters.redthread_runtime.runtime_adapter import build_redthread_runtime_i
 class RedThreadRuntimeAdapterTests(unittest.TestCase):
     def test_runtime_export_builds_replay_bundle_and_campaign_cases(self) -> None:
         bundle = json.loads(Path("fixtures/replay_packs/sample_har_fixture_bundle.json").read_text())
-        payload = build_redthread_runtime_inputs(bundle)
+        payload = build_redthread_runtime_inputs(
+            bundle,
+            {
+                "workflow_count": 1,
+                "approved_binding_alias_count": 1,
+                "approved_binding_alias_summary": {
+                    "loaded_aliases": [{"source_key": "profile.id", "target_path": "profileKey", "tier": "reviewed_pattern"}],
+                    "used_aliases": [{"workflow_id": "profile", "case_id": "step_b", "target_path": "profileKey"}],
+                    "used_alias_count": 1,
+                },
+            },
+        )
 
         self.assertEqual(payload["fixture_count"], 4)
         self.assertEqual(len(payload["redthread_replay_bundle"]["traces"]), 4)
@@ -24,6 +35,8 @@ class RedThreadRuntimeAdapterTests(unittest.TestCase):
         self.assertIn("execution_policy", first_trace["scenario_result"])
         self.assertIn("objective", payload["campaign_cases"][0])
         self.assertIn("live_attack_candidates", payload)
+        self.assertEqual(payload["bridge_workflow_context"]["approved_binding_alias_count"], 1)
+        self.assertEqual(payload["bridge_workflow_context"]["approved_binding_alias_used_count"], 1)
 
     def test_exported_bundle_can_be_evaluated_with_real_redthread_code(self) -> None:
         runtime_output = Path("fixtures/replay_packs/test_runtime_inputs.json")

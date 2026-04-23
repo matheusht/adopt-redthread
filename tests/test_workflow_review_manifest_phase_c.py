@@ -112,5 +112,57 @@ class WorkflowReviewManifestPhaseCTests(unittest.TestCase):
         self.assertIn("approved auth context", manifest["workflows"][0]["failure_narrative"])
 
 
+    def test_manifest_surfaces_reviewed_alias_summary_and_usage(self) -> None:
+        attack_plan = {
+            "cases": [
+                {
+                    "case_id": "step_a",
+                    "method": "GET",
+                    "path": "/api/v1/profile",
+                    "workflow_group": "profile",
+                    "workflow_step_index": 0,
+                    "execution_mode": "live_safe_read",
+                    "approval_mode": "auto",
+                    "allowed": True,
+                    "request_blueprint": {"url": "https://example.com/api/v1/profile", "host": "example.com"},
+                },
+                {
+                    "case_id": "step_b",
+                    "method": "POST",
+                    "path": "/api/v1/widgets",
+                    "workflow_group": "profile",
+                    "workflow_step_index": 1,
+                    "execution_mode": "live_reviewed_write_staging",
+                    "approval_mode": "human_review",
+                    "allowed": False,
+                    "target_env": "staging",
+                    "request_blueprint": {
+                        "url": "https://example.com/api/v1/widgets",
+                        "host": "example.com",
+                        "body_json": {"profileKey": "prof-123", "name": "demo"},
+                    },
+                },
+            ]
+        }
+        workflow_plan = build_live_workflow_plan(
+            attack_plan,
+            approved_binding_aliases={
+                "aliases": [
+                    {
+                        "source_key": "profile.id",
+                        "target_path": "profileKey",
+                        "tier": "reviewed_pattern",
+                    }
+                ]
+            },
+        )
+        manifest = build_workflow_review_manifest(workflow_plan, None)
+
+        self.assertEqual(manifest["approved_binding_alias_count"], 1)
+        self.assertEqual(manifest["approved_binding_alias_summary"]["used_alias_count"], 1)
+        self.assertEqual(manifest["workflows"][0]["approved_binding_alias_used_count"], 1)
+        self.assertEqual(manifest["workflows"][0]["approved_binding_alias_usages"][0]["target_path"], "profileKey")
+
+
 if __name__ == "__main__":
     unittest.main()

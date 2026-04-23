@@ -119,6 +119,8 @@ class ReviewedBindingAliasBuilderTests(unittest.TestCase):
             )
 
         self.assertEqual(workflow_plan["approved_binding_alias_count"], 1)
+        self.assertEqual(workflow_plan["approved_binding_alias_summary"]["used_alias_count"], 1)
+        self.assertEqual(workflow_plan["approved_binding_alias_summary"]["used_aliases"][0]["case_id"], "step_b")
         self.assertEqual(step_b["response_bindings"][0]["source_key"], "profile.id")
         self.assertEqual(step_b["response_bindings"][0]["review_status"], "approved")
         self.assertFalse(step_b["binding_review_required"])

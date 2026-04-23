@@ -48,6 +48,7 @@ def artifact_paths(output_root: Path) -> dict[str, Path]:
         "live_workflow_replay": output_root / "live_workflow_replay.json",
         "binding_history": output_root / "binding_history.jsonl",
         "binding_pattern_candidates": output_root / "binding_pattern_candidates.json",
+        "approved_binding_aliases": output_root / "approved_binding_aliases.json",
         "replay_verdict": output_root / "redthread_replay_verdict.json",
         "dryrun_case0": output_root / "redthread_dryrun_case0.json",
         "summary": output_root / "workflow_summary.json",
@@ -58,3 +59,17 @@ def artifact_paths(output_root: Path) -> dict[str, Path]:
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def export_optional_json_artifact(path: Path, payload: dict[str, Any] | str | Path | None) -> bool:
+    if payload is None:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(payload, dict):
+        path.write_text(json.dumps(payload, indent=2) + "\n")
+        return True
+    source = Path(payload)
+    if not source.exists():
+        return False
+    path.write_text(source.read_text())
+    return True

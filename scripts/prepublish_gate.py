@@ -47,6 +47,7 @@ def build_gate_verdict(
     live_safe_replay: dict[str, Any] | None = None,
     live_workflow_replay: dict[str, Any] | None = None,
     redthread_replay_verdict: dict[str, Any] | None = None,
+    workflow_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     safe_reads = replay_pack.get("safe_read_probes", [])
     write_reviews = replay_pack.get("write_path_review_items", [])
@@ -90,6 +91,7 @@ def build_gate_verdict(
             live_safe_replay=live_safe_replay,
             live_workflow_replay=live_workflow_replay,
             redthread_replay_verdict=redthread_replay_verdict,
+            workflow_plan=workflow_plan,
         ),
     }
 
@@ -103,6 +105,7 @@ def _build_notes(
     live_safe_replay: dict[str, Any] | None,
     live_workflow_replay: dict[str, Any] | None,
     redthread_replay_verdict: dict[str, Any] | None,
+    workflow_plan: dict[str, Any] | None,
 ) -> list[str]:
     notes = [
         f"safe_read_count={safe_read_count}",
@@ -116,6 +119,8 @@ def _build_notes(
     if live_safe_replay is not None:
         notes.append(f"live_safe_replay_executed_case_count={live_safe_replay.get('executed_case_count', 0)}")
         notes.append(f"live_safe_replay_success_count={live_safe_replay.get('success_count', 0)}")
+    if workflow_plan is not None:
+        notes.extend(_approved_alias_notes(workflow_plan))
     if live_workflow_replay is not None:
         notes.append(f"live_workflow_replay_executed_workflow_count={live_workflow_replay.get('executed_workflow_count', 0)}")
         notes.append(f"live_workflow_replay_successful_workflow_count={live_workflow_replay.get('successful_workflow_count', 0)}")
@@ -128,6 +133,19 @@ def _build_notes(
     if redthread_replay_verdict is not None:
         notes.append(f"redthread_replay_passed={bool(redthread_replay_verdict.get('passed'))}")
     return notes
+
+
+
+def _approved_alias_notes(workflow_plan: dict[str, Any]) -> list[str]:
+    summary = workflow_plan.get("approved_binding_alias_summary", {})
+    usages = summary.get("used_aliases", [])
+    return [
+        f"live_workflow_approved_binding_alias_count={workflow_plan.get('approved_binding_alias_count', 0)}",
+        f"live_workflow_approved_binding_alias_used_count={summary.get('used_alias_count', 0)}",
+        f"live_workflow_approved_binding_alias_workflows={summary.get('used_workflow_count', 0)}",
+        "live_workflow_approved_binding_alias_targets="
+        + ("none" if not usages else ",".join(sorted({str(item.get('target_path', '')) for item in usages if str(item.get('target_path', '')).strip()}))),
+    ]
 
 
 

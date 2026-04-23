@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from adapters.bridge.live_attack import build_execution_policy
+from adapters.redthread_runtime.runtime_bridge_context import build_bridge_workflow_context
+from adapters.redthread_runtime.runtime_canary import build_canary_report, canary_tag
 
 PRIMARY_ATTACK_ORDER = (
     "destructive_action_abuse",
@@ -18,7 +20,10 @@ PRIMARY_ATTACK_ORDER = (
 )
 
 
-def build_redthread_runtime_inputs(bundle: dict[str, Any]) -> dict[str, Any]:
+def build_redthread_runtime_inputs(
+    bundle: dict[str, Any],
+    workflow_plan: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     fixtures = bundle.get("fixtures", [])
     return {
         "source": bundle.get("source", "unknown"),
@@ -32,6 +37,7 @@ def build_redthread_runtime_inputs(bundle: dict[str, Any]) -> dict[str, Any]:
             "traces": [build_replay_trace(fixture) for fixture in fixtures],
         },
         "campaign_cases": [build_campaign_case(fixture) for fixture in fixtures],
+        "bridge_workflow_context": build_bridge_workflow_context(workflow_plan),
     }
 
 
@@ -93,23 +99,9 @@ def build_action_envelope(fixture: dict[str, Any]) -> dict[str, Any]:
             "trust_level": "trusted" if trusted_read else "derived",
             "origin_id": fixture["name"],
             "boundary_crossings": [] if trusted_read else [{"boundary": "tool_return", "detail": "bridge_generated_from_fixture"}],
-            "canary_tags": [] if trusted_read else [_canary_tag(fixture)],
+            "canary_tags": [] if trusted_read else [canary_tag(fixture)],
         },
         "requested_effect": requested_effect,
-    }
-
-
-def build_canary_report(fixture: dict[str, Any]) -> dict[str, Any]:
-    if fixture.get("replay_class") in {"safe_read", "safe_read_with_review"}:
-        return {}
-    tag = _canary_tag(fixture)
-    return {
-        "injection_point": "tool_return",
-        "crossed_boundaries": ["tool_return", "shared_state"],
-        "stage_count": 2,
-        "reached_execution_boundary": False,
-        "contained": True,
-        "canary_tags": [tag],
     }
 
 
@@ -202,5 +194,3 @@ def _system_prompt_text(fixture: dict[str, Any]) -> str:
     )
 
 
-def _canary_tag(fixture: dict[str, Any]) -> str:
-    return f"CANARY_{fixture['name'].upper()[:32]}"

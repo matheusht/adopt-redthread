@@ -4,6 +4,7 @@ import json
 from typing import Any
 from urllib.parse import urlparse
 
+from adapters.live_replay.workflow_bindings import binding_application_summary
 from adapters.live_replay.workflow_narrative import build_failure_narrative
 
 
@@ -78,6 +79,7 @@ def step_evidence(
     state_after: dict[str, Any] | None = None,
     extracted_response_bindings: list[dict[str, Any]] | None = None,
     applied_response_bindings: list[dict[str, Any]] | None = None,
+    planned_response_bindings: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     evidence = {
         "case_id": case.get("case_id", "unknown"),
@@ -90,10 +92,14 @@ def step_evidence(
     }
     if state_after is not None:
         evidence["state_after"] = state_after
+    if planned_response_bindings:
+        evidence["planned_response_bindings"] = planned_response_bindings
     if extracted_response_bindings:
         evidence["extracted_response_bindings"] = extracted_response_bindings
     if applied_response_bindings:
         evidence["applied_response_bindings"] = applied_response_bindings
+    if planned_response_bindings or applied_response_bindings:
+        evidence["binding_application_summary"] = binding_application_summary(planned_response_bindings, applied_response_bindings)
     for key in ("stream_opened", "first_chunk_bytes", "first_chunk_preview", "stream_content_type", "stream_read_budget_bytes"):
         if key in result:
             evidence[key] = result.get(key)

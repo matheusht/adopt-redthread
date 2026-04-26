@@ -127,7 +127,13 @@ class ReviewedBindingAliasBuilderTests(unittest.TestCase):
         self.assertEqual(summary["successful_workflow_count"], 1)
         self.assertEqual(summary["workflow_requirement_summary"]["approved_response_binding_count"], 1)
         evidence = summary["results"][0]["results"][1]["workflow_evidence"]
+        self.assertEqual(evidence["planned_response_bindings"][0]["target_path"], "profileKey")
+        self.assertEqual(evidence["planned_response_bindings"][0]["review_status"], "approved")
         self.assertEqual(evidence["applied_response_bindings"][0]["target_path"], "profileKey")
+        self.assertEqual(evidence["binding_application_summary"]["planned_response_binding_count"], 1)
+        self.assertEqual(evidence["binding_application_summary"]["applied_response_binding_count"], 1)
+        self.assertEqual(summary["binding_application_summary"]["planned_response_binding_count"], 1)
+        self.assertEqual(summary["binding_application_summary"]["applied_response_binding_count"], 1)
 
 
 if __name__ == "__main__":

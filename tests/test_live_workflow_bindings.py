@@ -163,6 +163,12 @@ class LiveWorkflowBindingTests(unittest.TestCase):
         self.assertEqual(summary["blocked_workflow_count"], 1)
         self.assertEqual(summary["reason_counts"], {"response_binding_missing": 1})
         self.assertEqual(summary["results"][0]["failure_reason_code"], "response_binding_missing")
+        self.assertEqual(summary["results"][0]["binding_application_failure"]["binding_id"], "missing_id")
+        self.assertEqual(summary["binding_application_summary"]["planned_response_binding_count"], 1)
+        self.assertEqual(summary["binding_application_summary"]["applied_response_binding_count"], 0)
+        self.assertEqual(summary["binding_application_summary"]["unapplied_response_binding_count"], 1)
+        self.assertEqual(summary["binding_application_summary"]["binding_application_failure_counts"], {"response_binding_missing": 1})
+        self.assertEqual(summary["binding_application_summary"]["failed_binding_ids"], ["missing_id"])
 
 
 if __name__ == "__main__":

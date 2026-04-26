@@ -118,6 +118,8 @@ class ReviewedBindingAliasLoopTests(unittest.TestCase):
         self.assertEqual(candidates["promotion_ready_count"], 1)
         self.assertEqual(approved_aliases["approved_alias_count"], 1)
         self.assertEqual(summary["successful_workflow_count"], 1)
+        self.assertEqual(summary["binding_application_summary"]["planned_response_binding_count"], 1)
+        self.assertEqual(summary["binding_application_summary"]["applied_response_binding_count"], 1)
 
 
 if __name__ == "__main__":

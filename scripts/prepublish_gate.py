@@ -130,6 +130,7 @@ def _build_notes(
                 live_workflow_replay.get("workflow_failure_class_summary", {}),
             )
         )
+        notes.extend(_binding_application_notes(live_workflow_replay.get("binding_application_summary", {})))
     if redthread_replay_verdict is not None:
         notes.append(f"redthread_replay_passed={bool(redthread_replay_verdict.get('passed'))}")
     return notes
@@ -145,6 +146,20 @@ def _approved_alias_notes(workflow_plan: dict[str, Any]) -> list[str]:
         f"live_workflow_approved_binding_alias_workflows={summary.get('used_workflow_count', 0)}",
         "live_workflow_approved_binding_alias_targets="
         + ("none" if not usages else ",".join(sorted({str(item.get('target_path', '')) for item in usages if str(item.get('target_path', '')).strip()}))),
+    ]
+
+
+
+def _binding_application_notes(summary: dict[str, Any]) -> list[str]:
+    if not summary:
+        return []
+    return [
+        f"live_workflow_planned_response_binding_count={summary.get('planned_response_binding_count', 0)}",
+        f"live_workflow_applied_response_binding_count={summary.get('applied_response_binding_count', 0)}",
+        f"live_workflow_unapplied_response_binding_count={summary.get('unapplied_response_binding_count', 0)}",
+        f"live_workflow_workflows_with_planned_bindings={summary.get('workflow_count_with_planned_bindings', 0)}",
+        f"live_workflow_workflows_with_applied_bindings={summary.get('workflow_count_with_applied_bindings', 0)}",
+        f"live_workflow_binding_application_failures={_flat_counts(summary.get('binding_application_failure_counts', {}))}",
     ]
 
 

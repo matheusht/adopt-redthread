@@ -37,6 +37,8 @@ class RedThreadRuntimeAdapterTests(unittest.TestCase):
         self.assertIn("live_attack_candidates", payload)
         self.assertEqual(payload["bridge_workflow_context"]["approved_binding_alias_count"], 1)
         self.assertEqual(payload["bridge_workflow_context"]["approved_binding_alias_used_count"], 1)
+        self.assertEqual(payload["bridge_workflow_context"]["planned_response_binding_count"], 0)
+        self.assertEqual(payload["bridge_workflow_context"], payload["redthread_replay_bundle"]["bridge_workflow_context"])
 
     def test_exported_bundle_can_be_evaluated_with_real_redthread_code(self) -> None:
         runtime_output = Path("fixtures/replay_packs/test_runtime_inputs.json")

@@ -105,9 +105,15 @@ def apply_response_bindings(
             {
                 "binding_id": binding_id,
                 "source_case_id": binding.get("source_case_id"),
+                "source_type": binding.get("source_type"),
+                "source_key": binding.get("source_key"),
                 "target_field": target_field,
                 "placeholder": placeholder,
                 "target_path": binding.get("target_path"),
+                "required": bool(binding.get("required", True)),
+                "inferred": bool(binding.get("inferred", False)),
+                "confidence": binding.get("confidence"),
+                "inference_reason": binding.get("inference_reason"),
                 "review_status": binding.get("review_status"),
                 "value_preview": value[:120],
             }
@@ -123,12 +129,89 @@ def binding_review_required(step: dict[str, Any]) -> bool:
     return any(str(binding.get("review_status", "approved")) != "approved" for binding in step.get("response_bindings", []))
 
 
+def planned_response_binding_records(step: dict[str, Any]) -> list[dict[str, Any]]:
+    return [_binding_contract_record(binding) for binding in step.get("response_bindings", [])]
+
+
+def binding_application_summary(
+    planned_response_bindings: list[dict[str, Any]] | None,
+    applied_response_bindings: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    planned = planned_response_bindings or []
+    applied = applied_response_bindings or []
+    applied_ids = {str(binding.get("binding_id", "")) for binding in applied if str(binding.get("binding_id", "")).strip()}
+    planned_ids = [str(binding.get("binding_id", "")) for binding in planned if str(binding.get("binding_id", "")).strip()]
+    return {
+        "planned_response_binding_count": len(planned),
+        "approved_planned_response_binding_count": sum(1 for binding in planned if str(binding.get("review_status", "")) == "approved"),
+        "pending_review_planned_response_binding_count": sum(1 for binding in planned if str(binding.get("review_status", "")) == "pending_review"),
+        "applied_response_binding_count": len(applied),
+        "unapplied_response_binding_count": len([binding_id for binding_id in planned_ids if binding_id not in applied_ids]),
+        "applied_binding_ids": sorted(applied_ids),
+        "unapplied_binding_ids": [binding_id for binding_id in planned_ids if binding_id not in applied_ids],
+    }
+
+
+def summarize_binding_applications(
+    workflows: list[dict[str, Any]],
+    results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    planned = declared_response_binding_count(workflows)
+    applied = applied_response_binding_count(results)
+    workflows_with_planned = {
+        str(workflow.get("workflow_id", "unknown"))
+        for workflow in workflows
+        if any(step.get("response_bindings") for step in workflow.get("steps", []))
+    }
+    workflows_with_applied = {
+        str(result.get("workflow_id", "unknown"))
+        for result in results
+        if any(step.get("workflow_evidence", {}).get("applied_response_bindings") for step in result.get("results", []))
+    }
+    failure_counts: dict[str, int] = {}
+    failed_binding_ids: list[str] = []
+    for result in results:
+        reason = str(result.get("failure_reason_code", "")).strip()
+        if not reason.startswith("response_binding_"):
+            continue
+        failure_counts[reason] = failure_counts.get(reason, 0) + 1
+        failed_binding_id = str(result.get("failure_detail", "")).strip()
+        if failed_binding_id:
+            failed_binding_ids.append(failed_binding_id)
+    return {
+        "planned_response_binding_count": planned,
+        "applied_response_binding_count": applied,
+        "unapplied_response_binding_count": max(planned - applied, 0),
+        "workflow_count_with_planned_bindings": len(workflows_with_planned),
+        "workflow_count_with_applied_bindings": len(workflows_with_applied),
+        "binding_application_failure_counts": failure_counts,
+        "failed_binding_ids": failed_binding_ids,
+    }
+
+
 def declared_response_binding_count(workflows: list[dict[str, Any]]) -> int:
     return sum(len(step.get("response_bindings", [])) for workflow in workflows for step in workflow.get("steps", []))
 
 
 def applied_response_binding_count(results: list[dict[str, Any]]) -> int:
     return sum(len(step.get("workflow_evidence", {}).get("applied_response_bindings", [])) for result in results for step in result.get("results", []))
+
+
+def _binding_contract_record(binding: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "binding_id": binding.get("binding_id"),
+        "source_case_id": binding.get("source_case_id"),
+        "source_type": binding.get("source_type"),
+        "source_key": binding.get("source_key"),
+        "target_field": binding.get("target_field"),
+        "placeholder": binding.get("placeholder"),
+        "target_path": binding.get("target_path"),
+        "required": bool(binding.get("required", True)),
+        "inferred": bool(binding.get("inferred", False)),
+        "confidence": binding.get("confidence"),
+        "inference_reason": binding.get("inference_reason"),
+        "review_status": binding.get("review_status"),
+    }
 
 
 def _apply_request_path_binding(

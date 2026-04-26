@@ -96,6 +96,8 @@ def run_bridge_workflow(
 
     binding_pattern_candidates: dict[str, Any] | None = None
     if live_workflow_summary is not None:
+        runtime_inputs = build_redthread_runtime_inputs(bundle, live_workflow_plan, live_workflow_summary)
+        write_json(paths["runtime_inputs"], runtime_inputs)
         workflow_review_manifest = build_workflow_review_manifest(live_workflow_plan, live_workflow_summary, cases)
         workflow_review_manifest = enrich_manifest_candidates(workflow_review_manifest, live_workflow_summary, cases)
         write_json(paths["workflow_review_manifest"], workflow_review_manifest)
@@ -162,6 +164,7 @@ def run_bridge_workflow(
         "live_workflow_reason_counts": {} if live_workflow_summary is None else live_workflow_summary.get("reason_counts", {}),
         "live_workflow_requirement_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_requirement_summary", {}),
         "live_workflow_failure_class_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_failure_class_summary", {}),
+        "live_workflow_binding_application_summary": {} if live_workflow_summary is None else live_workflow_summary.get("binding_application_summary", {}),
         "live_workflow_binding_review_artifacts": [] if live_workflow_summary is None else live_workflow_summary.get("workflow_binding_review_artifacts", []),
         "live_workflow_review_manifest_ready": bool(workflow_review_manifest.get("workflows")),
         "binding_history_rows_written": 0 if live_workflow_summary is None else live_workflow_summary.get("binding_history_rows_written", 0),

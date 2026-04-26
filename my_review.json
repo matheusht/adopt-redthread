@@ -1,0 +1,9 @@
+{
+  "approved_candidates": [
+    {
+      "source_key": "profile.id",
+      "target_field": "request_body_json",
+      "target_locator": "profileKey"
+    }
+  ]
+}

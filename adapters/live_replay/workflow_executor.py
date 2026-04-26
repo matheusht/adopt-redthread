@@ -7,7 +7,13 @@ from typing import Any
 from adapters.live_replay.binding_history import append_binding_history
 from adapters.live_replay.executor import execute_live_case, is_live_case_executable
 from adapters.live_replay.stream_capture import DEFAULT_STREAM_MAX_BYTES
-from adapters.live_replay.workflow_bindings import apply_response_bindings, binding_review_required, extract_response_binding_values
+from adapters.live_replay.workflow_bindings import (
+    apply_response_bindings,
+    binding_application_summary,
+    binding_review_required,
+    extract_response_binding_values,
+    planned_response_binding_records,
+)
 from adapters.live_replay.workflow_narrative import build_failure_narrative
 from adapters.live_replay.workflow_requirements import step_block_reason, validate_workflow_context
 from adapters.live_replay.workflow_results import aborted_workflow, blocked_workflow, build_workflow_summary
@@ -91,6 +97,7 @@ def _execute_workflow(
             return blocked_workflow(workflow, step_results, workflow_state, "binding_review_required", str(case.get("case_id")), review_artifact)
         if not is_live_case_executable(case, auth_payload, allow_reviewed_auth, write_payload, allow_reviewed_writes):
             return blocked_workflow(workflow, step_results, workflow_state, step_block_reason(step), str(case.get("case_id")), review_artifact)
+        planned_bindings = planned_response_binding_records(step)
         approved_body = approved_write_body_json(case, write_payload, allow_reviewed_writes)
         bound_case, applied_bindings, binding_error = apply_response_bindings(
             case,
@@ -100,6 +107,13 @@ def _execute_workflow(
             approved_write_headers(case, write_payload, allow_reviewed_writes),
         )
         if binding_error is not None:
+            binding_failure = {
+                "failure_reason_code": binding_error[0],
+                "binding_id": binding_error[1],
+                "planned_response_bindings": planned_bindings,
+                "applied_response_bindings": applied_bindings,
+                "binding_application_summary": binding_application_summary(planned_bindings, applied_bindings),
+            }
             return blocked_workflow(
                 workflow,
                 step_results,
@@ -107,7 +121,13 @@ def _execute_workflow(
                 binding_error[0],
                 binding_error[1],
                 review_artifact,
-                build_failure_narrative(binding_error[0], binding_error[1], case=case, approved_write_body_json_present=isinstance(approved_body, dict)),
+                build_failure_narrative(
+                    binding_error[0],
+                    binding_error[1],
+                    case=case,
+                    approved_write_body_json_present=isinstance(approved_body, dict),
+                ),
+                binding_failure,
             )
         assert bound_case is not None
         state_before = snapshot_workflow_state(workflow_state)
@@ -130,6 +150,7 @@ def _execute_workflow(
                 snapshot_workflow_state(workflow_state),
                 extracted_response_bindings=extracted_bindings,
                 applied_response_bindings=applied_bindings,
+                planned_response_bindings=planned_bindings,
             )
         else:
             result["workflow_evidence"] = step_evidence(
@@ -138,6 +159,7 @@ def _execute_workflow(
                 state_before,
                 extracted_response_bindings=extracted_bindings,
                 applied_response_bindings=applied_bindings,
+                planned_response_bindings=planned_bindings,
             )
         step_results.append(result)
         if not result.get("success"):

@@ -23,8 +23,10 @@ PRIMARY_ATTACK_ORDER = (
 def build_redthread_runtime_inputs(
     bundle: dict[str, Any],
     workflow_plan: dict[str, Any] | None = None,
+    live_workflow_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     fixtures = bundle.get("fixtures", [])
+    bridge_workflow_context = build_bridge_workflow_context(workflow_plan, live_workflow_summary)
     return {
         "source": bundle.get("source", "unknown"),
         "fixture_input": bundle.get("input_file", "unknown"),
@@ -34,10 +36,11 @@ def build_redthread_runtime_inputs(
         ],
         "redthread_replay_bundle": {
             "bundle_id": _bundle_id(bundle),
+            "bridge_workflow_context": bridge_workflow_context,
             "traces": [build_replay_trace(fixture) for fixture in fixtures],
         },
         "campaign_cases": [build_campaign_case(fixture) for fixture in fixtures],
-        "bridge_workflow_context": build_bridge_workflow_context(workflow_plan),
+        "bridge_workflow_context": bridge_workflow_context,
     }
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from adapters.live_replay.workflow_bindings import summarize_binding_applications
 from adapters.live_replay.workflow_narrative import build_failure_narrative, summarize_failure_narratives
 from adapters.live_replay.workflow_requirements import summarize_failure_classes, summarize_workflow_requirements
 from adapters.live_replay.workflow_state import snapshot_workflow_state
@@ -28,6 +29,7 @@ def build_workflow_summary(
         "reason_counts": reason_counts(results),
         "workflow_requirement_summary": summarize_workflow_requirements(workflows, results),
         "workflow_failure_class_summary": summarize_failure_classes(results),
+        "binding_application_summary": summarize_binding_applications(workflows, results),
         "workflow_binding_review_artifacts": [binding_review_artifact(workflow) for workflow in workflows],
         "workflow_failure_narratives": summarize_failure_narratives(results),
         "auth_context_used": auth_context_used,
@@ -45,8 +47,9 @@ def blocked_workflow(
     reason_detail: str,
     review_artifact: dict[str, Any],
     narrative: str | None = None,
+    binding_application_failure: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    blocked = {
         "workflow_id": workflow.get("workflow_id", "unknown"),
         "status": "blocked",
         "executed_step_count": len(step_results),
@@ -59,6 +62,9 @@ def blocked_workflow(
         "final_state": snapshot_workflow_state(workflow_state),
         "results": step_results,
     }
+    if binding_application_failure:
+        blocked["binding_application_failure"] = binding_application_failure
+    return blocked
 
 
 def aborted_workflow(

@@ -81,7 +81,10 @@ def evidence_counts(payload: dict[str, Any] | None) -> dict[str, Any] | None:
         "reason_counts",
         "workflow_requirement_summary",
         "workflow_failure_class_summary",
+        "binding_application_summary",
         "workflow_binding_review_artifacts",
+        "planned_response_binding_count",
+        "applied_response_binding_count",
         "passed",
     ):
         if key in payload:

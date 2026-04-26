@@ -28,6 +28,7 @@ What works today:
 - generate a machine-readable live workflow plan for grouped multi-step cases
 - execute the first bounded sequential workflow replay lane for grouped multi-step cases
 - carry bounded workflow state/evidence forward across sequential steps and emit structured workflow failure reasons
+- surface planned/applied/failed response-binding evidence in workflow replay rows and gate/runtime handoff artifacts
 - run generated bridge cases through a real RedThread dry-run campaign path
 - run a one-command bridge workflow from one artifact input
 - run a live ZAPI capture and hand its selected HAR into that one-command workflow
@@ -164,6 +165,9 @@ Generated outputs:
 ## Docs
 
 - `docs/strategy.md` — why the repo split exists and what each system owns
+- `docs/impact-execution-checklist.md` — current impact-first execution checklist and upstream boundary
+- `docs/impact-implementation-log.md` — implementation notes for runtime binding truth and RedThread context surfacing
+- `docs/hero-flow-binding-truth.md` — demo-grade proof artifact guide for planned/applied binding evidence
 - `docs/architecture.md` — proposed end-to-end integration architecture
 - `docs/live-workflow-explained.md` — simple explanation of what is live now, what is not, and how the workflow should act
 - `docs/full-live-loop-diagram.md` — blunt diagrams for what the future full live loop actually means

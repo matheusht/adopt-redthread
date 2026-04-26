@@ -149,6 +149,15 @@ class PrepublishGateTests(unittest.TestCase):
                     "failure_class_counts": {},
                 },
                 "workflow_failure_class_summary": {"review_gap": 1},
+                "binding_application_summary": {
+                    "planned_response_binding_count": 2,
+                    "applied_response_binding_count": 1,
+                    "unapplied_response_binding_count": 1,
+                    "workflow_count_with_planned_bindings": 1,
+                    "workflow_count_with_applied_bindings": 1,
+                    "binding_application_failure_counts": {"response_binding_missing": 1},
+                    "failed_binding_ids": ["profileKey"],
+                },
                 "results": [],
             },
             redthread_replay_verdict={"passed": True},
@@ -184,6 +193,9 @@ class PrepublishGateTests(unittest.TestCase):
         self.assertIn("live_workflow_approved_binding_alias_count=1", verdict["notes"])
         self.assertIn("live_workflow_approved_binding_alias_used_count=1", verdict["notes"])
         self.assertIn("live_workflow_approved_binding_alias_targets=profileKey", verdict["notes"])
+        self.assertIn("live_workflow_planned_response_binding_count=2", verdict["notes"])
+        self.assertIn("live_workflow_unapplied_response_binding_count=1", verdict["notes"])
+        self.assertIn("live_workflow_binding_application_failures=response_binding_missing:1", verdict["notes"])
 
 
 if __name__ == "__main__":

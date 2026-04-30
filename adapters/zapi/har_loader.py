@@ -46,6 +46,7 @@ def _entry_to_endpoint(entry: dict[str, Any]) -> ZapiEndpoint | None:
 
     query_params = sorted({item.get("name", "") for item in request.get("queryString", []) if item.get("name")})
     body_fields = sorted(_extract_json_field_names(request.get("postData", {}).get("text")))
+    response_fields = sorted(_extract_json_field_names(response.get("content", {}).get("text")))
     auth_hints = sorted(
         {
             header.get("name", "").lower()
@@ -61,6 +62,7 @@ def _entry_to_endpoint(entry: dict[str, Any]) -> ZapiEndpoint | None:
         description=f"Observed in HAR capture against {host} with status {response.get('status', 'unknown')}",
         query_params=query_params,
         body_fields=body_fields,
+        response_fields=response_fields,
         auth_hints=auth_hints,
         source="zapi_har",
         workflow_group=_infer_workflow_group(path),
@@ -124,6 +126,7 @@ def _dedupe_endpoints(endpoints: list[ZapiEndpoint]) -> list[ZapiEndpoint]:
             description=current.description,
             query_params=sorted(set(current.query_params + endpoint.query_params)),
             body_fields=sorted(set(current.body_fields + endpoint.body_fields)),
+            response_fields=sorted(set(current.response_fields + endpoint.response_fields)),
             auth_hints=sorted(set(current.auth_hints + endpoint.auth_hints)),
             source=current.source,
             workflow_group=current.workflow_group,

@@ -243,3 +243,58 @@ The implementation has completed the first architecture slice, durable hero proo
 1. watch a target reviewer read `runs/reviewed_write_reference/evidence_report.md` without explanation and record where it is unclear
 2. update RedThread docs/wiki only after that reviewer can explain the evidence and decision back correctly
 
+## 2026-04-30 — minimum sanitized app context
+
+### What changed
+
+Added a minimal `app_context.v1` contract for RedThread-facing runtime and evidence paths.
+
+The context covers five fields only:
+
+1. workflow order
+2. tool/action schema
+3. auth model
+4. data sensitivity
+5. tenant/user boundary
+
+It is generated in `adapters/redthread_runtime/app_context.py` and exported by `build_redthread_runtime_inputs(...)` as both:
+
+- top-level `app_context` / `app_context_summary`
+- `redthread_replay_bundle.bridge_workflow_context.app_context` / `app_context_summary`
+
+The bridge workflow summary also surfaces `app_context_summary`, and the evidence report now includes an `App context for RedThread` section with sanitized counts, tags, and auth summary.
+
+### Safety boundary
+
+The app context is intentionally structural. It can include safe metadata such as operation ids, path templates, field names, auth class, scope hints, and sensitivity tags.
+
+It must not include raw HAR/session/cookie/header/body/request/response values. Tests now parse raw HAR request/response values and assert those values do not appear in the generated app context.
+
+### Verification run
+
+Targeted validation:
+
+```bash
+python3 -m unittest tests.test_redthread_runtime_adapter tests.test_bridge_workflow tests.test_prepublish_gate tests.test_evidence_report tests.test_reviewed_write_reference -v
+```
+
+Result:
+
+- `Ran 13 tests`
+- `OK`
+
+Full validation:
+
+```bash
+make test
+```
+
+Result:
+
+- `Ran 135 tests`
+- `OK`
+
+### Follow-up recommendation accepted
+
+Keep this contract in `adopt-redthread` until reviewer comprehension is proven. The next step is to use the Senior AI Engineer review posture against the evidence report and matrix, record unclear points, and only then propose a tiny generic RedThread evidence/context contract upstream.
+

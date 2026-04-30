@@ -72,6 +72,7 @@ def tool_to_fixture(tool: dict[str, Any], manifest: dict[str, Any]) -> RedThread
         summary=str(tool.get("description", "")),
         query_params=[item.get("name", "") for item in params if item.get("source") == "query"],
         body_fields=[item.get("name", "") for item in params if item.get("source") != "query"],
+        response_fields=[item.get("name", "") for item in response_fields if isinstance(item, dict) and item.get("name")],
         auth_hints=[auth.get("strategy", "none"), tool.get("execution_strategy", "http")],
         workflow_group=str(manifest.get("workflow", {}).get("name", manifest.get("server_id", "default"))),
         risk_level=risk_level,

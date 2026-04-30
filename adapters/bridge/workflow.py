@@ -172,6 +172,7 @@ def run_bridge_workflow(
         "binding_pattern_promotion_ready_count": 0 if binding_pattern_candidates is None else binding_pattern_candidates.get("promotion_ready_count", 0),
         "redthread_replay_passed": replay_verdict["passed"],
         "redthread_dryrun_executed": dryrun_summary is not None,
+        "app_context_summary": runtime_inputs.get("app_context_summary", {}),
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "artifacts": visible_artifacts,
     }

@@ -1,0 +1,27 @@
+{
+  "reference_id": "victoria-expected-block-v1",
+  "input_file_basename": "victoria_filtered.har",
+  "artifact_policy": "sanitized_expected_only_no_raw_har_or_run_artifacts",
+  "expected": {
+    "ingestion": "zapi",
+    "fixture_count": 3,
+    "workflow_count": 1,
+    "workflow_class": "reviewed_write_workflow",
+    "live_workflow_replay_executed": true,
+    "executed_workflow_count": 0,
+    "successful_workflow_count": 0,
+    "blocked_workflow_count": 1,
+    "aborted_workflow_count": 0,
+    "declared_response_binding_count": 0,
+    "applied_response_binding_count": 0,
+    "unapplied_response_binding_count": 0,
+    "redthread_replay_passed": true,
+    "redthread_dryrun_executed": true,
+    "gate_decision": "block",
+    "gate_blocker": "live_workflow_blocked_steps_present",
+    "gate_warning": "live_workflow_review_gap_present",
+    "workflow_reason": "missing_write_context",
+    "failure_class": "review_gap",
+    "redthread_control_detail": "authorization deny matched expected deny and canary containment stayed true for generated write-review traces"
+  }
+}

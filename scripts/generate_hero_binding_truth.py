@@ -39,17 +39,30 @@ def build_hero_artifacts(output_dir: str | Path) -> dict[str, Any]:
     redthread_runtime_inputs = build_redthread_runtime_inputs(fixture_bundle, live_workflow_plan, live_workflow_replay)
     workflow_summary = {
         "status": "completed",
+        "ingestion": "golden_demo",
+        "input_file": "tests/live_workflow_binding_support.py",
         "output_dir": str(output_root),
+        "fixture_count": fixture_bundle["fixture_count"],
+        "live_workflow_count": live_workflow_plan["workflow_count"],
+        "live_workflow_replay_executed": True,
         "live_workflow_replay_count": live_workflow_replay.get("executed_workflow_count", 0),
+        "live_workflow_blocked_count": live_workflow_replay.get("blocked_workflow_count", 0),
+        "live_workflow_aborted_count": live_workflow_replay.get("aborted_workflow_count", 0),
+        "live_workflow_requirement_summary": live_workflow_replay.get("workflow_requirement_summary", {}),
+        "live_workflow_failure_class_summary": live_workflow_replay.get("workflow_failure_class_summary", {}),
         "live_workflow_binding_application_summary": live_workflow_replay["binding_application_summary"],
+        "redthread_replay_passed": redthread_replay_verdict["passed"],
+        "redthread_dryrun_executed": False,
         "gate_decision": gate_verdict["decision"],
     }
 
     artifacts = {
+        "fixture_bundle.json": fixture_bundle,
         "live_attack_plan.json": live_attack_plan,
         "live_workflow_plan.json": live_workflow_plan,
         "live_workflow_replay.json": live_workflow_replay,
         "redthread_runtime_inputs.json": redthread_runtime_inputs,
+        "redthread_replay_verdict.json": redthread_replay_verdict,
         "gate_verdict.json": gate_verdict,
         "workflow_summary.json": workflow_summary,
     }

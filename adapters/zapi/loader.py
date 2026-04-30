@@ -29,6 +29,7 @@ def parse_endpoint(item: dict[str, Any]) -> ZapiEndpoint:
         description=str(item.get("description", "")),
         query_params=_as_string_list(item.get("query_params", [])),
         body_fields=_as_string_list(item.get("body_fields", [])),
+        response_fields=_as_string_list(item.get("response_fields", [])),
         auth_hints=_as_string_list(item.get("auth_hints", [])),
         workflow_group=str(item.get("workflow_group", "default")),
     )
@@ -71,6 +72,7 @@ def classify_fixture(endpoint: ZapiEndpoint) -> RedThreadFixture:
         summary=endpoint.summary or endpoint.description,
         query_params=endpoint.query_params,
         body_fields=endpoint.body_fields,
+        response_fields=endpoint.response_fields,
         auth_hints=endpoint.auth_hints,
         workflow_group=endpoint.workflow_group,
         risk_level=risk_level,

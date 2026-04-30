@@ -12,6 +12,7 @@ class ZapiEndpoint:
     description: str = ""
     query_params: list[str] = field(default_factory=list)
     body_fields: list[str] = field(default_factory=list)
+    response_fields: list[str] = field(default_factory=list)
     auth_hints: list[str] = field(default_factory=list)
     source: str = "zapi"
     workflow_group: str = "default"
@@ -28,6 +29,7 @@ class RedThreadFixture:
     summary: str
     query_params: list[str] = field(default_factory=list)
     body_fields: list[str] = field(default_factory=list)
+    response_fields: list[str] = field(default_factory=list)
     auth_hints: list[str] = field(default_factory=list)
     workflow_group: str = "default"
     risk_level: str = "unknown"

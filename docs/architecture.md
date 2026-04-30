@@ -43,6 +43,7 @@ Implemented now:
 - first reviewed non-destructive staging write lane with explicit per-case approved write context
 - first grouped sequential workflow replay lane with stop-on-first-failure behavior
 - bounded workflow evidence carry-forward with structured workflow failure reasons
+- minimum sanitized app context export for RedThread-facing runtime/evidence paths
 - RedThread replay-bundle export
 - RedThread promotion-gate evaluation against exported bundles
 - RedThread dry-run campaign execution from generated bridge cases
@@ -190,9 +191,12 @@ Inputs:
 After normalization, the bridge can now go one step farther:
 
 1. build a replay bundle shaped like RedThread's `ReplayBundle`
-2. build dry-run campaign cases shaped like RedThread's `CampaignConfig`
-3. evaluate the replay bundle with RedThread's real promotion gate
-4. execute one generated case through a real RedThread dry-run campaign
+2. build a sanitized `app_context.v1` summary for RedThread-facing runtime/evidence paths
+3. build dry-run campaign cases shaped like RedThread's `CampaignConfig`
+4. evaluate the replay bundle with RedThread's real promotion gate
+5. execute one generated case through a real RedThread dry-run campaign
+
+The app context is intentionally small and sanitized. It describes workflow order, tool/action schema, auth model, data sensitivity, and tenant/user boundary using structural metadata only. It must not carry raw HAR values, session values, cookies, auth headers, request bodies, or response bodies.
 
 This is still conservative.
 The bridge is not claiming live enterprise execution.

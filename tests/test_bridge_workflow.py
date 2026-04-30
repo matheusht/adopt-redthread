@@ -47,6 +47,9 @@ class BridgeWorkflowTests(unittest.TestCase):
         self.assertIn("approved_binding_alias_summary", workflow_summary)
         self.assertIn("binding_pattern_candidate_count", workflow_summary)
         self.assertIn("binding_pattern_promotion_ready_count", workflow_summary)
+        self.assertIn("app_context_summary", workflow_summary)
+        self.assertEqual(workflow_summary["app_context_summary"]["operation_count"], 4)
+        self.assertEqual(workflow_summary["app_context_summary"]["auth_mode"], "api_key")
         self.assertEqual(workflow_summary["live_workflow_requirement_summary"], {})
         self.assertEqual(workflow_summary["live_workflow_failure_class_summary"], {})
         self.assertEqual(workflow_summary["live_workflow_binding_application_summary"], {})
@@ -83,6 +86,8 @@ class BridgeWorkflowTests(unittest.TestCase):
         self.assertIn("approved_binding_alias_count", summary)
         self.assertIn("approved_binding_alias_summary", summary)
         self.assertIn("binding_pattern_candidate_count", summary)
+        self.assertIn("app_context_summary", summary)
+        self.assertEqual(summary["app_context_summary"]["schema_version"], "app_context.v1")
         self.assertIn("workflow_review_manifest", summary["artifacts"])
 
 

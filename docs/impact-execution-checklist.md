@@ -87,7 +87,30 @@ Important artifacts:
 - `gate_verdict.json`
 - `workflow_summary.json`
 
-### 4. Real ZAPI reference target
+### 4. Deterministic reviewed-write reference target
+
+Goal: give the operator one local command that proves the realistic reviewed-write path without external app drift or manual auth/write/binding setup.
+
+Current reference:
+
+- `make demo-reviewed-write-reference`
+- output: `runs/reviewed_write_reference/evidence_report.md`
+- synthetic ATP-like endpoints: `GET /api/chats`, `POST /api/chats`, `POST /api/chat`
+- fixture count: 5
+- live workflow replay: executed and successful
+- response bindings: 3 declared, 3 applied
+- RedThread replay verdict: passed
+- final local gate decision: `review`
+- reason: `manual_review_required_for_write_paths`
+
+Checklist:
+
+- [x] Add deterministic local ATP-like reviewed-write server.
+- [x] Hide HAR/auth/write/binding setup behind `make demo-reviewed-write-reference`.
+- [x] Generate `runs/reviewed_write_reference/evidence_report.md`.
+- [x] Keep the final result as `review`, not `approve`.
+
+### 5. Real ZAPI reference target
 
 Goal: prove the evidence model on a real ZAPI-derived workflow family without pretending reviewed write paths should auto-approve.
 

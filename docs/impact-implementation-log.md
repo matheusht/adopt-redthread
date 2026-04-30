@@ -206,10 +206,40 @@ Durability path added:
 - `make check-zapi-reference` writes `runs/atp_tennis_reference_check/sanitized_evidence.json`
 - `docs/zapi-reference-demo.md` explains why `review` is the correct outcome
 
+## 2026-04-30 — deterministic reviewed-write operator path
+
+### What changed
+
+The repo now has a deterministic ATP-like reviewed-write proof path:
+
+```bash
+make demo-reviewed-write-reference
+```
+
+That command hides the internal complexity from the operator:
+
+- local ATP-like replay server
+- generated HAR
+- approved auth context
+- approved staging write context
+- approved response-binding overrides
+- RedThread runtime input generation
+- RedThread replay/dry-run
+- local gate verdict
+- markdown evidence report
+
+Primary output:
+
+```text
+runs/reviewed_write_reference/evidence_report.md
+```
+
+Expected result remains `review`, not `approve`, because reviewed write paths are present.
+
 ### Still open
 
-The implementation has completed the first architecture slice and durable hero proof. Remaining impact work:
+The implementation has completed the first architecture slice, durable hero proof, real ZAPI reference validation, and deterministic reviewed-write operator path. Remaining impact work:
 
-1. decide whether to create a fully synthetic ATP-like replay server so the reviewed-write workflow can be rerun without the external app
-2. update RedThread docs/wiki only after the evidence model is confirmed beyond one deterministic local workflow and one reviewed real-ZAPI run
+1. watch a target reviewer read `runs/reviewed_write_reference/evidence_report.md` without explanation and record where it is unclear
+2. update RedThread docs/wiki only after that reviewer can explain the evidence and decision back correctly
 

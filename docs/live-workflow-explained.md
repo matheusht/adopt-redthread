@@ -20,6 +20,7 @@ What works today:
 - we can now execute the first **reviewed non-destructive staging write lane** only when explicit approved write context is supplied
 - we can now execute the first **grouped sequential workflow replay lane** for multi-step cases with stop-on-first-failure behavior
 - that workflow lane now carries bounded workflow evidence forward and emits structured failure reasons for gate decisions
+- we now have a deterministic **reviewed-write reference demo** that hides HAR/auth/write/binding setup behind `make demo-reviewed-write-reference` and emits one evidence report
 
 What does **not** work yet:
 - one-button fully live flow from **running ZAPI session -> automatic RedThread attack loop -> live target execution**
@@ -27,7 +28,7 @@ What does **not** work yet:
 - full production-grade publish gate
 - full live attack execution against a real Adopt-managed runtime/session
 - full session-aware authenticated replay beyond approved header reuse
-- broader reviewed write coverage beyond the first non-destructive staging lane
+- broader reviewed write coverage beyond the deterministic ATP-like reviewed-write reference path
 - richer workflow state beyond the new bounded evidence-carry-forward grouped replay
 
 So the honest status is:
@@ -234,6 +235,7 @@ We have:
 - prototype gate outputs
 - a one-command artifact pipeline
 - a one-command live ZAPI capture runner
+- a one-command deterministic reviewed-write reference run with a reviewer-friendly evidence report
 
 So this is already more than mock architecture.
 

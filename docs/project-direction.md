@@ -22,11 +22,12 @@ Reason:
 - tracking all `runs/` would make drift less likely but would make accidental sensitive-artifact commits more likely
 - a tiny deterministic generator plus tests gives durability without committing raw run output
 
-So the durable path is:
+So the durable paths are:
 
 ```bash
 make demo-hero-binding-truth
-python3 -m unittest tests.test_golden_demo_truth -v
+make demo-reviewed-write-reference
+python3 -m unittest tests.test_golden_demo_truth tests.test_reviewed_write_reference -v
 ```
 
 Generated artifacts still live in:
@@ -92,6 +93,32 @@ Minimum credible evidence:
 - RedThread replay verdict is visible
 - the local gate decision is visible
 - `review` and `block` are treated as valid security outcomes, not failures to be hidden
+
+## Deterministic reviewed-write reference demo
+
+The deterministic reviewed-write reference is:
+
+```bash
+make demo-reviewed-write-reference
+```
+
+It writes:
+
+```text
+runs/reviewed_write_reference/evidence_report.md
+```
+
+This is the operator-friendly local proof path. It hides the generated HAR, auth context, write context, response-binding overrides, RedThread runtime input, and gate files behind one command while still leaving those artifacts inspectable under `runs/reviewed_write_reference/`.
+
+Expected result:
+
+- fixture count: `5`
+- reviewed workflow count: `1`
+- declared response bindings: `3`
+- applied response bindings: `3`
+- RedThread replay passed: yes
+- final gate decision: `review`
+- reason: `manual_review_required_for_write_paths`
 
 ## Real ZAPI reference demo
 

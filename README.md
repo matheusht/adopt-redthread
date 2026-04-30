@@ -31,6 +31,7 @@ What works today:
 - execute the first policy-gated live safe-read replay lane for allowed GET cases
 - execute reviewed auth-bound safe-read GET cases only when explicit approved auth context is supplied
 - execute reviewed non-destructive write cases in staging only when explicit approved write context is supplied
+- run a deterministic ATP-like reviewed-write reference demo from one operator command and emit one evidence report
 - generate a machine-readable live workflow plan for grouped multi-step cases
 - execute the first bounded sequential workflow replay lane for grouped multi-step cases
 - carry bounded workflow state/evidence forward across sequential steps and emit structured workflow failure reasons
@@ -45,7 +46,7 @@ What is **not** live yet:
 - broad support for all real-world NoUI output families beyond the first MCP server shape
 - full session-aware authenticated replay beyond approved header reuse
 - richer workflow state beyond the new bounded evidence-carry-forward grouped replay
-- full reviewed write coverage beyond the first non-destructive staging lane
+- full reviewed write coverage beyond the deterministic ATP-like reviewed-write reference path
 - fully automatic live ZAPI runtime -> RedThread attack loop against a real Adopt-managed session
 - production-grade publish gating
 - richer gate policy beyond the first evidence-aware prototype
@@ -146,6 +147,10 @@ make demo-noui-redthread
 make demo-adopt-actions
 make demo-gate
 make demo-bridge-pipeline
+make demo-hero-binding-truth
+make demo-reviewed-write-reference
+make evidence-report
+make check-zapi-reference
 ```
 
 ## Key demo files
@@ -175,11 +180,13 @@ Generated outputs:
 - `fixtures/replay_packs/sample_noui_redthread_dryrun_case0.json`
 - `runs/sample_har_pipeline/` — generated one-command sample pipeline outputs
 - `runs/hero_binding_truth/` — generated deterministic golden demo artifacts; regenerate with `make demo-hero-binding-truth`
+- `runs/reviewed_write_reference/` — generated deterministic ATP-like reviewed-write reference; run with `make demo-reviewed-write-reference`, inspect `evidence_report.md`
 - `runs/atp_tennis_01_live_bound/` — real ZAPI reference run; final decision is `review`, not `approve`, because write paths still require manual review; validate with `make check-zapi-reference`
 
 ## Docs
 
 - `docs/project-direction.md` — current direction, scope, proof standard, and proven/not-proven boundary
+- `docs/reviewed-write-reference-demo.md` — deterministic reviewed-write reference demo with one operator command
 - `docs/zapi-reference-demo.md` — real ATP Tennis ZAPI reference demo and `review` evidence standard
 - `docs/strategy.md` — why the repo split exists and what each system owns
 - `docs/impact-execution-checklist.md` — current impact-first execution checklist and upstream boundary

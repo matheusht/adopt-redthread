@@ -41,8 +41,8 @@ So the honest status is:
 Think of the system like this:
 
 - **ZAPI / NoUI** = tools that look at the app and discover what operations exist
-- **adopt-redthread** = translator bridge
-- **RedThread** = security engine that judges, replays, and stress-tests those operations
+- **adopt-redthread** = translator bridge, bounded live/workflow replay runner, and current local gate
+- **RedThread** = security engine that evaluates normalized replay/campaign inputs and returns evidence
 
 Today, the workflow is:
 
@@ -51,7 +51,8 @@ Today, the workflow is:
 3. convert those artifacts into RedThread-friendly fixtures
 4. export those fixtures into RedThread runtime inputs
 5. let RedThread evaluate and dry-run them
-6. optionally do that entire chain from one top-level command
+6. combine RedThread evidence with bridge replay evidence in the local `approve/review/block` gate
+7. optionally do that entire chain from one top-level command
 
 That part works.
 
@@ -135,6 +136,7 @@ This is also real working integration.
 What we do **not** have yet:
 - RedThread fully driving a live target discovered moments earlier by ZAPI
 - RedThread doing live authenticated attack execution against a real Adopt-managed runtime
+- RedThread owning this repo's final `approve/review/block` gate decision
 - broader reviewed write lanes beyond the first staging slice
 - full continuous closed-loop publish gating
 
@@ -154,10 +156,13 @@ flowchart TD
     G --> I[Dry-run case execution in RedThread]
     H --> J[Replay verdict]
     I --> K[Dry-run results]
-    F --> L[Human review / security gate]
+    F --> L[Local bridge gate]
     J --> L
     K --> L
+    L --> M[Approve / Review / Block]
 ```
+
+Current gate truth: RedThread replay verdicts and dry-run results are inputs. This repo's local gate currently emits the final `approve`, `review`, or `block` verdict.
 
 ---
 
@@ -181,16 +186,16 @@ The intended workflow is:
    - RedThread should not care whether the source was ZAPI, HAR, NoUI, or action catalog
    - it should only care about the normalized target description
 
-4. **RedThread evaluates and attacks safely**
-   - replay known flows
+4. **RedThread evaluates safely**
+   - replay known normalized traces
    - dry-run generated cases
    - later, attack richer live workflows
 
-5. **Gate decision happens at the end**
+5. **Bridge-owned gate decision happens at the end**
    - approve
    - review
    - block
-   - and now it can include live replay/workflow evidence plus the RedThread replay verdict
+   - it includes live replay/workflow evidence plus the RedThread replay verdict
    - workflow-specific blocked/aborted reason codes now feed that gate more honestly
 
 That is the intended product behavior.
@@ -249,8 +254,9 @@ We still need:
 | ZAPI artifact ingestion | Working | Real HAR outputs can be consumed |
 | NoUI artifact ingestion | Working | First real MCP manifest/tools shape supported |
 | Bridge normalization | Working | One shared fixture model exists |
-| RedThread replay evaluation | Working | Uses real RedThread code |
-| RedThread dry-run handoff | Working | Uses real RedThread engine path |
+| RedThread replay evaluation | Working | Uses real RedThread code; verdict is gate input |
+| RedThread dry-run handoff | Working | Uses real RedThread engine path; result is evidence |
+| Local approve/review/block gate | Working prototype | This repo owns the current final decision |
 | One-command live ZAPI capture -> bridge -> replay/dry-run | Working | New runner exists in `scripts/run_live_zapi_bridge.py` |
 | Full live ZAPI -> RedThread auto-loop | Not done | Still prototype gap |
 | Live attack execution on real Adopt runtime | Not done | Future step |

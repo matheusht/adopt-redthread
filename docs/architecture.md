@@ -2,9 +2,9 @@
 
 ## Goal
 
-Use Adopt AI as the **agent builder plane** and RedThread as the **security assurance plane**.
+Use Adopt AI as the **agent builder plane**, this repo as the **evidence bridge**, and RedThread as the **security assurance engine**.
 
-This repo wires the two together.
+This repo wires the two together without pretending the full production loop exists yet.
 
 ---
 
@@ -12,15 +12,18 @@ This repo wires the two together.
 
 ```mermaid
 flowchart TD
-    A[Real app or website] --> B[ZAPI or NoUI discovery]
-    B --> C[Adopt tools and actions]
-    C --> D[Adopt RedThread adapters]
-    D --> E[Normalized RedThread fixtures]
-    E --> F[Replay packs]
-    F --> G[RedThread attack, replay, and validation later]
-    G --> H[Pre-publish gate verdict]
-    H --> I[Approve, review, or block]
+    A[Real app or website] --> B[ZAPI / NoUI / Adopt discovery artifacts]
+    B --> C[Adopt RedThread adapters]
+    C --> D[Normalized fixtures and workflow plans]
+    D --> E[Bridge-owned live/workflow replay evidence]
+    D --> F[RedThread runtime inputs]
+    F --> G[RedThread replay verdict and dry-run evidence]
+    E --> H[Local bridge pre-publish gate]
+    G --> H
+    H --> I[Approve / Review / Block]
 ```
+
+Current truth: RedThread's replay verdict is an input to the local bridge gate. The local gate currently decides `approve`, `review`, or `block`.
 
 ## Current maturity
 
@@ -53,6 +56,7 @@ Not implemented yet:
 - richer workflow state beyond the new bounded evidence-carry-forward grouped replay
 - broader reviewed write coverage beyond the first non-destructive staging lane
 - fully automatic live RedThread attack execution against a real Adopt-built session immediately after discovery
+- RedThread independently owning live workflow execution for Adopt-managed sessions
 - CI or release-system wiring for automatic publish gates
 
 ---
@@ -69,20 +73,24 @@ Not implemented yet:
 
 ## RedThread owns
 
-- attack generation
-- replay execution
-- evaluation and verdicts
+- generic attack generation
+- generic replay evaluation
+- dry-run campaign execution
 - security hardening evidence
 - authorization and workflow abuse testing
-- promotion-gate recommendations
+- promotion-gate recommendations inside RedThread
+
+Current boundary: RedThread provides replay/dry-run evidence to this repo. It does not currently make the final bridge `approve/review/block` decision.
 
 ## Adopt RedThread owns
 
 - schema mapping between Adopt output and RedThread input
 - endpoint risk classification
 - replay-pack generation
+- bounded live safe-read and workflow replay for bridge demos
 - integration scripts and demos
 - pre-publish security gate experiments
+- the current final `approve/review/block` decision over combined bridge + RedThread evidence
 
 ---
 

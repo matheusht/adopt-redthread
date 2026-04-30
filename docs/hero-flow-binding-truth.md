@@ -12,6 +12,8 @@ It proves the bridge can show the full chain:
 
 ## Artifact set
 
+These artifacts are generated, not checked in. `runs/` stays local because real runs can contain HAR/session-derived evidence. The durable source is the generator plus regression test.
+
 Generated artifacts live under:
 
 ```text
@@ -126,19 +128,25 @@ Inspect `notes` for:
 
 ## Reproduce the artifact
 
-The checked-in tests are the durable verification path:
+Generate the local artifact:
 
 ```bash
-python3 -m unittest \
-  tests.test_live_workflow_bindings \
-  tests.test_reviewed_binding_alias_builder \
-  tests.test_reviewed_binding_alias_loop \
-  tests.test_redthread_runtime_adapter \
-  tests.test_prepublish_gate \
-  -v
+make demo-hero-binding-truth
 ```
 
-The artifact was generated from the same deterministic local binding server used by `tests/live_workflow_binding_support.py`. It does not require external credentials.
+Or directly:
+
+```bash
+python3 scripts/generate_hero_binding_truth.py --output-dir runs/hero_binding_truth
+```
+
+The checked-in regression test is the durable verification path:
+
+```bash
+python3 -m unittest tests.test_golden_demo_truth -v
+```
+
+The artifact is generated from the same deterministic local binding server used by `tests/live_workflow_binding_support.py`. It does not require external credentials or a real Adopt/ZAPI account.
 
 ## Why this matters
 
@@ -149,4 +157,4 @@ Before this slice, the bridge could say a binding was planned or reviewed. Now i
 - applied: yes
 - failed/unapplied: counted and exposed when it happens
 
-That is the proof RedThread should consume: generic trust evidence, not Adopt-specific glue.
+That is the proof RedThread should consume as input: generic trust evidence, not Adopt-specific glue. The final `approve/review/block` decision is still made by this repo's local gate today.

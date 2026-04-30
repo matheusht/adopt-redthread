@@ -19,7 +19,7 @@ The one sequencing constraint is important:
 
 - Adopt builds.
 - Bridge proves on real app shapes.
-- RedThread judges generic trust evidence.
+- RedThread evaluates generic trust evidence.
 - No silent mutation.
 - No browser product in RedThread.
 - No ATP-only hacks upstream.
@@ -74,7 +74,9 @@ Checklist:
 
 - [x] Pick one hero input.
 - [x] Run plan -> replay -> gate/runtime handoff for deterministic binding-truth proof.
-- [x] Save artifacts under `runs/hero_binding_truth`.
+- [x] Generate artifacts under ignored `runs/hero_binding_truth`.
+- [x] Add `scripts/generate_hero_binding_truth.py` so the golden demo is reproducible instead of checked in.
+- [x] Add `tests/test_golden_demo_truth.py` so docs cannot claim `approve` while the generated summary says `block`.
 - [x] Document what to inspect in `docs/hero-flow-binding-truth.md`.
 
 Important artifacts:
@@ -85,22 +87,29 @@ Important artifacts:
 - `gate_verdict.json`
 - `workflow_summary.json`
 
-### 4. Second proof target
+### 4. Real ZAPI reference target
 
-Goal: prove the evidence model on a second workflow family.
+Goal: prove the evidence model on a real ZAPI-derived workflow family without pretending reviewed write paths should auto-approve.
+
+Current reference:
+
+- `runs/atp_tennis_01_live_bound/`
+- input: `demo_session_filtered.har`
+- ingestion: `zapi`
+- live workflow replay: executed and successful
+- response bindings: 3 declared, 3 applied
+- RedThread replay verdict: passed
+- final local gate decision: `review`
+- reason: `manual_review_required_for_write_paths`
 
 Checklist:
 
-- [ ] Inspect available candidate captures.
-- [ ] Pick second target.
-- [ ] Run bridge pipeline.
-- [ ] If replay blocks, make reason operator-readable.
-- [ ] Document result as proof, even if block is expected.
-
-Candidate inputs:
-
-- `gainly.har`
-- `hackermerlin_filtered.har`
+- [x] Inspect available candidate captures.
+- [x] Promote `runs/atp_tennis_01_live_bound/` as the current real ZAPI reference demo.
+- [x] Document it as `review`, not `approve`.
+- [x] Add checked-in sanitized expectations at `fixtures/reference_demos/atp_tennis_zapi_reference_expected.json`.
+- [x] Add `make check-zapi-reference` to validate local HAR + local run artifacts without checking in secrets.
+- [x] Document the evidence standard in `docs/zapi-reference-demo.md`.
 
 ## Week 2 — tiny generic upstream into `redthread`
 

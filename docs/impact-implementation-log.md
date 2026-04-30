@@ -160,10 +160,56 @@ The key operator proof is:
 
 This is intentionally deterministic and credential-free. The external ATP app run remains useful as a real-world bounded-streaming proof, but the deterministic hero artifact is the clean runtime-row binding proof.
 
+## 2026-04-29 — proof boundary reconciliation
+
+### Direction clarified
+
+The repo now documents the honest decision boundary:
+
+- live workflow execution is currently owned by `adopt-redthread`
+- RedThread replay/dry-run output is evidence consumed by this repo
+- this repo's local pre-publish gate currently emits the final `approve`, `review`, or `block` decision
+
+This prevents the docs from implying that RedThread alone is making the bridge publish decision today.
+
+### Golden demo durability
+
+The hero binding-truth run remains generated under ignored `runs/hero_binding_truth/`, but it is now durable through code and tests:
+
+- `scripts/generate_hero_binding_truth.py` regenerates the deterministic artifacts
+- `make demo-hero-binding-truth` wraps that generator
+- `tests/test_golden_demo_truth.py` verifies the generated result and the documented result stay aligned
+
+The decision was not to track all of `runs/` because real runs can contain session-derived data. Generated local artifacts are allowed; checked-in scripts/tests are the source of truth.
+
+### Real ZAPI reference demo
+
+The current real ZAPI reference is:
+
+```text
+runs/atp_tennis_01_live_bound/
+```
+
+It is intentionally documented as `review`, not `approve`:
+
+- ZAPI input: `demo_session_filtered.har`
+- live workflow replay succeeded
+- 3 declared response bindings were applied
+- RedThread replay passed
+- final local gate decision is `review`
+- reason: write paths still require manual review
+
+Durability path added:
+
+- `fixtures/reference_demos/atp_tennis_zapi_reference_expected.json` stores the non-secret expected result
+- `scripts/check_atp_zapi_reference.py` validates the local HAR plus local ignored run artifacts
+- `make check-zapi-reference` writes `runs/atp_tennis_reference_check/sanitized_evidence.json`
+- `docs/zapi-reference-demo.md` explains why `review` is the correct outcome
+
 ### Still open
 
-The implementation has completed the first architecture slice and hero proof. Remaining impact work:
+The implementation has completed the first architecture slice and durable hero proof. Remaining impact work:
 
-1. choose and run a second proof target
-2. update the RedThread wiki after the second proof confirms the evidence model beyond one workflow family
+1. decide whether to create a fully synthetic ATP-like replay server so the reviewed-write workflow can be rerun without the external app
+2. update RedThread docs/wiki only after the evidence model is confirmed beyond one deterministic local workflow and one reviewed real-ZAPI run
 

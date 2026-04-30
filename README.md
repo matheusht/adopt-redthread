@@ -4,7 +4,13 @@ Adopt RedThread is the bridge repo between **Adopt AI** and **RedThread**.
 
 It exists to prove one clear idea:
 
-> **Adopt builds the agent plane. RedThread attacks, validates, and hardens it.**
+> **Adopt discovers and builds tool surfaces. This repo turns them into security-testable evidence. RedThread evaluates normalized security inputs. The local bridge gate combines that evidence into approve, review, or block.**
+
+Project direction:
+- keep Adopt-specific discovery and glue in this repo
+- keep RedThread generic and upstream-safe
+- prove impact with inspectable artifacts before expanding scope
+- treat `review` and `block` as valid safety outcomes, not demo failures
 
 ## Current status
 
@@ -44,6 +50,11 @@ What is **not** live yet:
 - production-grade publish gating
 - richer gate policy beyond the first evidence-aware prototype
 
+Important decision boundary:
+- RedThread replay/dry-run output is evidence consumed by this repo
+- live workflow execution is currently owned by this repo
+- the final `approve`, `review`, or `block` verdict currently comes from this repo's local pre-publish gate
+
 So the honest status is:
 
 - **yes, the bridge prototype exists and runs end to end**
@@ -74,13 +85,15 @@ It is the integration lab for:
 
 ```mermaid
 flowchart TD
-    A[Real app or website] --> B[ZAPI or NoUI discovery]
-    B --> C[Adopt tools and actions]
-    C --> D[Adopt RedThread adapters]
-    D --> E[Normalized RedThread fixtures]
-    E --> F[Replay packs]
-    F --> G[Pre-publish gate verdict]
-    G --> H[Approve, review, or block]
+    A[Real app or website] --> B[ZAPI / NoUI / Adopt discovery artifacts]
+    B --> C[Adopt RedThread adapters]
+    C --> D[Normalized fixtures and workflow plans]
+    D --> E[Bridge-owned live/workflow replay evidence]
+    D --> F[RedThread runtime inputs]
+    F --> G[RedThread replay verdict and dry-run evidence]
+    E --> H[Local bridge pre-publish gate]
+    G --> H
+    H --> I[Approve / Review / Block]
 ```
 
 ## Repo goals
@@ -160,10 +173,14 @@ Generated outputs:
 - `fixtures/replay_packs/sample_noui_redthread_runtime_inputs.json`
 - `fixtures/replay_packs/sample_noui_redthread_replay_verdict.json`
 - `fixtures/replay_packs/sample_noui_redthread_dryrun_case0.json`
-- `runs/sample_har_pipeline/` — one-command sample pipeline outputs
+- `runs/sample_har_pipeline/` — generated one-command sample pipeline outputs
+- `runs/hero_binding_truth/` — generated deterministic golden demo artifacts; regenerate with `make demo-hero-binding-truth`
+- `runs/atp_tennis_01_live_bound/` — real ZAPI reference run; final decision is `review`, not `approve`, because write paths still require manual review; validate with `make check-zapi-reference`
 
 ## Docs
 
+- `docs/project-direction.md` — current direction, scope, proof standard, and proven/not-proven boundary
+- `docs/zapi-reference-demo.md` — real ATP Tennis ZAPI reference demo and `review` evidence standard
 - `docs/strategy.md` — why the repo split exists and what each system owns
 - `docs/impact-execution-checklist.md` — current impact-first execution checklist and upstream boundary
 - `docs/impact-implementation-log.md` — implementation notes for runtime binding truth and RedThread context surfacing

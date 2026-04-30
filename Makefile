@@ -1,7 +1,7 @@
 PYTHON ?= python3
 REDTHREAD_PYTHON ?= ../redthread/.venv/bin/python
 
-.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
+.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
 
 test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
@@ -16,6 +16,12 @@ demo-zapi-har:
 
 demo-live-plan:
 	$(PYTHON) scripts/generate_live_attack_plan.py fixtures/zapi_samples/sample_filtered_har.json fixtures/replay_packs/sample_har_live_attack_plan.json --ingestion zapi
+
+demo-hero-binding-truth:
+	$(PYTHON) scripts/generate_hero_binding_truth.py --output-dir runs/hero_binding_truth
+
+check-zapi-reference:
+	$(PYTHON) scripts/check_atp_zapi_reference.py --har demo_session_filtered.har --run-dir runs/atp_tennis_01_live_bound
 
 demo-bridge-pipeline:
 	$(PYTHON) scripts/run_bridge_pipeline.py fixtures/zapi_samples/sample_filtered_har.json runs/sample_har_pipeline --ingestion zapi --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src

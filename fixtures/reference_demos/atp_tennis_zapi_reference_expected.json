@@ -1,0 +1,22 @@
+{
+  "reference_id": "atp_tennis_zapi_review_reference",
+  "description": "Sanitized expected outcome for the real ATP Tennis ZAPI reference run. Raw HAR and run artifacts stay ignored; this file contains only non-secret counts and decisions.",
+  "input_file_basename": "demo_session_filtered.har",
+  "run_dir": "runs/atp_tennis_01_live_bound",
+  "expected": {
+    "ingestion": "zapi",
+    "fixture_count": 5,
+    "workflow_count": 1,
+    "live_workflow_replay_executed": true,
+    "successful_workflow_count": 1,
+    "blocked_workflow_count": 0,
+    "aborted_workflow_count": 0,
+    "declared_response_binding_count": 3,
+    "applied_response_binding_count": 3,
+    "redthread_replay_passed": true,
+    "redthread_dryrun_executed": true,
+    "gate_decision": "review",
+    "gate_warning": "manual_review_required_for_write_paths",
+    "workflow_class": "reviewed_write_workflow"
+  }
+}

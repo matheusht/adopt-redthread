@@ -9,6 +9,8 @@ Current scripts:
 - `generate_replay_pack.py` — turn normalized fixtures into replay-pack groups
 - `prepublish_gate.py` — prototype gate for approve/review/block decisions, now able to include live replay/workflow evidence and RedThread replay verdicts
 - `generate_live_attack_plan.py` — create `live_attack_plan.json` with execution policy for each normalized fixture
+- `generate_hero_binding_truth.py` — regenerate the deterministic golden demo artifacts under `runs/hero_binding_truth/`
+- `check_atp_zapi_reference.py` — validate the local ATP Tennis ZAPI reference run and write a sanitized non-secret evidence summary
 - `run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
 - `run_live_workflow_replay.py` — execute grouped sequential workflow replay from workflow and attack plans using the same auth/write guardrails
   - carries bounded state/evidence forward between steps
@@ -35,6 +37,8 @@ Handy commands:
 - `make demo-adopt-actions` — regenerate the sample action fixture bundle
 - `make demo-gate` — regenerate the replay plan and gate verdict for the catalog-style sample
 - `make demo-live-plan` — generate the sample machine-readable live attack plan
+- `make demo-hero-binding-truth` — regenerate the deterministic golden demo artifacts under ignored `runs/hero_binding_truth/`
+- `make check-zapi-reference` — validate `demo_session_filtered.har` plus `runs/atp_tennis_01_live_bound/` against checked-in non-secret expectations
 - `make demo-bridge-pipeline` — run the full one-command pipeline from the sanitized HAR sample
 - `make live-zapi-bridge URL=https://example.com` — run a real ZAPI capture, then execute the full bridge flow
 - `make demo-all` — run the full local demo flow across ZAPI, NoUI, replay, dry-run, and the one-command pipeline

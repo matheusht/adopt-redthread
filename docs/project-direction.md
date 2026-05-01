@@ -88,6 +88,8 @@ Run these because they are deterministic, local, read-only, or explicitly bounde
 - `make evidence-matrix`
 - `make evidence-packet`
 - `make evidence-external-review-handoff` (sanitized handoff packaging only; not validation by itself)
+- `make evidence-external-review-sessions` (isolated reviewer folders from sanitized handoff only; not validation by itself)
+- `make evidence-external-validation-readout` (sanitized summary/readout state only; missing summaries remain non-validation)
 - `make evidence-boundary-probe-plan` (plan-only artifact; no live execution)
 - `make evidence-boundary-execution-design` (design-only contract; no live execution)
 - `make evidence-boundary-probe-result` (sanitized result template/validator; no live execution; current default is `blocked_missing_context`)

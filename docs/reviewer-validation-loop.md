@@ -52,11 +52,12 @@ Forbidden evidence:
 
    ```bash
    make evidence-external-review-handoff
+   make evidence-external-review-sessions
    ```
 
-   The handoff is documented in [`docs/external-human-cold-review-handoff.md`](external-human-cold-review-handoff.md). It is packaging only, not validation by itself.
+   The handoff is documented in [`docs/external-human-cold-review-handoff.md`](external-human-cold-review-handoff.md). The isolated session folders are documented in [`docs/external-review-session-batch.md`](external-review-session-batch.md). Both are packaging only, not validation by themselves.
 
-3. Give the reviewer only the sanitized report, matrix, reviewer packet, observation template, and external reviewer instructions.
+3. Give each reviewer only one generated session folder's sanitized artifacts and blank observation file.
 
 4. Ask the reviewer to answer the six silent-review questions before any explanation:
 
@@ -135,7 +136,20 @@ runs/reviewer_validation/reviewer_validation_rollup.md
 runs/reviewer_validation/reviewer_validation_rollup.json
 ```
 
-The rollup intentionally reads `reviewer_observation_summary.json` files, not raw observations or raw run artifacts.
+For the generated external session batch, you can also run:
+
+```bash
+make evidence-external-validation-readout
+```
+
+This writes:
+
+```text
+runs/external_validation_readout/external_validation_readout.md
+runs/external_validation_readout/external_validation_readout.json
+```
+
+The rollup and readout intentionally read `reviewer_observation_summary.json` files, not raw observations or raw run artifacts.
 
 ## Rollup status values
 

@@ -21,13 +21,16 @@ make evidence-packet
 
 If no boundary result artifact exists, the packet/handoff preserves the existing absent/`tenant_user_boundary_unproven` wording.
 
-Then build the external handoff directory:
+Then build the external handoff directory and isolated reviewer sessions:
 
 ```bash
 make evidence-external-review-handoff
+make evidence-external-review-sessions
 ```
 
-Generated local output:
+The handoff directory is the source package. The session batch copies only those sanitized files into `runs/external_review_sessions/review_*` folders with one blank observation per reviewer.
+
+Generated local handoff output:
 
 ```text
 runs/external_review_handoff/
@@ -89,18 +92,25 @@ make evidence-observation-summary \
   OBSERVATION_OUTPUT=runs/reviewer_validation/review_1
 ```
 
-Repeat for reviewers 2 and 3 with separate output directories.
+Repeat for reviewers 2 and 3 with separate output directories. If using the generated session batch, the per-review output directories are already `runs/external_review_sessions/review_1`, `review_2`, and `review_3`.
 
-Then roll up the three sanitized summaries:
+Then roll up the three sanitized summaries directly:
 
 ```bash
 make evidence-validation-rollup \
   SUMMARIES="runs/reviewer_validation/review_1/reviewer_observation_summary.json runs/reviewer_validation/review_2/reviewer_observation_summary.json runs/reviewer_validation/review_3/reviewer_observation_summary.json"
 ```
 
+Or build the external-specific readout from the session batch's expected summary paths:
+
+```bash
+make evidence-external-validation-readout
+```
+
 ## Interpretation
 
-- `ready_for_validation_readout` means the mechanics produced enough complete sanitized summaries to discuss the result.
+- `waiting_for_filled_external_observations` means no external reviewer summaries are present yet.
+- `ready_for_validation_readout` in the generic rollup, or `ready_for_external_validation_readout` in the external readout, means the mechanics produced enough complete sanitized summaries to discuss the result.
 - It does not prove buyer demand.
 - It does not prove production readiness.
 - It does not mean RedThread owns the final bridge gate verdict.

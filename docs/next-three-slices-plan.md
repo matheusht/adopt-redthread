@@ -91,3 +91,12 @@ Convert the repeated reviewer ask into a safe execution design before writing an
 ## Follow-up implemented
 
 The next two slices are now tracked in [`docs/next-two-slices-plan.md`](next-two-slices-plan.md): a boundary probe result template/validator and report/matrix/packet integration for that result artifact. Live boundary execution remains blocked until approved non-production context exists.
+
+## Follow-up implemented after boundary result slices
+
+The following local external-review mechanics are now tracked in [`docs/next-two-slices-plan.md`](next-two-slices-plan.md):
+
+- isolated external review session folders from the sanitized handoff
+- external validation readout state from sanitized reviewer-observation summaries
+
+These remain non-execution, non-validation-by-default slices. Real validation still requires filled external reviewer observations summarized through the existing observation-summary flow.

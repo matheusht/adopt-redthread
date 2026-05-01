@@ -1288,3 +1288,55 @@ Still blocked:
 
 - live boundary execution remains blocked until approved non-production context exists with safe actor scopes, selector bindings, and operator approval
 - the result artifact is evidence plumbing, not external validation and not a live executor
+
+## 2026-05-01 — external review session batch and validation readout
+
+### Slice 1 — isolated external review session batch
+
+Implemented:
+
+- `scripts/build_external_review_session_batch.py`
+- `make evidence-external-review-sessions`
+- `tests/test_external_review_session_batch.py`
+- `docs/external-review-session-batch.md`
+
+What it does:
+
+- reads the sanitized external handoff manifest and its allowed markdown artifacts
+- writes `runs/external_review_sessions/external_review_session_batch.{md,json}`
+- creates `runs/external_review_sessions/review_*/` folders with sanitized artifacts, one blank filled-observation file, and per-review instructions
+- records the exact `make evidence-observation-summary` command for each reviewer
+- records the expected rollup command for the generated summary paths
+- fails closed on configured sensitive-marker hits
+
+What it does not do:
+
+- does not claim external validation
+- does not summarize observations
+- does not copy raw HAR/session/cookie/header/body/request/response data, source files, repo context, or write-context values
+- does not execute boundary probes or live requests
+
+### Slice 2 — external validation readout state machine
+
+Implemented:
+
+- `scripts/build_external_validation_readout.py`
+- `make evidence-external-validation-readout`
+- `tests/test_external_validation_readout.py`
+- `docs/external-validation-readout.md`
+
+What it does:
+
+- reads `external_review_session_batch.json` and sanitized `reviewer_observation_summary.json` files only
+- reuses the existing reviewer-validation rollup logic under `runs/external_validation_readout/`
+- writes `runs/external_validation_readout/external_validation_readout.{md,json}`
+- reports `waiting_for_filled_external_observations` when expected summaries are absent
+- reports `needs_more_complete_external_reviews`, `needs_valid_external_observation_summaries`, `needs_external_decision_language_followup`, `ready_for_external_validation_readout`, or `privacy_blocked` as appropriate
+- preserves the claim boundary: even a ready readout is not buyer-demand proof, production-readiness proof, or whole-app safety proof
+
+What it does not do:
+
+- does not read raw filled observation text directly
+- does not copy free-form reviewer answers into the readout
+- does not alter bridge `approve` / `review` / `block` verdict semantics
+- does not remove the boundary execution blocker

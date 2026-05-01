@@ -153,6 +153,8 @@ make evidence-report
 make evidence-matrix
 make evidence-packet
 make evidence-external-review-handoff
+make evidence-external-review-sessions
+make evidence-external-validation-readout
 make evidence-boundary-probe-plan
 make evidence-boundary-execution-design
 make evidence-boundary-probe-result
@@ -193,6 +195,8 @@ Generated outputs:
 - `runs/evidence_matrix/` — generated approve/review/block evidence matrix; run with `make evidence-matrix`
 - `runs/reviewer_packet/` — generated sanitized reviewer handoff index with silent-review questions, cold-review protocol, artifact hashes, marker/completeness audit results, reviewer observation template, and optional reviewer-observation summary; run with `make evidence-packet` and `make evidence-observation-summary OBSERVATION=/path/to/filled_template.md`
 - `runs/external_review_handoff/` — generated external human cold-review handoff directory with only sanitized artifacts, instructions, hashes, and marker audit; run with `make evidence-external-review-handoff`; this is not validation until filled observations are summarized
+- `runs/external_review_sessions/` — generated isolated per-review folders for the external handoff; run with `make evidence-external-review-sessions`; these are not validation evidence until filled observations are summarized
+- `runs/external_validation_readout/` — generated external validation state/readout from sanitized session summaries; run with `make evidence-external-validation-readout`; missing summaries report waiting state, not validation
 - `runs/boundary_probe_plan/` — generated sanitized tenant/user boundary next-probe plan from existing reviewed-write evidence; run with `make evidence-boundary-probe-plan`; this is planning evidence, not execution evidence
 - `runs/boundary_execution_design/` — generated copy of the tenant/user boundary execution design and result contract; run with `make evidence-boundary-execution-design`; checked-in source is `docs/tenant-user-boundary-execution-design.md`
 - `runs/boundary_probe_result/` — generated sanitized tenant/user boundary result artifact; run with `make evidence-boundary-probe-result`; current default is `blocked_missing_context`, not execution proof
@@ -210,6 +214,8 @@ Generated outputs:
 - `docs/impact-implementation-log.md` — implementation notes for runtime binding truth and RedThread context surfacing
 - `docs/reviewer-validation-loop.md` — cold-review protocol, observation summary, and multi-review validation rollup flow
 - `docs/external-human-cold-review-handoff.md` — exact external human reviewer handoff protocol and count rules
+- `docs/external-review-session-batch.md` — isolated per-review session folders and summary command path for external cold reviews
+- `docs/external-validation-readout.md` — external validation readout statuses, non-claims, and privacy boundary
 - `docs/ai-cold-review-validation-readout.md` — no-tools AI cold-review validation result, parser fixes found by validation, and limits of the evidence
 - `docs/next-three-slices-plan.md` — implementation plan and acceptance criteria for the external handoff plus boundary execution design slices
 - `docs/next-two-slices-plan.md` — implementation plan and acceptance criteria for the boundary result artifact plus report/matrix/packet integration slices

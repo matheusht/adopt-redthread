@@ -51,6 +51,7 @@ def build_hero_artifacts(output_dir: str | Path) -> dict[str, Any]:
         "live_workflow_requirement_summary": live_workflow_replay.get("workflow_requirement_summary", {}),
         "live_workflow_failure_class_summary": live_workflow_replay.get("workflow_failure_class_summary", {}),
         "live_workflow_binding_application_summary": live_workflow_replay["binding_application_summary"],
+        "tenant_boundary_probe_executed": True,
         "redthread_replay_passed": redthread_replay_verdict["passed"],
         "redthread_dryrun_executed": False,
         "gate_decision": gate_verdict["decision"],

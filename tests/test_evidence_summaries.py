@@ -135,6 +135,28 @@ class EvidenceSummaryTests(unittest.TestCase):
         self.assertEqual(server_rejected["auth_applied_result_counts"], {"applied": 1})
         self.assertIn("auth-like rejection", server_rejected["sanitized_notes"][0])
 
+    def test_auth_diagnostics_do_not_treat_success_status_as_replay_failure(self) -> None:
+        live_workflow = {
+            "results": [
+                {
+                    "status": "completed",
+                    "results": [
+                        {"case_id": "safe", "success": True, "status_code": 200, "auth_applied": True}
+                    ],
+                }
+            ]
+        }
+
+        diagnostics = build_auth_diagnostics_summary(
+            {"live_workflow_reason_counts": {}, "app_context_summary": {"auth_mode": "cookie"}},
+            live_workflow=live_workflow,
+            app_context_summary={"auth_mode": "cookie"},
+        )
+
+        self.assertEqual(diagnostics["replay_failure_category"], "none")
+        self.assertEqual(diagnostics["http_status_counts"], {"http_status_200": 1})
+        self.assertEqual(diagnostics["auth_applied_result_counts"], {"applied": 1})
+
     def test_rerun_trigger_summary_is_sanitized_and_actionable(self) -> None:
         triggers = build_rerun_trigger_summary(
             {

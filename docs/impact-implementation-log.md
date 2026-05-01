@@ -893,3 +893,166 @@ Verification:
 ```bash
 python3 -m unittest tests.test_reviewer_packet -v
 ```
+
+## 2026-05-01 — reviewer-observation summary capture slice
+
+Planned next slice: make the silent-review observation loop produce a small sanitized summary of reviewer confusion and behavior-change signals after a reviewer fills the observation template.
+
+Implemented:
+
+- Added `scripts/summarize_reviewer_observation.py`.
+- Added `make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md`.
+- The summary writes `runs/reviewer_packet/reviewer_observation_summary.{md,json}`.
+- Captured signals include release decision, behavior-change recorded, next probe requested, trusted evidence recorded, weak/unclear evidence recorded, repeat-review request, and missing observation fields.
+- Added a bounded configured-marker audit for the filled observation text; markdown/JSON output records marker hit counts without listing marker strings.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw run artifacts are read or copied.
+- The summary is for reviewer judgments only; it forbids raw HAR/session/cookie/auth/header/body/request/response values.
+- No new dependencies or live execution paths.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_reviewer_observation_summary tests.test_reviewer_packet -v
+```
+
+Senior AI engineer review was run against the slice. Follow-up fixes applied:
+
+- Observation summarization now fails closed on configured marker hits by default.
+- Packet handoff now includes the exact post-review summary command.
+- Decision vocabulary normalizes reviewer `ship/change/block` answers into project `approve/review/block/unsure` signals.
+- Metadata release decision is reconciled with silent-review Question 1 and inconsistency is flagged.
+- Incomplete summaries now show `none_captured_do_not_use_as_validation` and `incomplete_not_reviewer_evidence`.
+- Silent-review Question 1-6 completion is counted; a reviewer signal is complete only when metadata fields and silent questions are answered.
+- Negated decision phrases such as “do not ship” and “cannot approve” are not classified as `approve`.
+
+## 2026-05-01 — next two slices: wording hardening and RedThread contract proposal
+
+Planned two bounded slices after reviewer-observation summary capture:
+
+1. **Post-review wording hardening.** Patch generated reviewer surfaces where the senior AI engineer review still saw confusion risk: evidence-envelope scope, local bridge vs RedThread ownership, `approve` / `review` / `block` vocabulary, and the difference between confirmed findings vs auth/replay/context or insufficient-evidence outcomes.
+2. **Tiny RedThread evidence-contract proposal.** Draft a generic, proposal-only contract for fields RedThread should eventually own, without upstreaming, adding an integration, or leaking source-specific ingestion names into the generic schema.
+
+Implemented wording hardening:
+
+- Evidence reports now include `## How to read this evidence` before the decision section.
+- Evidence matrices now include `## How to read this matrix` before the row table.
+- Reviewer packets now state how reviewer words map to project verdict terms: `ship` -> `approve`, `change` -> `review`, `block` -> `block`, and warn not to infer approval from negated phrases.
+- Wording explicitly says each artifact is a tested evidence envelope, not a whole-app safety proof.
+- Wording explicitly says RedThread replay/dry-run is evidence while the local bridge still emits the final gate verdict.
+- Wording explicitly says auth/replay/context failures and insufficient evidence are not confirmed vulnerabilities unless `confirmed_security_finding` is true.
+
+Implemented RedThread contract proposal:
+
+- Added `scripts/build_redthread_evidence_contract_proposal.py`.
+- Added `make redthread-contract-proposal`.
+- Added checked-in proposal doc: `docs/redthread-evidence-contract-proposal.md`.
+- Generated local copies under `runs/redthread_evidence_contract_proposal/`.
+- Proposal schema: `redthread.evidence_contract_proposal.v0`.
+- Required generic sections:
+  - `evidence_envelope`
+  - `workflow_evidence`
+  - `attack_context_summary`
+  - `replay_and_auth_diagnostics`
+  - `promotion_recommendation`
+  - `next_evidence_guidance`
+- Proposal preserves ownership split: RedThread should own generic evidence/recommendation vocabulary; adapters should own source ingestion and source-to-contract mapping.
+- Proposal non-goals explicitly exclude new integrations, live-write expansion, scanner-wrapper behavior, full secret scanning, and upstream migration before reviewer comprehension is proven.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw run artifacts are read or copied.
+- No new dependencies.
+- No live execution path changes.
+- No RedThread upstream changes.
+- Contract field names avoid source-specific ingestion names.
+
+Verification added:
+
+- Evidence report tests assert the new reading guide and confirmed-finding caveat.
+- Evidence matrix tests assert the new reading guide and finding-type explanation.
+- Reviewer packet tests assert the reviewer vocabulary mapping.
+- RedThread contract proposal tests assert generic sections, proposal-only status, configured-marker pass, and no source-specific field names in required contract fields.
+
+Senior AI engineer review was run against these two slices. Follow-up fixes applied:
+
+- Fixed auth/replay diagnostics so successful HTTP 2xx/3xx replay results are not classified as `runtime_replay_failure`.
+- Added a regression test proving a 200 replay with auth applied produces `replay_failure_category=none`.
+- Expanded the RedThread contract proposal from a boolean workflow-order hint to `ordered_operations` carrying sanitized operation sequence/classes/templates/role labels.
+- Expanded the contract proposal's attack context from counts alone to `tool_action_schemas` plus field-role summaries, required/optional parameter names, binding targets, and boundary-relevant field classes.
+
+Additional follow-up after final packet inspection:
+
+- The deterministic approve demo now marks its bounded tenant/boundary replay expectation as exercised, so the generated evidence matrix no longer shows `tenant_user_boundary_unproven` on the real approve row. Reviewed-write and blocked rows still retain boundary gaps when ownership probing remains unproven.
+
+## 2026-05-01 — next two slices: cold-review protocol and validation rollup
+
+Planned two bounded slices after packet/contract packaging:
+
+1. **Cold-review protocol hardening.** Make the reviewer packet itself state exactly which artifacts a cold reviewer may see, which inputs are forbidden, what steps to follow, and what counts as a successful silent review. This keeps the next validation from depending on operator memory or an informal walkthrough.
+2. **Reviewer-validation rollup.** Add a tiny aggregation step for multiple sanitized observation summaries so three real pre-release reviews can be compared without copying raw reviewer free-form answers, raw run artifacts, HAR/session/cookie/header/body values, or app-specific context.
+
+Implemented cold-review protocol hardening:
+
+- `scripts/build_reviewer_packet.py` now embeds `cold_review_protocol` in `reviewer_packet.json`.
+- `runs/reviewer_packet/reviewer_packet.md` now includes a `## Cold review protocol` section.
+- The protocol records:
+  - allowed artifacts: evidence report, evidence matrix, reviewer packet
+  - forbidden inputs: raw HAR files, session cookies/auth headers, request/response bodies, operator walkthroughs before silent answers, and production/staging write context values
+  - review steps: give sanitized artifacts first, collect silent answers, fill the observation template, summarize the observation
+  - success criteria: decision recorded, trusted/weak evidence recorded, next probe captured or explicitly unnecessary, marker audit passed
+
+Implemented reviewer-validation rollup:
+
+- Added `scripts/summarize_reviewer_validation_rollup.py`.
+- Added `make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"`.
+- Default local rollup reads `runs/reviewer_packet/reviewer_observation_summary.json` and writes:
+  - `runs/reviewer_validation/reviewer_validation_rollup.md`
+  - `runs/reviewer_validation/reviewer_validation_rollup.json`
+- Rollup schema: `adopt_redthread.reviewer_validation_rollup.v1`.
+- The rollup reads only `reviewer_observation_summary.json` files, never raw observation markdown or raw run artifacts.
+- Free-form reviewer text is not copied into rollup outputs; it is reduced to bounded theme counts.
+- Theme buckets:
+  - `tenant_user_boundary`
+  - `coverage_strength`
+  - `confirmed_vs_replay_language`
+  - `write_context`
+  - `redthread_vs_bridge_ownership`
+  - `artifact_navigation`
+- Rollup status values:
+  - `privacy_blocked`
+  - `needs_valid_observation_summaries`
+  - `needs_more_complete_reviews`
+  - `needs_decision_language_followup`
+  - `ready_for_validation_readout`
+
+Documented:
+
+- Added `docs/reviewer-validation-loop.md` with the cold-review protocol, observation summary flow, rollup command, status meanings, theme policy, and decision rule.
+- Updated `README.md`, `scripts/README.md`, `docs/project-direction.md`, and `docs/next-efforts-ai-engineer-feedback.md`.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No new live execution path.
+- No new integration.
+- No new dependency.
+- No raw run artifact copying.
+- Rollup marker audit uses the existing configured sensitive-marker set and fails closed by default.
+- The three-review threshold is documented as a minimum readout threshold, not a statistical claim.
+
+Verification added:
+
+- Reviewer packet tests assert the cold-review protocol appears in markdown and JSON.
+- Reviewer validation rollup tests assert:
+  - complete/incomplete review counts
+  - decision counts
+  - behavior-change and next-probe counts
+  - bounded theme buckets
+  - free-form reviewer text is not copied into rollup markdown or JSON
+  - configured marker hits fail closed by default
+  - three complete consistent reviews produce `ready_for_validation_readout`

@@ -453,12 +453,24 @@ def _auth_replay_failure_category(reason_counts: dict[str, Any], status_counts: 
         return "environment_or_continuity_mismatch"
     if status_counts.get("http_status_401") or status_counts.get("http_status_403") or reason_keys & {"http_status_401", "http_status_403"}:
         return "server_rejected_auth"
-    if any(str(key).startswith("http_status_") for key in set(status_counts) | reason_keys) or error_counts:
+    if _has_failure_http_status(set(status_counts) | reason_keys) or error_counts:
         return "runtime_replay_failure"
-    if not reason_keys and not status_counts and not error_counts:
+    if not reason_keys:
         return "none"
     return "workflow_context_blocked"
 
+
+def _has_failure_http_status(status_keys: set[str]) -> bool:
+    for key in status_keys:
+        if not key.startswith("http_status_"):
+            continue
+        try:
+            status = int(key.removeprefix("http_status_"))
+        except ValueError:
+            return True
+        if status >= 400:
+            return True
+    return False
 
 
 def _auth_diagnostic_notes(

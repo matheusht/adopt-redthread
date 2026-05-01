@@ -24,6 +24,7 @@ Evidence in this repo:
   - `review`: deterministic reviewed-write demo
   - `block`: Victoria HAR block example due to missing approved staging write context
 - `docs/reviewed-write-reference-demo.md` documents the deterministic reviewed-write proof path: one command, one evidence report, correct result `review`.
+- `docs/reviewer-validation-loop.md` documents the cold-review protocol, observation summary, and multi-review validation rollup.
 - `docs/zapi-reference-demo.md` documents the real ATP/ZAPI reference and correctly preserves `review`, not `approve`, because write paths require manual review.
 - `fixtures/reference_demos/victoria_expected_block.json` captures a sanitized Victoria block expectation without committing raw HAR or run artifacts.
 
@@ -208,7 +209,7 @@ Discovery artifact
   -> approve / review / block
 ```
 
-Secondary direction: **prepare a tiny generic RedThread evidence contract, but do not upstream it until one real reviewer understands the current report.**
+Secondary direction: **prepare a tiny generic RedThread evidence contract, but do not upstream it until one real reviewer understands the current report.** The current local proposal is [`docs/redthread-evidence-contract-proposal.md`](redthread-evidence-contract-proposal.md); it is proposal-only and deliberately avoids new integration plumbing.
 
 Decision rule:
 
@@ -230,6 +231,7 @@ What should exist:
 - clearer evidence wording for non-expert reviewers
 - a small set of generic RedThread runtime/evidence fields proposed upstream
 - at least one silent reviewer observation recorded
+- a three-review validation rollup when enough complete cold-review summaries exist
 
 Success standard:
 

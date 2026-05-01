@@ -152,6 +152,9 @@ make demo-reviewed-write-reference
 make evidence-report
 make evidence-matrix
 make evidence-packet
+make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md
+make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"
+make redthread-contract-proposal
 make check-zapi-reference
 ```
 
@@ -184,7 +187,9 @@ Generated outputs:
 - `runs/hero_binding_truth/` — generated deterministic golden demo artifacts; regenerate with `make demo-hero-binding-truth`
 - `runs/reviewed_write_reference/` — generated deterministic ATP-like reviewed-write reference; run with `make demo-reviewed-write-reference`, inspect `evidence_report.md`
 - `runs/evidence_matrix/` — generated approve/review/block evidence matrix; run with `make evidence-matrix`
-- `runs/reviewer_packet/` — generated sanitized reviewer handoff index with silent-review questions, artifact hashes, marker/completeness audit results, and reviewer observation template; run with `make evidence-packet`
+- `runs/reviewer_packet/` — generated sanitized reviewer handoff index with silent-review questions, cold-review protocol, artifact hashes, marker/completeness audit results, reviewer observation template, and optional reviewer-observation summary; run with `make evidence-packet` and `make evidence-observation-summary OBSERVATION=/path/to/filled_template.md`
+- `runs/reviewer_validation/` — generated validation rollup across sanitized reviewer-observation summaries; run with `make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"`
+- `runs/redthread_evidence_contract_proposal/` — generated copy of the tiny generic RedThread evidence-contract proposal; run with `make redthread-contract-proposal`; checked-in source is `docs/redthread-evidence-contract-proposal.md`
 - `runs/atp_tennis_01_live_bound/` — real ZAPI reference run; final decision is `review`, not `approve`, because write paths still require manual review; validate with `make check-zapi-reference`
 
 ## Docs
@@ -195,6 +200,7 @@ Generated outputs:
 - `docs/strategy.md` — why the repo split exists and what each system owns
 - `docs/impact-execution-checklist.md` — current impact-first execution checklist and upstream boundary
 - `docs/impact-implementation-log.md` — implementation notes for runtime binding truth and RedThread context surfacing
+- `docs/reviewer-validation-loop.md` — cold-review protocol, observation summary, and multi-review validation rollup flow
 - `docs/hero-flow-binding-truth.md` — demo-grade proof artifact guide for planned/applied binding evidence
 - `docs/architecture.md` — proposed end-to-end integration architecture
 - `docs/live-workflow-explained.md` — simple explanation of what is live now, what is not, and how the workflow should act

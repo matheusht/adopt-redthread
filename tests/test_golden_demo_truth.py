@@ -19,6 +19,7 @@ class GoldenDemoTruthTests(unittest.TestCase):
         self.assertEqual(binding_summary["binding_application_failure_counts"], {})
         self.assertEqual(binding_summary["failed_binding_ids"], [])
         self.assertEqual(generated_summary["gate_decision"], "approve")
+        self.assertTrue(generated_summary["tenant_boundary_probe_executed"])
 
         doc = Path("docs/hero-flow-binding-truth.md").read_text()
         self.assertIn('"applied_response_binding_count": 2', doc)

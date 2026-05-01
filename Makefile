@@ -1,7 +1,10 @@
 PYTHON ?= python3
 REDTHREAD_PYTHON ?= ../redthread/.venv/bin/python
 
-.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix evidence-packet demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
+OBSERVATION ?= runs/reviewer_packet/reviewer_observation_template.md
+SUMMARIES ?= runs/reviewer_packet/reviewer_observation_summary.json
+
+.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix evidence-packet evidence-observation-summary evidence-validation-rollup redthread-contract-proposal demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
 
 test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
@@ -34,6 +37,15 @@ evidence-matrix:
 
 evidence-packet:
 	$(PYTHON) scripts/build_reviewer_packet.py --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src --fail-on-marker-hit --fail-on-incomplete-handoff
+
+evidence-observation-summary:
+	$(PYTHON) scripts/summarize_reviewer_observation.py --observation $(OBSERVATION) --output-dir runs/reviewer_packet --fail-on-marker-hit
+
+evidence-validation-rollup:
+	$(PYTHON) scripts/summarize_reviewer_validation_rollup.py $(SUMMARIES) --output-dir runs/reviewer_validation --fail-on-marker-hit
+
+redthread-contract-proposal:
+	$(PYTHON) scripts/build_redthread_evidence_contract_proposal.py --fail-on-marker-hit
 
 demo-bridge-pipeline:
 	$(PYTHON) scripts/run_bridge_pipeline.py fixtures/zapi_samples/sample_filtered_har.json runs/sample_har_pipeline --ingestion zapi --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src

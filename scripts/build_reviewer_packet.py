@@ -45,6 +45,33 @@ OBSERVATION_FIELDS = (
     ("behavior_change", "Did the evidence change a ship/change/block decision, trigger a fix, or trigger a rerun request?"),
 )
 
+COLD_REVIEW_PROTOCOL = {
+    "allowed_artifacts": [
+        "evidence_report",
+        "evidence_matrix",
+        "reviewer_packet",
+    ],
+    "forbidden_inputs": [
+        "raw HAR files",
+        "session cookies or auth headers",
+        "request or response bodies",
+        "operator walkthrough before silent answers",
+        "production/staging write context values",
+    ],
+    "steps": [
+        "Give only the sanitized report, matrix, and packet to the reviewer.",
+        "Ask the reviewer to answer the six silent-review questions before any explanation.",
+        "Have the reviewer fill the observation template using judgments and evidence labels only.",
+        "Run the observation summary command and treat incomplete output as non-validation evidence.",
+    ],
+    "success_criteria": [
+        "Reviewer records ship/change/block or unsure without a walkthrough.",
+        "Reviewer identifies trusted evidence and weak or unclear evidence.",
+        "Reviewer names the next probe or explicitly says none is needed.",
+        "Observation summary passes the configured sensitive-marker audit.",
+    ],
+}
+
 REQUIRED_REPORT_MARKERS = (
     "## Reviewer quick read",
     "## Silent reviewer checklist",
@@ -135,6 +162,7 @@ def build_reviewer_packet_from_artifacts(
             "review": "human change/review checkpoint before ship, commonly for write-capable paths",
             "block": "do not ship from this run until required context, replay, or evidence blockers are resolved",
         },
+        "cold_review_protocol": COLD_REVIEW_PROTOCOL,
         "sanitized_marker_audit": packet_audit,
         "handoff_completeness_audit": completeness_audit,
         "observation_template": _observation_template(),
@@ -272,6 +300,33 @@ def _markdown(payload: dict[str, Any]) -> str:
         f"- `approve`: {payload['decision_semantics']['approve']}",
         f"- `review`: {payload['decision_semantics']['review']}",
         f"- `block`: {payload['decision_semantics']['block']}",
+        "- Reviewer wording maps `ship` to `approve`, `change` to `review`, and `block` to `block`; do not infer `approve` from negated phrases such as `do not ship` or `cannot approve`.",
+        "",
+        "## Cold review protocol",
+        "",
+        "Allowed artifacts:",
+        "",
+    ])
+    lines.extend(f"- `{artifact}`" for artifact in payload["cold_review_protocol"]["allowed_artifacts"])
+    lines.extend([
+        "",
+        "Forbidden inputs:",
+        "",
+    ])
+    lines.extend(f"- {item}" for item in payload["cold_review_protocol"]["forbidden_inputs"])
+    lines.extend([
+        "",
+        "Steps:",
+        "",
+    ])
+    lines.extend(f"{index}. {step}" for index, step in enumerate(payload["cold_review_protocol"]["steps"], start=1))
+    lines.extend([
+        "",
+        "Success criteria:",
+        "",
+    ])
+    lines.extend(f"- {item}" for item in payload["cold_review_protocol"]["success_criteria"])
+    lines.extend([
         "",
         "## Silent reviewer questions",
         "",
@@ -304,6 +359,8 @@ def _markdown(payload: dict[str, Any]) -> str:
             "## Handoff rule",
             "",
             "Give the report and matrix to the reviewer first. Do not explain the run until they answer the silent reviewer questions. Use the observation template only after they answer.",
+            "",
+            "After the reviewer fills the template, run `make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md` to produce the sanitized observation summary. Treat an incomplete summary as `incomplete_not_reviewer_evidence`, not as validation.",
             "",
         ]
     )

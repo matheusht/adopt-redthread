@@ -14,6 +14,9 @@ Current scripts:
 - `build_evidence_report.py` — build a markdown evidence report from a bridge run directory, including plain-English block reasons and rerun triggers
 - `build_evidence_matrix.py` — build a local approve/review/block evidence matrix with responsible decision agents, rerun triggers, and sanitized summaries only
 - `build_reviewer_packet.py` — build a sanitized reviewer handoff packet that points to the report/matrix, includes silent-review questions and an observation template, records artifact hashes, and audits generated markdown for configured sensitive markers plus required handoff sections
+- `summarize_reviewer_observation.py` — summarize a filled reviewer observation template into sanitized behavior-change/confusion signals without raw run artifacts
+- `summarize_reviewer_validation_rollup.py` — aggregate sanitized reviewer-observation summaries across cold-review sessions into validation status, theme counts, and next actions without copying free-form reviewer answers
+- `build_redthread_evidence_contract_proposal.py` — write the tiny generic RedThread evidence-contract proposal to `docs/` and `runs/` without upstreaming or adding integration plumbing
 - `check_atp_zapi_reference.py` — validate the local ATP Tennis ZAPI reference run and write a sanitized non-secret evidence summary
 - `run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
 - `run_live_workflow_replay.py` — execute grouped sequential workflow replay from workflow and attack plans using the same auth/write guardrails
@@ -46,6 +49,9 @@ Handy commands:
 - `make evidence-report` — rebuild the markdown evidence report for `runs/reviewed_write_reference/`
 - `make evidence-matrix` — build `runs/evidence_matrix/evidence_matrix.{md,json}` with approve, review, and block rows
 - `make evidence-packet` — build `runs/reviewer_packet/reviewer_packet.{md,json}` plus `reviewer_observation_template.md` from the sanitized report/matrix and fail if configured sensitive markers or required handoff sections are missing
+- `make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md` — summarize filled silent-review answers into `runs/reviewer_packet/reviewer_observation_summary.{md,json}` and fail on configured sensitive markers
+- `make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"` — aggregate sanitized observation summaries into `runs/reviewer_validation/reviewer_validation_rollup.{md,json}`; default uses the current local packet summary
+- `make redthread-contract-proposal` — regenerate `docs/redthread-evidence-contract-proposal.md` and `runs/redthread_evidence_contract_proposal/redthread_evidence_contract_proposal.{md,json}`
 - `make check-zapi-reference` — validate `demo_session_filtered.har` plus `runs/atp_tennis_01_live_bound/` against checked-in non-secret expectations
 - `make demo-bridge-pipeline` — run the full one-command pipeline from the sanitized HAR sample
 - `make live-zapi-bridge URL=https://example.com` — run a real ZAPI capture, then execute the full bridge flow

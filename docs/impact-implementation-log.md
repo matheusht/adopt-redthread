@@ -585,3 +585,31 @@ Verification:
 python3 -m unittest tests.test_evidence_matrix -v
 ```
 
+## 2026-05-01 — dynamic not-proven report wording slice
+
+Planned next slice: make the evidence report's `Not proven by this run` section explain the actual coverage gaps instead of only listing generic caveats.
+
+Implemented:
+
+- Added dynamic not-proven bullets derived from existing sanitized `coverage_summary` and `auth_diagnostics_summary` fields.
+- The report now calls out, when applicable:
+  - fixture/replay/dry-run only evidence
+  - blocked workflow execution not proven under approved context
+  - incomplete binding application
+  - cross-user/cross-tenant/resource boundary enforcement not proven
+  - auth/session/write-context delivery gaps that are not confirmed vulnerabilities
+- Kept durable product caveats about release-system wiring, external app stability, RedThread live-execution ownership, and broad authenticated/write-path coverage.
+- Added focused report test coverage for blocked workflow, boundary, and auth-context not-proven wording.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw artifact values are introduced; the section uses sanitized labels/categories only.
+- No new dependencies or integrations.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_report -v
+```
+

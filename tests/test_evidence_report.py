@@ -181,6 +181,10 @@ class EvidenceReportTests(unittest.TestCase):
         self.assertIn("Binding target classes: `request_body_json:1`", report)
         self.assertIn("Bindings that changed later requests structurally: `1`", report)
         self.assertIn("user_id:inferred/approved->applied:True", report)
+        self.assertIn("## Not proven by this run", report)
+        self.assertIn("successful execution of the blocked workflow under approved context", report)
+        self.assertIn("cross-user, cross-tenant, or resource-ownership enforcement", report)
+        self.assertIn("valid auth/session/write-context delivery for this run; this is not proof of a confirmed vulnerability", report)
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:

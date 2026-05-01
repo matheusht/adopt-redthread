@@ -53,6 +53,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         app_context_summary=app_context_summary,
     )
     binding_audit_summary = summary.get("live_workflow_binding_audit_summary") or (workflow or {}).get("binding_audit_summary", {})
+    not_proven_lines = _not_proven_lines(coverage_summary, auth_diagnostics_summary)
 
     lines = [
         f"# Evidence Report: {root.name}",
@@ -180,10 +181,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         "",
         "## Not proven by this run",
         "",
-        "- production publish gating wired into a real release system",
-        "- stable behavior of any external live app forever",
-        "- RedThread independently owning live workflow execution for Adopt-managed sessions",
-        "- broad authenticated/write-path coverage beyond this reviewed reference path",
+        *not_proven_lines,
         "",
     ]
     report = "\n".join(lines)
@@ -218,6 +216,32 @@ def _reviewer_gap_line(coverage_summary: dict[str, Any]) -> str:
     if not gaps:
         return "No explicit coverage gaps were emitted for this evidence envelope."
     return _join(gaps)
+
+
+
+def _not_proven_lines(coverage_summary: dict[str, Any], auth_diagnostics_summary: dict[str, Any]) -> list[str]:
+    gaps = {str(item) for item in coverage_summary.get("coverage_gaps", [])}
+    lines: list[str] = []
+    if "no_live_or_workflow_replay" in gaps:
+        lines.append("- live app behavior or workflow continuity; this run is fixture/replay/dry-run only")
+    if "workflow_blocked" in gaps:
+        lines.append("- successful execution of the blocked workflow under approved context")
+    if "bindings_not_fully_applied" in gaps:
+        lines.append("- complete response-binding application for every planned binding")
+    if "tenant_user_boundary_unproven" in gaps:
+        lines.append("- cross-user, cross-tenant, or resource-ownership enforcement")
+    if "auth_or_replay_blocked" in gaps or auth_diagnostics_summary.get("replay_failure_category") not in {None, "none", "unknown"}:
+        lines.append("- valid auth/session/write-context delivery for this run; this is not proof of a confirmed vulnerability")
+    lines.extend(
+        [
+            "- production publish gating wired into a real release system",
+            "- stable behavior of any external live app forever",
+            "- RedThread independently owning live workflow execution for Adopt-managed sessions",
+            "- broad authenticated/write-path coverage beyond this evidence envelope",
+        ]
+    )
+    deduped = list(dict.fromkeys(lines))
+    return deduped
 
 
 

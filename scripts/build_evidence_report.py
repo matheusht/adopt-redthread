@@ -54,6 +54,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
     )
     binding_audit_summary = summary.get("live_workflow_binding_audit_summary") or (workflow or {}).get("binding_audit_summary", {})
     not_proven_lines = _not_proven_lines(coverage_summary, auth_diagnostics_summary)
+    reviewer_action = _reviewer_action(gate, summary, decision_reason_summary, coverage_summary)
 
     lines = [
         f"# Evidence Report: {root.name}",
@@ -66,6 +67,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- Workflow exercised: {_workflow_quick_read(summary, workflow_status, requirement_summary, binding_summary)}",
         f"- RedThread evaluated: replay_passed=`{bool(redthread_passed)}`, dry_run_executed=`{summary.get('redthread_dryrun_executed', False)}`, rubric=`{summary.get('dryrun_rubric_name', 'n/a')}`.",
         f"- Local gate outcome: `{gate.get('decision', summary.get('gate_decision', 'unknown'))}`; category=`{decision_reason_summary.get('category', 'unknown')}`; confirmed_security_finding=`{decision_reason_summary.get('confirmed_security_finding', False)}`.",
+        f"- Reviewer action: {reviewer_action}",
         f"- Why this outcome: {decision_reason_summary.get('explanation', 'n/a')}",
         f"- Still not proven: {_reviewer_gap_line(coverage_summary)}",
         f"- Next useful probe: {attack_brief_summary.get('top_targeted_probe', 'n/a')}",
@@ -80,6 +82,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- Exact decision reason (local bridge gate): {blocker_detail}",
         f"- Decision reason category: `{decision_reason_summary.get('category', 'unknown')}`",
         f"- Confirmed security finding: `{decision_reason_summary.get('confirmed_security_finding', False)}`",
+        f"- Reviewer action: {reviewer_action}",
         f"- Decision reason explanation: {decision_reason_summary.get('explanation', 'n/a')}",
         "",
         "## Input",
@@ -216,6 +219,29 @@ def _reviewer_gap_line(coverage_summary: dict[str, Any]) -> str:
     if not gaps:
         return "No explicit coverage gaps were emitted for this evidence envelope."
     return _join(gaps)
+
+
+
+def _reviewer_action(
+    gate: dict[str, Any],
+    summary: dict[str, Any],
+    decision_reason_summary: dict[str, Any],
+    coverage_summary: dict[str, Any],
+) -> str:
+    decision = str(gate.get("decision", summary.get("gate_decision", "unknown")))
+    category = str(decision_reason_summary.get("category", "unknown"))
+    label = str(coverage_summary.get("label", "unknown"))
+    gaps = _join(coverage_summary.get("coverage_gaps", []))
+    if decision == "approve":
+        return f"ship candidate: local gate approved; coverage:{label}; gaps:{gaps}"
+    if decision == "review":
+        return f"change/review before ship: {category}; coverage:{label}; gaps:{gaps}"
+    if decision == "block" and category == "auth_or_context_blocked":
+        primary = decision_reason_summary.get("primary_reason", "required_context_missing")
+        return f"block until approved context/replay gap is resolved: {primary}; coverage:{label}; gaps:{gaps}"
+    if decision == "block":
+        return f"block release: {category}; coverage:{label}; gaps:{gaps}"
+    return f"manual triage required: {category}; coverage:{label}; gaps:{gaps}"
 
 
 

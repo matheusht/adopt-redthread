@@ -613,3 +613,29 @@ Verification:
 python3 -m unittest tests.test_evidence_report -v
 ```
 
+## 2026-05-01 — report reviewer-action guidance slice
+
+Planned next slice: put the same ship/change/block reviewer-action guidance into the standalone evidence report, not only the matrix.
+
+Implemented:
+
+- Added a report-level reviewer action derived from the local gate decision, decision-reason category, coverage label, and coverage gaps.
+- The action appears in both `## Reviewer quick read` and `## Decision`.
+- The wording preserves conservative semantics:
+  - `approve` is a ship candidate, not an unconditional production release claim.
+  - `review` means change/review before ship.
+  - auth/context `block` means block until approved context or replay gaps are resolved.
+- Added focused report test coverage for block action wording.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw artifact values are introduced; the field uses sanitized summary categories and coverage gaps.
+- No new dependencies or integrations.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_report -v
+```
+

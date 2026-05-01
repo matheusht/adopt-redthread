@@ -141,6 +141,8 @@ class EvidenceReportTests(unittest.TestCase):
         self.assertIn("Workflow exercised: Live workflow replay executed with `0` successful, `1` blocked", report)
         self.assertIn("bindings_applied_planned=`1/1`", report)
         self.assertIn("Local gate outcome: `block`; category=`auth_or_context_blocked`; confirmed_security_finding=`False`", report)
+        self.assertIn("Reviewer action: block until approved context/replay gap is resolved: missing_write_context", report)
+        self.assertIn("coverage:auth_or_replay_blocked; gaps:auth_or_replay_blocked,tenant_user_boundary_unproven,workflow_blocked", report)
         self.assertIn("Still not proven: auth_or_replay_blocked,tenant_user_boundary_unproven,workflow_blocked", report)
         self.assertIn("Next useful probe: Verify user/tenant identifiers", report)
         self.assertIn("RedThread replay/dry-run is evidence", report)

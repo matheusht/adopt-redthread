@@ -2,7 +2,7 @@
 
 Date: 2026-05-01
 
-Status: first engine/reporting slice plus targeted rubric selection, boundary selector detection, auth delivery diagnostics, binding review auditability, standalone gate rationale summaries, binding-audit runtime handoff, reviewer quick-read report summaries, evidence-matrix reviewer-action guidance, and dynamic not-proven report wording implemented in `adapters/bridge/evidence_summaries.py`, `adapters/redthread_runtime/app_context.py`, `adapters/redthread_runtime/runtime_bridge_context.py`, `adapters/live_replay/workflow_bindings.py`, `adapters/live_replay/workflow_results.py`, `adapters/bridge/workflow.py`, `scripts/prepublish_gate.py`, `scripts/build_evidence_report.py`, and `scripts/build_evidence_matrix.py`.
+Status: first engine/reporting slice plus targeted rubric selection, boundary selector detection, auth delivery diagnostics, binding review auditability, standalone gate rationale summaries, binding-audit runtime handoff, reviewer quick-read report summaries, evidence-matrix reviewer-action guidance, dynamic not-proven report wording, and report-level reviewer-action guidance implemented in `adapters/bridge/evidence_summaries.py`, `adapters/redthread_runtime/app_context.py`, `adapters/redthread_runtime/runtime_bridge_context.py`, `adapters/live_replay/workflow_bindings.py`, `adapters/live_replay/workflow_results.py`, `adapters/bridge/workflow.py`, `scripts/prepublish_gate.py`, `scripts/build_evidence_report.py`, and `scripts/build_evidence_matrix.py`.
 
 ## Executive summary
 

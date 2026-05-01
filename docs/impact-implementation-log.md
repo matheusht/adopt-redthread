@@ -746,3 +746,54 @@ Verification:
 python3 -m unittest tests.test_evidence_matrix -v
 ```
 
+
+## 2026-05-01 — reviewer packet handoff slice
+
+Planned next slice: turn the report and matrix into one boring reviewer handoff surface so a silent reviewer knows which sanitized artifacts to open and what questions to answer.
+
+Implemented:
+
+- Added `scripts/build_reviewer_packet.py`.
+- Added `make evidence-packet`.
+- The packet writes `runs/reviewer_packet/reviewer_packet.{md,json}`.
+- The packet points to the sanitized evidence report and evidence matrix, restates `approve` / `review` / `block` semantics, and lists the six silent-review questions from the validation plan.
+- Updated README and script docs with the new command.
+- Added focused packet test coverage.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No new integration or execution path beyond existing report/matrix builders.
+- The packet is an index over sanitized artifacts, not a raw run-artifact copier.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_reviewer_packet -v
+make evidence-packet
+```
+
+## 2026-05-01 — reviewer packet sanitized-marker audit slice
+
+Planned next slice: make the reviewer handoff command fail closed when generated markdown contains configured sensitive marker strings.
+
+Implemented:
+
+- Added a bounded generated-markdown marker audit to `scripts/build_reviewer_packet.py`.
+- The audit checks only the sanitized evidence report and matrix, not raw run artifacts.
+- Checked marker strings currently include `value_preview`, `set-cookie`, `authorization:`, `cookie:`, `bearer `, and `acct-123`.
+- `make evidence-packet` uses `--fail-on-marker-hit` so handoff fails if configured markers are present.
+- Added focused test coverage for both passing and failing marker-audit behavior.
+
+Guardrails held:
+
+- No broad scanner was added.
+- No raw artifact values are read or emitted beyond the existing sanitized markdown surfaces.
+- The audit is a privacy regression tripwire, not a claim of complete secret detection.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_reviewer_packet -v
+make evidence-packet
+```

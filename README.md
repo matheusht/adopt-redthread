@@ -150,6 +150,8 @@ make demo-bridge-pipeline
 make demo-hero-binding-truth
 make demo-reviewed-write-reference
 make evidence-report
+make evidence-matrix
+make evidence-packet
 make check-zapi-reference
 ```
 
@@ -181,6 +183,8 @@ Generated outputs:
 - `runs/sample_har_pipeline/` — generated one-command sample pipeline outputs
 - `runs/hero_binding_truth/` — generated deterministic golden demo artifacts; regenerate with `make demo-hero-binding-truth`
 - `runs/reviewed_write_reference/` — generated deterministic ATP-like reviewed-write reference; run with `make demo-reviewed-write-reference`, inspect `evidence_report.md`
+- `runs/evidence_matrix/` — generated approve/review/block evidence matrix; run with `make evidence-matrix`
+- `runs/reviewer_packet/` — generated sanitized reviewer handoff index with silent-review questions and marker-audit result; run with `make evidence-packet`
 - `runs/atp_tennis_01_live_bound/` — real ZAPI reference run; final decision is `review`, not `approve`, because write paths still require manual review; validate with `make check-zapi-reference`
 
 ## Docs

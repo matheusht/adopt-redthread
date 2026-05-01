@@ -1,7 +1,7 @@
 PYTHON ?= python3
 REDTHREAD_PYTHON ?= ../redthread/.venv/bin/python
 
-.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
+.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix evidence-packet demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
 
 test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
@@ -31,6 +31,9 @@ evidence-report:
 
 evidence-matrix:
 	$(PYTHON) scripts/build_evidence_matrix.py --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src
+
+evidence-packet:
+	$(PYTHON) scripts/build_reviewer_packet.py --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src --fail-on-marker-hit
 
 demo-bridge-pipeline:
 	$(PYTHON) scripts/run_bridge_pipeline.py fixtures/zapi_samples/sample_filtered_har.json runs/sample_har_pipeline --ingestion zapi --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src

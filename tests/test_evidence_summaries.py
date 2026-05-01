@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_coverage_summary, build_decision_reason_summary, select_campaign_strategy
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary, select_campaign_strategy
 
 
 class EvidenceSummaryTests(unittest.TestCase):
@@ -96,6 +96,44 @@ class EvidenceSummaryTests(unittest.TestCase):
         self.assertIn("secret_like_fields", strategy["risk_themes"])
         self.assertIn("generic action/dispatch fields", strategy["rubric_selection_rationale"])
         self.assertLessEqual(len(strategy["targeted_questions"]), 3)
+
+    def test_auth_diagnostics_distinguish_missing_context_from_server_rejection(self) -> None:
+        missing_summary = {
+            "live_workflow_reason_counts": {"missing_auth_context": 1},
+            "live_workflow_requirement_summary": {"required_header_family_counts": {"auth": 1}},
+            "app_context_summary": {
+                "auth_mode": "cookie",
+                "auth_header_families": ["cookie"],
+                "requires_approved_auth_context": True,
+                "requires_approved_write_context": False,
+            },
+        }
+        missing = build_auth_diagnostics_summary(missing_summary, app_context_summary=missing_summary["app_context_summary"])
+
+        self.assertEqual(missing["replay_failure_category"], "missing_auth_context")
+        self.assertTrue(missing["auth_context_gap"])
+        self.assertIn("Approved auth context was required but not supplied.", missing["sanitized_notes"])
+
+        live_workflow = {
+            "results": [
+                {
+                    "status": "aborted",
+                    "results": [
+                        {"case_id": "private", "success": False, "status_code": 401, "auth_applied": True, "error": "http_error"}
+                    ],
+                }
+            ]
+        }
+        server_rejected = build_auth_diagnostics_summary(
+            {"live_workflow_reason_counts": {"http_status_401": 1}, "app_context_summary": {"auth_mode": "bearer"}},
+            live_workflow=live_workflow,
+            app_context_summary={"auth_mode": "bearer"},
+        )
+
+        self.assertEqual(server_rejected["replay_failure_category"], "server_rejected_auth")
+        self.assertEqual(server_rejected["http_status_counts"], {"http_status_401": 1})
+        self.assertEqual(server_rejected["auth_applied_result_counts"], {"applied": 1})
+        self.assertIn("auth-like rejection", server_rejected["sanitized_notes"][0])
 
     def test_venice_like_auth_block_is_not_reported_as_confirmed_vulnerability(self) -> None:
         summary = {

@@ -72,6 +72,7 @@ def summarize_app_context(app_context: dict[str, Any]) -> dict[str, Any]:
         "action_class_counts": action_class_counts,
         "auth_mode": auth_model.get("mode", "unknown"),
         "auth_scope_hints": auth_model.get("scope_hints", []),
+        "auth_header_families": auth_model.get("auth_header_families", []),
         "requires_approved_context": bool(auth_model.get("requires_approved_context", False)),
         "requires_approved_auth_context": bool(auth_model.get("requires_approved_auth_context", False)),
         "requires_approved_write_context": bool(auth_model.get("requires_approved_write_context", False)),

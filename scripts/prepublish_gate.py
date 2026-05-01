@@ -11,6 +11,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
+from adapters.bridge.evidence_summaries import build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary
 from adapters.bridge.gate_evidence import apply_live_safe_replay_rules, apply_live_workflow_rules, apply_redthread_replay_rules, evidence_counts
 
 
@@ -73,6 +74,32 @@ def build_gate_verdict(
     elif warnings:
         decision = "review"
 
+    gate_view = {"decision": decision, "blockers": blockers, "warnings": warnings}
+    gate_summary = _gate_summary(
+        replay_pack,
+        decision=decision,
+        live_safe_replay=live_safe_replay,
+        live_workflow_replay=live_workflow_replay,
+        redthread_replay_verdict=redthread_replay_verdict,
+    )
+    decision_reason_summary = build_decision_reason_summary(
+        gate_view,
+        gate_summary,
+        live_workflow=live_workflow_replay,
+        live_safe_replay=live_safe_replay,
+        redthread=redthread_replay_verdict,
+    )
+    coverage_summary = build_coverage_summary(
+        gate_summary,
+        live_workflow=live_workflow_replay,
+        live_safe_replay=live_safe_replay,
+    )
+    auth_diagnostics_summary = build_auth_diagnostics_summary(
+        gate_summary,
+        live_workflow=live_workflow_replay,
+        live_safe_replay=live_safe_replay,
+    )
+
     return {
         "decision": decision,
         "input_summary": replay_pack.get("summary", {}),
@@ -81,6 +108,9 @@ def build_gate_verdict(
             "live_workflow_replay": evidence_counts(live_workflow_replay),
             "redthread_replay_verdict": evidence_counts(redthread_replay_verdict),
         },
+        "decision_reason_summary": decision_reason_summary,
+        "coverage_summary": coverage_summary,
+        "auth_diagnostics_summary": auth_diagnostics_summary,
         "blockers": blockers,
         "warnings": warnings,
         "notes": _build_notes(
@@ -131,9 +161,50 @@ def _build_notes(
             )
         )
         notes.extend(_binding_application_notes(live_workflow_replay.get("binding_application_summary", {})))
+        notes.extend(_binding_audit_notes(live_workflow_replay.get("binding_audit_summary", {})))
     if redthread_replay_verdict is not None:
         notes.append(f"redthread_replay_passed={bool(redthread_replay_verdict.get('passed'))}")
     return notes
+
+
+
+def _gate_summary(
+    replay_pack: dict[str, Any],
+    *,
+    decision: str,
+    live_safe_replay: dict[str, Any] | None,
+    live_workflow_replay: dict[str, Any] | None,
+    redthread_replay_verdict: dict[str, Any] | None,
+) -> dict[str, Any]:
+    replay_summary = replay_pack.get("summary", {})
+    workflow = live_workflow_replay or {}
+    live_safe = live_safe_replay or {}
+    redthread = redthread_replay_verdict or {}
+    fixture_count = replay_summary.get(
+        "fixture_count",
+        len(replay_pack.get("safe_read_probes", []))
+        + len(replay_pack.get("write_path_review_items", []))
+        + len(replay_pack.get("sandbox_only_attack_set", [])),
+    )
+    return {
+        "gate_decision": decision,
+        "fixture_count": int(fixture_count),
+        "redthread_replay_passed": bool(redthread.get("passed", False)),
+        "redthread_dryrun_executed": False,
+        "live_safe_replay_executed": live_safe_replay is not None,
+        "live_safe_replay_used_auth_context": bool(live_safe.get("auth_context_used", False)),
+        "live_safe_replay_used_write_context": bool(live_safe.get("write_context_used", False)),
+        "live_workflow_replay_executed": live_workflow_replay is not None,
+        "live_workflow_replay_count": int(workflow.get("successful_workflow_count", 0)),
+        "live_workflow_blocked_count": int(workflow.get("blocked_workflow_count", 0)),
+        "live_workflow_used_auth_context": bool(workflow.get("auth_context_used", False)),
+        "live_workflow_used_write_context": bool(workflow.get("write_context_used", False)),
+        "live_workflow_reason_counts": workflow.get("reason_counts", {}),
+        "live_workflow_requirement_summary": workflow.get("workflow_requirement_summary", {}),
+        "live_workflow_failure_class_summary": workflow.get("workflow_failure_class_summary", {}),
+        "live_workflow_binding_application_summary": workflow.get("binding_application_summary", {}),
+        "live_workflow_binding_audit_summary": workflow.get("binding_audit_summary", {}),
+    }
 
 
 
@@ -160,6 +231,18 @@ def _binding_application_notes(summary: dict[str, Any]) -> list[str]:
         f"live_workflow_workflows_with_planned_bindings={summary.get('workflow_count_with_planned_bindings', 0)}",
         f"live_workflow_workflows_with_applied_bindings={summary.get('workflow_count_with_applied_bindings', 0)}",
         f"live_workflow_binding_application_failures={_flat_counts(summary.get('binding_application_failure_counts', {}))}",
+    ]
+
+
+
+def _binding_audit_notes(summary: dict[str, Any]) -> list[str]:
+    if not summary:
+        return []
+    return [
+        f"live_workflow_binding_audit_schema={summary.get('schema_version', 'unknown')}",
+        f"live_workflow_binding_audit_statuses={_flat_counts(summary.get('status_counts', {}))}",
+        f"live_workflow_binding_audit_origins={_flat_counts(summary.get('origin_counts', {}))}",
+        f"live_workflow_binding_audit_changed_later_request_count={summary.get('changed_later_request_count', 0)}",
     ]
 
 

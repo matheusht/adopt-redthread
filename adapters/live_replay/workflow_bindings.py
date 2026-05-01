@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any
+
+BINDING_AUDIT_SCHEMA_VERSION = "binding_audit_summary.v1"
 from urllib.parse import urlsplit, urlunsplit
 
 
@@ -189,6 +191,74 @@ def summarize_binding_applications(
     }
 
 
+def build_binding_audit_summary(
+    workflows: list[dict[str, Any]],
+    results: list[dict[str, Any]] | None = None,
+    *,
+    max_records: int = 20,
+) -> dict[str, Any]:
+    """Return sanitized binding audit evidence without bound values."""
+    results = results or []
+    planned_records = _planned_binding_audit_records(workflows)
+    applied_keys = _applied_binding_keys(results)
+    application_summary = summarize_binding_applications(workflows, results)
+    status_counts: dict[str, int] = {}
+    origin_counts: dict[str, int] = {}
+    target_field_counts: dict[str, int] = {}
+    source_type_counts: dict[str, int] = {}
+    applied_target_field_counts: dict[str, int] = {}
+    audit_records: list[dict[str, Any]] = []
+    for record in planned_records:
+        key = _binding_audit_key(record)
+        applied = key in applied_keys
+        status = _review_status(record)
+        origin = "inferred" if bool(record.get("inferred")) else "declared"
+        target_field = str(record.get("target_field") or "unknown")
+        source_type = str(record.get("source_type") or "unknown")
+        status_counts[status] = status_counts.get(status, 0) + 1
+        origin_counts[origin] = origin_counts.get(origin, 0) + 1
+        target_field_counts[target_field] = target_field_counts.get(target_field, 0) + 1
+        source_type_counts[source_type] = source_type_counts.get(source_type, 0) + 1
+        if applied:
+            applied_target_field_counts[target_field] = applied_target_field_counts.get(target_field, 0) + 1
+        if len(audit_records) < max_records:
+            audit_records.append(
+                {
+                    "binding_id": record.get("binding_id"),
+                    "workflow_id": record.get("workflow_id"),
+                    "target_case_id": record.get("target_case_id"),
+                    "workflow_step_index": record.get("workflow_step_index"),
+                    "origin": origin,
+                    "review_status": status,
+                    "source_type": source_type,
+                    "source_field": record.get("source_key"),
+                    "target_field": target_field,
+                    "target_path_class": _target_path_class(record),
+                    "applied_at_runtime": applied,
+                    "structurally_changed_later_request": bool(applied and target_field in SUPPORTED_BINDING_TARGETS),
+                    "structural_change_class": target_field if applied else "none",
+                    "allow_or_hold_reason": _binding_allow_or_hold_reason(status, applied),
+                }
+            )
+    return {
+        "schema_version": BINDING_AUDIT_SCHEMA_VERSION,
+        "planned_binding_count": len(planned_records),
+        "applied_binding_count": application_summary.get("applied_response_binding_count", 0),
+        "unapplied_binding_count": application_summary.get("unapplied_response_binding_count", 0),
+        "status_counts": status_counts,
+        "origin_counts": origin_counts,
+        "target_field_counts": target_field_counts,
+        "source_type_counts": source_type_counts,
+        "applied_target_field_counts": applied_target_field_counts,
+        "changed_later_request_count": sum(1 for record in planned_records if _binding_audit_key(record) in applied_keys),
+        "binding_application_failure_counts": application_summary.get("binding_application_failure_counts", {}),
+        "failed_binding_count": len(application_summary.get("failed_binding_ids", [])),
+        "audit_record_count": len(planned_records),
+        "audit_records_truncated": len(planned_records) > max_records,
+        "audit_records": audit_records,
+    }
+
+
 def declared_response_binding_count(workflows: list[dict[str, Any]]) -> int:
     return sum(len(step.get("response_bindings", [])) for workflow in workflows for step in workflow.get("steps", []))
 
@@ -212,6 +282,71 @@ def _binding_contract_record(binding: dict[str, Any]) -> dict[str, Any]:
         "inference_reason": binding.get("inference_reason"),
         "review_status": binding.get("review_status"),
     }
+
+
+def _planned_binding_audit_records(workflows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for workflow in workflows:
+        workflow_id = str(workflow.get("workflow_id", "unknown"))
+        for step in workflow.get("steps", []):
+            target_case_id = str(step.get("case_id", ""))
+            step_index = step.get("workflow_step_index", 0)
+            for binding in step.get("response_bindings", []):
+                record = _binding_contract_record(binding)
+                record.update(
+                    {
+                        "workflow_id": workflow_id,
+                        "target_case_id": target_case_id,
+                        "workflow_step_index": step_index,
+                    }
+                )
+                records.append(record)
+    return records
+
+
+def _applied_binding_keys(results: list[dict[str, Any]]) -> set[tuple[str, str, str]]:
+    keys: set[tuple[str, str, str]] = set()
+    for workflow_result in results:
+        workflow_id = str(workflow_result.get("workflow_id", "unknown"))
+        for step_result in workflow_result.get("results", []):
+            evidence = step_result.get("workflow_evidence", {})
+            target_case_id = str(evidence.get("case_id", step_result.get("case_id", "")))
+            for binding in evidence.get("applied_response_bindings", []):
+                binding_id = str(binding.get("binding_id", "")).strip()
+                if binding_id:
+                    keys.add((workflow_id, target_case_id, binding_id))
+    return keys
+
+
+def _binding_audit_key(record: dict[str, Any]) -> tuple[str, str, str]:
+    return (str(record.get("workflow_id", "unknown")), str(record.get("target_case_id", "")), str(record.get("binding_id", "")))
+
+
+def _review_status(record: dict[str, Any]) -> str:
+    status = str(record.get("review_status") or "approved").strip()
+    return status or "approved"
+
+
+def _target_path_class(record: dict[str, Any]) -> str:
+    target_path = str(record.get("target_path") or "").strip()
+    if target_path:
+        return target_path
+    placeholder = str(record.get("placeholder") or "").strip()
+    return "placeholder" if placeholder else "none"
+
+
+def _binding_allow_or_hold_reason(status: str, applied: bool) -> str:
+    if status == "pending_review":
+        return "held_for_binding_review"
+    if status == "rejected":
+        return "held_rejected_binding"
+    if status == "replaced":
+        return "replacement_binding_selected"
+    if status == "approved" and applied:
+        return "approved_binding_applied"
+    if status == "approved":
+        return "approved_binding_not_reached_or_value_missing"
+    return f"held_or_unknown_status:{status}"
 
 
 def _apply_request_path_binding(

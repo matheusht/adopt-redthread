@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_coverage_summary, build_decision_reason_summary
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary
 from scripts.generate_hero_binding_truth import build_hero_artifacts
 from scripts.generate_reviewed_write_reference import run_reviewed_write_reference
 
@@ -188,11 +188,21 @@ def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_wo
         dryrun_rubric_name=summary.get("dryrun_rubric_name"),
         dryrun_rubric_rationale=summary.get("dryrun_rubric_rationale"),
     )
+    auth_diagnostics = summary.get("auth_diagnostics_summary") or build_auth_diagnostics_summary(
+        summary,
+        live_workflow=live_workflow,
+        app_context_summary=app_context_summary,
+    )
+    binding_audit = summary.get("live_workflow_binding_audit_summary") or live_workflow.get("binding_audit_summary", {})
     return {
         "decision_reason_category": decision_reason.get("category", "unknown"),
         "confirmed_security_finding": bool(decision_reason.get("confirmed_security_finding", False)),
         "coverage_label": coverage.get("label", "unknown"),
         "coverage_gaps": _join(coverage.get("coverage_gaps", [])),
+        "auth_replay_failure_category": auth_diagnostics.get("replay_failure_category", "unknown"),
+        "auth_context_gap": bool(auth_diagnostics.get("auth_context_gap", False)),
+        "write_context_gap": bool(auth_diagnostics.get("write_context_gap", False)),
+        "binding_audit": _binding_audit_cell(binding_audit),
         "top_targeted_probe": attack_brief.get("top_targeted_probe", "n/a"),
         "dryrun_rubric_rationale": attack_brief.get("dryrun_rubric_rationale", "n/a"),
     }
@@ -245,6 +255,16 @@ def _runtime_fixture_count(runtime_inputs: dict[str, Any]) -> int:
     return int(value) if isinstance(value, int) else 0
 
 
+def _binding_audit_cell(binding_audit: dict[str, Any]) -> str:
+    if not binding_audit:
+        return "n/a"
+    return (
+        f"status:{_flat_counts(binding_audit.get('status_counts', {}))}; "
+        f"origin:{_flat_counts(binding_audit.get('origin_counts', {}))}; "
+        f"changed:{binding_audit.get('changed_later_request_count', 0)}"
+    )
+
+
 def _markdown(matrix: dict[str, Any]) -> str:
     rows = matrix["rows"]
     lines = [
@@ -254,12 +274,12 @@ def _markdown(matrix: dict[str, Any]) -> str:
         "",
         "RedThread replay/dry-run is evidence; the final `approve` / `review` / `block` verdict is currently emitted by the local Adopt RedThread bridge gate.",
         "",
-        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Coverage | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Exact reason | Control detail |",
-        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Coverage | Auth/replay diagnostics | Binding audit | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Exact reason | Control detail |",
+        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
         lines.append(
-            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {coverage_label}; gaps:{coverage_gaps} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {exact_reason} | {redthread_control_detail} |".format(
+            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {coverage_label}; gaps:{coverage_gaps} | category:{auth_replay_failure_category}; auth_gap:{auth_context_gap}; write_gap:{write_context_gap} | {binding_audit} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {exact_reason} | {redthread_control_detail} |".format(
                 **{key: _md_escape(value) for key, value in row.items()}
             )
         )

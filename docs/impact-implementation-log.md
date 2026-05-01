@@ -441,3 +441,92 @@ make evidence-matrix
 make test
 ```
 
+## 2026-05-01 — auth delivery diagnostics slice
+
+Planned next slice: make replay/auth failures understandable without exposing auth headers, cookies, tokens, sessions, or raw host/body values.
+
+Implemented:
+
+- Added `auth_header_families` to `app_context_summary` as structural metadata only.
+- Added `auth_diagnostics_summary` with:
+  - observed auth mode and header family classes
+  - required header family counts
+  - approved auth/write context required vs supplied
+  - auth/write context gap booleans
+  - auth-applied result counts
+  - HTTP status/error class counts
+  - replay/auth failure category such as `missing_auth_context`, `missing_write_context`, `auth_header_family_mismatch`, `server_rejected_auth`, or `environment_or_continuity_mismatch`
+  - sanitized operator notes
+- Wired auth diagnostics into `workflow_summary.json`, evidence reports, and the evidence matrix.
+- Added tests for missing-context vs server-rejected-auth classification.
+
+Guardrails held:
+
+- No raw auth header values, cookies, tokens, sessions, request bodies, response bodies, or raw host values emitted.
+- No `approve` / `review` / `block` semantic changes.
+- Diagnostics explain failure class; they do not claim confirmed vulnerability.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_summaries tests.test_evidence_report tests.test_evidence_matrix tests.test_bridge_workflow -v
+make evidence-report
+make evidence-matrix
+make test
+```
+
+## 2026-05-01 — binding review auditability slice
+
+Planned next slice after auth diagnostics: make response binding evidence inspectable without exposing bound values.
+
+Implemented:
+
+- Added sanitized `binding_audit_summary.v1` in live workflow replay summaries.
+- Exposed `live_workflow_binding_audit_summary` in bridge workflow summaries.
+- Reported binding audit details in evidence reports and the evidence matrix:
+  - inferred vs declared origin counts
+  - approved/pending/rejected/replaced status counts
+  - source field and target field/path class metadata
+  - runtime applied vs unapplied state
+  - whether an applied binding structurally changed a later request
+  - allow/hold reason such as `approved_binding_applied` or `held_for_binding_review`
+- Added focused tests for approved/applied bindings and pending-review holds.
+
+Guardrails held:
+
+- Audit records contain no bound values or value previews.
+- Reports remain structural/sanitized only.
+- No verdict semantic changes.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_live_workflow_binding_review tests.test_evidence_report tests.test_evidence_matrix tests.test_bridge_workflow -v
+```
+
+## 2026-05-01 — standalone gate rationale and binding-audit handoff slice
+
+Planned next slice after binding auditability: make the standalone pre-publish gate artifact carry the same sanitized rationale now visible in reports, and carry binding audit evidence through the RedThread runtime context.
+
+Implemented:
+
+- `gate_verdict.json` now includes:
+  - `decision_reason_summary`
+  - `coverage_summary`
+  - `auth_diagnostics_summary`
+- Pre-publish gate evidence counts now preserve `binding_audit_summary` when live workflow replay produced it.
+- Pre-publish gate notes now expose sanitized binding audit status/origin/change counts.
+- `redthread_runtime_inputs.json` / `redthread_replay_bundle.bridge_workflow_context` now carry `binding_audit_summary` when live workflow replay has it.
+
+Guardrails held:
+
+- No gate verdict semantics changed.
+- Binding audit handoff remains structural only; no bound values or value previews.
+- Auth diagnostics still classify replay/auth failure without exposing headers, cookies, tokens, sessions, request bodies, or response bodies.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_redthread_runtime_adapter tests.test_prepublish_gate -v
+```
+

@@ -25,10 +25,30 @@ class EvidenceReportTests(unittest.TestCase):
                     "live_workflow_requirement_summary": {"workflow_class_counts": {"reviewed_write_workflow": 1}},
                     "live_workflow_failure_class_summary": {"review_gap": 1},
                     "live_workflow_binding_application_summary": {
-                        "planned_response_binding_count": 0,
-                        "applied_response_binding_count": 0,
+                        "planned_response_binding_count": 1,
+                        "applied_response_binding_count": 1,
                         "unapplied_response_binding_count": 0,
                         "binding_application_failure_counts": {},
+                    },
+                    "live_workflow_binding_audit_summary": {
+                        "schema_version": "binding_audit_summary.v1",
+                        "planned_binding_count": 1,
+                        "applied_binding_count": 1,
+                        "unapplied_binding_count": 0,
+                        "status_counts": {"approved": 1},
+                        "origin_counts": {"inferred": 1},
+                        "target_field_counts": {"request_body_json": 1},
+                        "changed_later_request_count": 1,
+                        "audit_records": [
+                            {
+                                "binding_id": "user_id",
+                                "origin": "inferred",
+                                "review_status": "approved",
+                                "target_field": "request_body_json",
+                                "applied_at_runtime": True,
+                                "allow_or_hold_reason": "approved_binding_applied",
+                            }
+                        ],
                     },
                     "redthread_replay_passed": True,
                     "redthread_dryrun_executed": True,
@@ -49,6 +69,19 @@ class EvidenceReportTests(unittest.TestCase):
                         "applied_response_binding_count": 0,
                         "tenant_user_boundary_probed": False,
                         "coverage_gaps": ["auth_or_replay_blocked", "tenant_user_boundary_unproven", "workflow_blocked"],
+                    },
+                    "auth_diagnostics_summary": {
+                        "auth_mode": "cookie",
+                        "auth_header_families": ["cookie"],
+                        "required_header_family_counts": {"auth": 1},
+                        "approved_auth_context_required": True,
+                        "approved_auth_context_supplied": False,
+                        "approved_write_context_required": True,
+                        "approved_write_context_supplied": False,
+                        "auth_applied_result_counts": {},
+                        "http_status_counts": {},
+                        "replay_failure_category": "missing_write_context",
+                        "sanitized_notes": ["Approved write context was required but not supplied."],
                     },
                     "attack_brief_summary": {
                         "risk_themes": ["tenant_user_boundary", "write_surface"],
@@ -123,12 +156,24 @@ class EvidenceReportTests(unittest.TestCase):
         self.assertIn("## Coverage confidence", report)
         self.assertIn("Coverage label: `auth_or_replay_blocked`", report)
         self.assertIn("Coverage gaps: `auth_or_replay_blocked,tenant_user_boundary_unproven,workflow_blocked`", report)
+        self.assertIn("## Auth delivery diagnostics", report)
+        self.assertIn("Auth header families: `cookie`", report)
+        self.assertIn("Required header family counts: `auth:1`", report)
+        self.assertIn("Approved auth context required/supplied: `True/False`", report)
+        self.assertIn("Replay/auth failure category: `missing_write_context`", report)
+        self.assertIn("Approved write context was required but not supplied", report)
         self.assertIn("## Attack brief for RedThread", report)
         self.assertIn("Top targeted probe/question: Verify user/tenant identifiers", report)
         self.assertIn("Targeted missing-context questions: `Can this actor access another actor's object", report)
         self.assertIn("Boundary candidate classes: `user`", report)
         self.assertIn("Boundary candidate locations: `body_field`", report)
         self.assertIn("Dry-run rubric rationale: Selected because user/tenant/resource identifiers", report)
+        self.assertIn("Binding audit schema: `binding_audit_summary.v1`", report)
+        self.assertIn("Binding audit statuses: `approved:1`", report)
+        self.assertIn("Binding origins: `inferred:1`", report)
+        self.assertIn("Binding target classes: `request_body_json:1`", report)
+        self.assertIn("Bindings that changed later requests structurally: `1`", report)
+        self.assertIn("user_id:inferred/approved->applied:True", report)
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:

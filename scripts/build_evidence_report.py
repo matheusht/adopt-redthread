@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_coverage_summary, build_decision_reason_summary
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary
 
 def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = None) -> str:
     root = Path(run_dir)
@@ -46,6 +46,13 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         dryrun_rubric_name=summary.get("dryrun_rubric_name"),
         dryrun_rubric_rationale=summary.get("dryrun_rubric_rationale"),
     )
+    auth_diagnostics_summary = summary.get("auth_diagnostics_summary") or build_auth_diagnostics_summary(
+        summary,
+        live_workflow=workflow,
+        live_safe_replay=live_safe,
+        app_context_summary=app_context_summary,
+    )
+    binding_audit_summary = summary.get("live_workflow_binding_audit_summary") or (workflow or {}).get("binding_audit_summary", {})
 
     lines = [
         f"# Evidence Report: {root.name}",
@@ -78,6 +85,18 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- Applied/planned bindings: `{coverage_summary.get('applied_response_binding_count', 0)}/{coverage_summary.get('planned_response_binding_count', 0)}`",
         f"- Tenant/user boundary probed: `{coverage_summary.get('tenant_user_boundary_probed', False)}`",
         f"- Coverage gaps: `{_join(coverage_summary.get('coverage_gaps', []))}`",
+        "",
+        "## Auth delivery diagnostics",
+        "",
+        f"- Auth mode: `{auth_diagnostics_summary.get('auth_mode', 'unknown')}`",
+        f"- Auth header families: `{_join(auth_diagnostics_summary.get('auth_header_families', []))}`",
+        f"- Required header family counts: `{_flat_counts(auth_diagnostics_summary.get('required_header_family_counts', {}))}`",
+        f"- Approved auth context required/supplied: `{auth_diagnostics_summary.get('approved_auth_context_required', False)}/{auth_diagnostics_summary.get('approved_auth_context_supplied', False)}`",
+        f"- Approved write context required/supplied: `{auth_diagnostics_summary.get('approved_write_context_required', False)}/{auth_diagnostics_summary.get('approved_write_context_supplied', False)}`",
+        f"- Auth applied result counts: `{_flat_counts(auth_diagnostics_summary.get('auth_applied_result_counts', {}))}`",
+        f"- HTTP status counts: `{_flat_counts(auth_diagnostics_summary.get('http_status_counts', {}))}`",
+        f"- Replay/auth failure category: `{auth_diagnostics_summary.get('replay_failure_category', 'unknown')}`",
+        f"- Auth diagnostic notes: `{_join(auth_diagnostics_summary.get('sanitized_notes', []))}`",
         "",
         "## App context for RedThread",
         "",
@@ -126,6 +145,12 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- Applied response bindings: `{requirement_summary.get('applied_response_binding_count', binding_summary.get('applied_response_binding_count', 0))}`",
         f"- Unapplied response bindings: `{binding_summary.get('unapplied_response_binding_count', 0)}`",
         f"- Binding failures: `{_flat_counts(binding_summary.get('binding_application_failure_counts', {}))}`",
+        f"- Binding audit schema: `{binding_audit_summary.get('schema_version', 'n/a')}`",
+        f"- Binding audit statuses: `{_flat_counts(binding_audit_summary.get('status_counts', {}))}`",
+        f"- Binding origins: `{_flat_counts(binding_audit_summary.get('origin_counts', {}))}`",
+        f"- Binding target classes: `{_flat_counts(binding_audit_summary.get('target_field_counts', {}))}`",
+        f"- Bindings that changed later requests structurally: `{binding_audit_summary.get('changed_later_request_count', 0)}`",
+        f"- Binding audit records: `{_binding_audit_records(binding_audit_summary.get('audit_records', []))}`",
         "",
         "## RedThread evidence",
         "",
@@ -226,6 +251,24 @@ def _flat_counts(payload: dict[str, Any]) -> str:
 
 def _join(items: list[Any]) -> str:
     return "none" if not items else ",".join(str(item) for item in items)
+
+
+def _binding_audit_records(records: list[dict[str, Any]]) -> str:
+    if not records:
+        return "none"
+    parts = []
+    for record in records[:5]:
+        parts.append(
+            "{binding_id}:{origin}/{review_status}->applied:{applied};target:{target};reason:{reason}".format(
+                binding_id=record.get("binding_id", "unknown"),
+                origin=record.get("origin", "unknown"),
+                review_status=record.get("review_status", "unknown"),
+                applied=record.get("applied_at_runtime", False),
+                target=record.get("target_field", "unknown"),
+                reason=record.get("allow_or_hold_reason", "unknown"),
+            )
+        )
+    return ";".join(parts)
 
 
 def _load(path: Path) -> dict[str, Any]:

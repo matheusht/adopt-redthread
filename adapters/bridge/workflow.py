@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from adapters.adopt_actions.loader import build_action_fixture_bundle
-from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_coverage_summary, build_decision_reason_summary
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary
 from adapters.bridge.live_attack import build_live_attack_plan
 from adapters.bridge.live_workflow import build_live_workflow_plan
 from adapters.bridge.workflow_io import artifact_paths, export_optional_json_artifact, run_redthread_dryrun, run_redthread_replay, write_json
@@ -160,12 +160,15 @@ def run_bridge_workflow(
         "live_safe_replay_used_write_context": False if live_safe_replay_summary is None else live_safe_replay_summary.get("write_context_used", False),
         "live_workflow_replay_executed": live_workflow_summary is not None,
         "live_workflow_replay_count": 0 if live_workflow_summary is None else live_workflow_summary["executed_workflow_count"],
+        "live_workflow_used_auth_context": False if live_workflow_summary is None else live_workflow_summary.get("auth_context_used", False),
+        "live_workflow_used_write_context": False if live_workflow_summary is None else live_workflow_summary.get("write_context_used", False),
         "live_workflow_blocked_count": 0 if live_workflow_summary is None else live_workflow_summary.get("blocked_workflow_count", 0),
         "live_workflow_aborted_count": 0 if live_workflow_summary is None else live_workflow_summary.get("aborted_workflow_count", 0),
         "live_workflow_reason_counts": {} if live_workflow_summary is None else live_workflow_summary.get("reason_counts", {}),
         "live_workflow_requirement_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_requirement_summary", {}),
         "live_workflow_failure_class_summary": {} if live_workflow_summary is None else live_workflow_summary.get("workflow_failure_class_summary", {}),
         "live_workflow_binding_application_summary": {} if live_workflow_summary is None else live_workflow_summary.get("binding_application_summary", {}),
+        "live_workflow_binding_audit_summary": {} if live_workflow_summary is None else live_workflow_summary.get("binding_audit_summary", {}),
         "live_workflow_binding_review_artifacts": [] if live_workflow_summary is None else live_workflow_summary.get("workflow_binding_review_artifacts", []),
         "live_workflow_review_manifest_ready": bool(workflow_review_manifest.get("workflows")),
         "binding_history_rows_written": 0 if live_workflow_summary is None else live_workflow_summary.get("binding_history_rows_written", 0),
@@ -195,6 +198,12 @@ def run_bridge_workflow(
         redthread=replay_verdict,
     )
     summary["coverage_summary"] = build_coverage_summary(
+        summary,
+        live_workflow=live_workflow_summary,
+        live_safe_replay=live_safe_replay_summary,
+        app_context_summary=runtime_inputs.get("app_context_summary", {}),
+    )
+    summary["auth_diagnostics_summary"] = build_auth_diagnostics_summary(
         summary,
         live_workflow=live_workflow_summary,
         live_safe_replay=live_safe_replay_summary,

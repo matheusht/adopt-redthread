@@ -55,6 +55,9 @@ class LiveWorkflowBindingReviewTests(unittest.TestCase):
         self.assertEqual(summary["workflow_requirement_summary"]["pending_review_response_binding_count"], 1)
         self.assertEqual(summary["workflow_binding_review_artifacts"][0]["steps"][0]["binding_review_decisions"], [])
         self.assertEqual(summary["workflow_binding_review_artifacts"][0]["steps"][1]["binding_review_decisions"][0]["decision"], "pending_review")
+        self.assertEqual(summary["binding_audit_summary"]["status_counts"], {"pending_review": 1})
+        self.assertFalse(summary["binding_audit_summary"]["audit_records"][0]["applied_at_runtime"])
+        self.assertEqual(summary["binding_audit_summary"]["audit_records"][0]["allow_or_hold_reason"], "held_for_binding_review")
 
     def test_binding_override_can_approve_inferred_binding(self) -> None:
         with binding_server() as base_url, tempfile.TemporaryDirectory() as tmp:
@@ -100,6 +103,18 @@ class LiveWorkflowBindingReviewTests(unittest.TestCase):
         self.assertEqual(summary["workflow_requirement_summary"]["rejected_response_binding_count"], 0)
         self.assertEqual(summary["workflow_requirement_summary"]["replaced_response_binding_count"], 0)
         self.assertEqual(summary["workflow_binding_review_artifacts"][0]["steps"][1]["binding_review_decisions"][0]["decision"], "approved")
+        audit = summary["binding_audit_summary"]
+        self.assertEqual(audit["schema_version"], "binding_audit_summary.v1")
+        self.assertEqual(audit["planned_binding_count"], 1)
+        self.assertEqual(audit["applied_binding_count"], 1)
+        self.assertEqual(audit["status_counts"], {"approved": 1})
+        self.assertEqual(audit["origin_counts"], {"inferred": 1})
+        self.assertEqual(audit["changed_later_request_count"], 1)
+        self.assertEqual(audit["audit_records"][0]["source_field"], "account_id")
+        self.assertEqual(audit["audit_records"][0]["target_field"], "request_url")
+        self.assertTrue(audit["audit_records"][0]["applied_at_runtime"])
+        self.assertEqual(audit["audit_records"][0]["allow_or_hold_reason"], "approved_binding_applied")
+        self.assertNotIn("value_preview", audit["audit_records"][0])
 
     def test_binding_override_can_replace_with_bound_body_json(self) -> None:
         with binding_server() as base_url:

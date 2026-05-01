@@ -82,6 +82,7 @@ def evidence_counts(payload: dict[str, Any] | None) -> dict[str, Any] | None:
         "workflow_requirement_summary",
         "workflow_failure_class_summary",
         "binding_application_summary",
+        "binding_audit_summary",
         "workflow_binding_review_artifacts",
         "planned_response_binding_count",
         "applied_response_binding_count",

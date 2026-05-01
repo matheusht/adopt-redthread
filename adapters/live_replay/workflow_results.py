@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from adapters.live_replay.workflow_bindings import summarize_binding_applications
+from adapters.live_replay.workflow_bindings import build_binding_audit_summary, summarize_binding_applications
 from adapters.live_replay.workflow_narrative import build_failure_narrative, summarize_failure_narratives
 from adapters.live_replay.workflow_requirements import summarize_failure_classes, summarize_workflow_requirements
 from adapters.live_replay.workflow_state import snapshot_workflow_state
@@ -30,6 +30,7 @@ def build_workflow_summary(
         "workflow_requirement_summary": summarize_workflow_requirements(workflows, results),
         "workflow_failure_class_summary": summarize_failure_classes(results),
         "binding_application_summary": summarize_binding_applications(workflows, results),
+        "binding_audit_summary": build_binding_audit_summary(workflows, results),
         "workflow_binding_review_artifacts": [binding_review_artifact(workflow) for workflow in workflows],
         "workflow_failure_narratives": summarize_failure_narratives(results),
         "auth_context_used": auth_context_used,

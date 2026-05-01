@@ -46,6 +46,51 @@ class RedThreadRuntimeAdapterTests(unittest.TestCase):
         self.assertEqual(payload["app_context"], payload["bridge_workflow_context"]["app_context"])
         self.assertEqual(payload["app_context_summary"]["operation_count"], 4)
 
+    def test_runtime_export_carries_sanitized_binding_audit_into_redthread_context(self) -> None:
+        bundle = json.loads(Path("fixtures/replay_packs/sample_har_fixture_bundle.json").read_text())
+        payload = build_redthread_runtime_inputs(
+            bundle,
+            {"workflow_count": 1, "workflows": []},
+            {
+                "binding_application_summary": {
+                    "planned_response_binding_count": 1,
+                    "applied_response_binding_count": 1,
+                    "unapplied_response_binding_count": 0,
+                    "workflow_count_with_planned_bindings": 1,
+                    "workflow_count_with_applied_bindings": 1,
+                    "binding_application_failure_counts": {},
+                    "failed_binding_ids": [],
+                },
+                "binding_audit_summary": {
+                    "schema_version": "binding_audit_summary.v1",
+                    "planned_binding_count": 1,
+                    "applied_binding_count": 1,
+                    "unapplied_binding_count": 0,
+                    "status_counts": {"approved": 1},
+                    "origin_counts": {"declared": 1},
+                    "changed_later_request_count": 1,
+                    "audit_records": [
+                        {
+                            "binding_id": "profile_id",
+                            "origin": "declared",
+                            "review_status": "approved",
+                            "target_field": "query_params",
+                            "applied_at_runtime": True,
+                            "allow_or_hold_reason": "approved_binding_applied",
+                        }
+                    ],
+                },
+            },
+        )
+
+        context = payload["bridge_workflow_context"]
+        self.assertEqual(context["binding_audit_summary"]["schema_version"], "binding_audit_summary.v1")
+        self.assertEqual(context["binding_audit_summary"]["status_counts"], {"approved": 1})
+        self.assertEqual(context, payload["redthread_replay_bundle"]["bridge_workflow_context"])
+        serialized_context = json.dumps(context, sort_keys=True)
+        self.assertNotIn("value_preview", serialized_context)
+        self.assertNotIn("Bearer ", serialized_context)
+
     def test_runtime_export_includes_minimum_sanitized_app_context(self) -> None:
         from adapters.zapi.loader import build_fixture_bundle
 

@@ -58,6 +58,9 @@ class PrepublishGateTests(unittest.TestCase):
         self.assertIn("live_workflow_runtime_failures_present", verdict["blockers"])
         self.assertIn("redthread_replay_verdict_failed", verdict["blockers"])
         self.assertEqual(verdict["evidence_summary"]["redthread_replay_verdict"], {"passed": False})
+        self.assertEqual(verdict["decision_reason_summary"]["category"], "redthread_replay_failed")
+        self.assertFalse(verdict["decision_reason_summary"]["confirmed_security_finding"])
+        self.assertEqual(verdict["auth_diagnostics_summary"]["replay_failure_category"], "server_rejected_auth")
 
     def test_prepublish_gate_warns_when_live_evidence_expected_but_missing_execution(self) -> None:
         bundle = build_fixture_bundle("fixtures/zapi_samples/sample_filtered_har.json")
@@ -89,6 +92,10 @@ class PrepublishGateTests(unittest.TestCase):
         self.assertIn("live_workflow_review_gap_present", verdict["warnings"])
         self.assertIn("live_workflow_blocked_steps_present", verdict["blockers"])
         self.assertNotIn("redthread_replay_verdict_failed", verdict["blockers"])
+        self.assertEqual(verdict["decision_reason_summary"]["category"], "auth_or_context_blocked")
+        self.assertEqual(verdict["decision_reason_summary"]["primary_reason"], "missing_auth_context")
+        self.assertEqual(verdict["coverage_summary"]["label"], "auth_or_replay_blocked")
+        self.assertIn("auth_or_replay_blocked", verdict["coverage_summary"]["coverage_gaps"])
 
     def test_prepublish_gate_blocks_on_workflow_context_mismatch(self) -> None:
         bundle = build_fixture_bundle("fixtures/zapi_samples/sample_filtered_har.json")
@@ -158,6 +165,16 @@ class PrepublishGateTests(unittest.TestCase):
                     "binding_application_failure_counts": {"response_binding_missing": 1},
                     "failed_binding_ids": ["profileKey"],
                 },
+                "binding_audit_summary": {
+                    "schema_version": "binding_audit_summary.v1",
+                    "planned_binding_count": 2,
+                    "applied_binding_count": 1,
+                    "unapplied_binding_count": 1,
+                    "status_counts": {"approved": 1, "replaced": 1},
+                    "origin_counts": {"declared": 1, "inferred": 1},
+                    "changed_later_request_count": 1,
+                    "audit_records": [],
+                },
                 "results": [],
             },
             redthread_replay_verdict={"passed": True},
@@ -196,6 +213,14 @@ class PrepublishGateTests(unittest.TestCase):
         self.assertIn("live_workflow_planned_response_binding_count=2", verdict["notes"])
         self.assertIn("live_workflow_unapplied_response_binding_count=1", verdict["notes"])
         self.assertIn("live_workflow_binding_application_failures=response_binding_missing:1", verdict["notes"])
+        self.assertEqual(
+            verdict["evidence_summary"]["live_workflow_replay"]["binding_audit_summary"]["schema_version"],
+            "binding_audit_summary.v1",
+        )
+        self.assertIn("live_workflow_binding_audit_schema=binding_audit_summary.v1", verdict["notes"])
+        self.assertIn("live_workflow_binding_audit_statuses=approved:1,replaced:1", verdict["notes"])
+        self.assertIn("live_workflow_binding_audit_origins=declared:1,inferred:1", verdict["notes"])
+        self.assertIn("live_workflow_binding_audit_changed_later_request_count=1", verdict["notes"])
 
 
 if __name__ == "__main__":

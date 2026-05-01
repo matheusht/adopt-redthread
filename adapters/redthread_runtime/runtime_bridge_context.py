@@ -11,6 +11,7 @@ def build_bridge_workflow_context(
         return {}
     alias_summary = workflow_plan.get("approved_binding_alias_summary", {})
     binding_summary = _binding_application_summary(workflow_plan, live_workflow_summary)
+    binding_audit_summary = _binding_audit_summary(live_workflow_summary)
     return {
         "workflow_count": workflow_plan.get("workflow_count", 0),
         "approved_binding_alias_count": workflow_plan.get("approved_binding_alias_count", 0),
@@ -25,7 +26,15 @@ def build_bridge_workflow_context(
         "binding_application_failure_counts": binding_summary.get("binding_application_failure_counts", {}),
         "failed_binding_ids": binding_summary.get("failed_binding_ids", []),
         "binding_application_summary": binding_summary,
+        "binding_audit_summary": binding_audit_summary,
     }
+
+
+def _binding_audit_summary(live_workflow_summary: dict[str, Any] | None) -> dict[str, Any]:
+    if live_workflow_summary is not None and isinstance(live_workflow_summary.get("binding_audit_summary"), dict):
+        return dict(live_workflow_summary["binding_audit_summary"])
+    return {}
+
 
 
 def _binding_application_summary(

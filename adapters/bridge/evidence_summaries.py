@@ -138,7 +138,12 @@ def build_coverage_summary(
     binding = summary.get("live_workflow_binding_application_summary", {}) or {}
     applied_bindings = int(binding.get("applied_response_binding_count", 0))
     planned_bindings = int(binding.get("planned_response_binding_count", binding.get("declared_response_binding_count", 0)))
-    boundary_count = int(app_context_summary.get("candidate_user_field_count", 0)) + int(app_context_summary.get("candidate_tenant_field_count", 0)) + int(app_context_summary.get("candidate_route_param_count", 0))
+    boundary_count = int(app_context_summary.get("candidate_boundary_selector_count", 0)) or (
+        int(app_context_summary.get("candidate_user_field_count", 0))
+        + int(app_context_summary.get("candidate_tenant_field_count", 0))
+        + int(app_context_summary.get("candidate_resource_field_count", 0))
+        + int(app_context_summary.get("candidate_route_param_count", 0))
+    )
     reason_counts = summary.get("live_workflow_reason_counts", {}) or (live_workflow or {}).get("reason_counts", {}) or {}
 
     gaps: list[str] = []
@@ -179,6 +184,67 @@ def build_coverage_summary(
         "tenant_user_boundary_probed": bool(summary.get("tenant_boundary_probe_executed", False)),
         "coverage_gaps": sorted(dict.fromkeys(gaps)),
     }
+
+
+def build_auth_diagnostics_summary(
+    summary: dict[str, Any],
+    *,
+    live_workflow: dict[str, Any] | None = None,
+    live_safe_replay: dict[str, Any] | None = None,
+    app_context_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Summarize auth/replay continuity using structural evidence only."""
+
+    app_context_summary = app_context_summary or summary.get("app_context_summary", {}) or {}
+    requirement_summary = summary.get("live_workflow_requirement_summary", {}) or (live_workflow or {}).get("workflow_requirement_summary", {}) or {}
+    reason_counts = summary.get("live_workflow_reason_counts", {}) or (live_workflow or {}).get("reason_counts", {}) or {}
+    failure_classes = summary.get("live_workflow_failure_class_summary", {}) or (live_workflow or {}).get("workflow_failure_class_summary", {}) or {}
+    result_counts = _auth_applied_result_counts(live_workflow, live_safe_replay)
+    status_counts = _http_status_counts(live_workflow, live_safe_replay)
+    error_counts = _result_error_counts(live_workflow, live_safe_replay)
+    required_header_counts = requirement_summary.get("required_header_family_counts", {}) if isinstance(requirement_summary.get("required_header_family_counts", {}), dict) else {}
+    auth_families = sorted(dict.fromkeys([*app_context_summary.get("auth_header_families", []), *required_header_counts.keys()]))
+    auth_required = bool(app_context_summary.get("requires_approved_auth_context", False)) or bool(requirement_summary.get("approved_auth_context_required_count", 0))
+    write_required = bool(app_context_summary.get("requires_approved_write_context", False)) or bool(requirement_summary.get("approved_write_context_required_count", 0))
+    auth_supplied = bool(summary.get("live_workflow_used_auth_context", False) or summary.get("live_safe_replay_used_auth_context", False) or (live_workflow or {}).get("auth_context_used", False) or (live_safe_replay or {}).get("auth_context_used", False))
+    write_supplied = bool(summary.get("live_workflow_used_write_context", False) or summary.get("live_safe_replay_used_write_context", False) or (live_workflow or {}).get("write_context_used", False) or (live_safe_replay or {}).get("write_context_used", False))
+    structurally_present = bool(app_context_summary.get("auth_mode", "anonymous") != "anonymous" or auth_families or auth_required)
+    not_applied = int(result_counts.get("not_applied", 0))
+    applied = int(result_counts.get("applied", 0))
+    replay_failure_category = _auth_replay_failure_category(reason_counts, status_counts, error_counts)
+    notes = _auth_diagnostic_notes(
+        replay_failure_category,
+        auth_required=auth_required,
+        auth_supplied=auth_supplied,
+        write_required=write_required,
+        write_supplied=write_supplied,
+        structurally_present=structurally_present,
+        applied=applied,
+        not_applied=not_applied,
+    )
+    return {
+        "schema_version": "auth_diagnostics_summary.v1",
+        "auth_mode": app_context_summary.get("auth_mode", "unknown"),
+        "auth_scope_hints": app_context_summary.get("auth_scope_hints", []),
+        "auth_header_families": auth_families,
+        "required_header_family_counts": required_header_counts,
+        "approved_auth_context_required": auth_required,
+        "approved_auth_context_supplied": auth_supplied,
+        "approved_write_context_required": write_required,
+        "approved_write_context_supplied": write_supplied,
+        "auth_context_gap": bool(auth_required and not auth_supplied),
+        "write_context_gap": bool(write_required and not write_supplied),
+        "auth_structurally_present": structurally_present,
+        "auth_applied_result_counts": result_counts,
+        "auth_structurally_present_but_not_applied": bool(structurally_present and not_applied > 0 and applied == 0),
+        "workflow_reason_counts": {str(key): int(value) for key, value in reason_counts.items()} if isinstance(reason_counts, dict) else {},
+        "failure_class_counts": {str(key): int(value) for key, value in failure_classes.items()} if isinstance(failure_classes, dict) else {},
+        "http_status_counts": status_counts,
+        "result_error_counts": error_counts,
+        "replay_failure_category": replay_failure_category,
+        "sanitized_notes": notes,
+    }
+
 
 
 def build_attack_brief_summary(
@@ -273,6 +339,112 @@ def _decision_explanation(category: str) -> str:
         "insufficient_decision_detail": "The run did not emit enough structured detail to classify the decision precisely.",
     }
     return explanations.get(category, "Decision category is not yet classified.")
+
+
+def _auth_applied_result_counts(live_workflow: dict[str, Any] | None, live_safe_replay: dict[str, Any] | None) -> dict[str, int]:
+    counts = {"applied": 0, "not_applied": 0}
+    for result in _executed_results(live_workflow, live_safe_replay):
+        if result.get("auth_applied"):
+            counts["applied"] += 1
+        else:
+            counts["not_applied"] += 1
+    return {key: value for key, value in counts.items() if value > 0}
+
+
+
+def _http_status_counts(live_workflow: dict[str, Any] | None, live_safe_replay: dict[str, Any] | None) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for result in _executed_results(live_workflow, live_safe_replay):
+        status = result.get("status_code")
+        if status is None:
+            continue
+        key = f"http_status_{int(status)}"
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+
+def _result_error_counts(live_workflow: dict[str, Any] | None, live_safe_replay: dict[str, Any] | None) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for result in _executed_results(live_workflow, live_safe_replay):
+        error = _sanitized_result_error(result)
+        if not error:
+            continue
+        counts[error] = counts.get(error, 0) + 1
+    return counts
+
+
+
+def _executed_results(live_workflow: dict[str, Any] | None, live_safe_replay: dict[str, Any] | None) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    if isinstance(live_safe_replay, dict):
+        results.extend(item for item in live_safe_replay.get("results", []) if isinstance(item, dict))
+    if isinstance(live_workflow, dict):
+        for workflow_result in live_workflow.get("results", []):
+            if isinstance(workflow_result, dict):
+                results.extend(item for item in workflow_result.get("results", []) if isinstance(item, dict))
+    return results
+
+
+
+def _sanitized_result_error(result: dict[str, Any]) -> str:
+    error = str(result.get("error", "")).strip()
+    if not error:
+        return ""
+    if error.startswith("url_error"):
+        return "url_error"
+    if error in {"http_error", "timeout", "case_not_executable"}:
+        return error
+    return "runtime_error"
+
+
+
+def _auth_replay_failure_category(reason_counts: dict[str, Any], status_counts: dict[str, int], error_counts: dict[str, int]) -> str:
+    reason_keys = {str(key) for key in reason_counts}
+    if "missing_auth_context" in reason_keys:
+        return "missing_auth_context"
+    if "missing_write_context" in reason_keys:
+        return "missing_write_context"
+    if "auth_header_family_mismatch" in reason_keys:
+        return "auth_header_family_mismatch"
+    if reason_keys & {"host_continuity_mismatch", "target_env_mismatch"}:
+        return "environment_or_continuity_mismatch"
+    if status_counts.get("http_status_401") or status_counts.get("http_status_403") or reason_keys & {"http_status_401", "http_status_403"}:
+        return "server_rejected_auth"
+    if any(str(key).startswith("http_status_") for key in set(status_counts) | reason_keys) or error_counts:
+        return "runtime_replay_failure"
+    if not reason_keys and not status_counts and not error_counts:
+        return "none"
+    return "workflow_context_blocked"
+
+
+
+def _auth_diagnostic_notes(
+    replay_failure_category: str,
+    *,
+    auth_required: bool,
+    auth_supplied: bool,
+    write_required: bool,
+    write_supplied: bool,
+    structurally_present: bool,
+    applied: int,
+    not_applied: int,
+) -> list[str]:
+    notes: list[str] = []
+    if auth_required and not auth_supplied:
+        notes.append("Approved auth context was required but not supplied.")
+    if write_required and not write_supplied:
+        notes.append("Approved write context was required but not supplied.")
+    if structurally_present and not_applied > 0 and applied == 0:
+        notes.append("Auth was structurally expected, but no executed replay result recorded auth application.")
+    if replay_failure_category == "server_rejected_auth":
+        notes.append("Replay reached the server but received an auth-like rejection status.")
+    elif replay_failure_category == "environment_or_continuity_mismatch":
+        notes.append("Replay was blocked by host or target-environment continuity checks.")
+    elif replay_failure_category == "auth_header_family_mismatch":
+        notes.append("Approved auth context did not satisfy the required auth header family contract.")
+    return notes[:4]
+
 
 
 def _reason_counts(summary: dict[str, Any], live_workflow: dict[str, Any] | None) -> dict[str, int]:

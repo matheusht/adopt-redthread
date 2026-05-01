@@ -107,6 +107,7 @@ def _victoria_row(run_dir: Path, expected_path: Path) -> dict[str, Any]:
         **_engine_summary_cells(summary, gate, live_workflow, {}),
         "redthread_replay_passed": expected["redthread_replay_passed"],
         "gate_decision": expected["gate_decision"],
+        "reviewer_action": _reviewer_action(gate, summary, live_workflow, {}),
         "exact_reason": f"{expected['gate_blocker']} / {expected['workflow_reason']}",
         "redthread_control_detail": expected["redthread_control_detail"],
         "raw_artifact_policy": expected_doc["artifact_policy"],
@@ -142,6 +143,7 @@ def _row_from_run(scenario_id: str, outcome_slot: str, run_dir: Path, label: str
         **_engine_summary_cells(summary, gate, live_workflow, runtime_inputs),
         "redthread_replay_passed": bool(redthread.get("passed", summary.get("redthread_replay_passed", False))),
         "gate_decision": gate.get("decision", summary.get("gate_decision", "unknown")),
+        "reviewer_action": _reviewer_action(gate, summary, live_workflow, runtime_inputs),
         "exact_reason": _exact_reason(gate, summary, live_workflow),
         "redthread_control_detail": _control_detail(runtime_inputs),
         "raw_artifact_policy": "local ignored run artifact; do not commit raw run files",
@@ -206,6 +208,27 @@ def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_wo
         "top_targeted_probe": attack_brief.get("top_targeted_probe", "n/a"),
         "dryrun_rubric_rationale": attack_brief.get("dryrun_rubric_rationale", "n/a"),
     }
+
+
+
+def _reviewer_action(gate: dict[str, Any], summary: dict[str, Any], live_workflow: dict[str, Any], runtime_inputs: dict[str, Any]) -> str:
+    app_context_summary = summary.get("app_context_summary") or runtime_inputs.get("app_context_summary", {})
+    decision_reason = summary.get("decision_reason_summary") or build_decision_reason_summary(gate, summary, live_workflow=live_workflow)
+    coverage = summary.get("coverage_summary") or build_coverage_summary(summary, live_workflow=live_workflow, app_context_summary=app_context_summary)
+    decision = str(gate.get("decision", summary.get("gate_decision", "unknown")))
+    category = str(decision_reason.get("category", "unknown"))
+    label = str(coverage.get("label", "unknown"))
+    gaps = _join(coverage.get("coverage_gaps", []))
+    if decision == "approve":
+        return f"ship candidate: local gate approved; coverage:{label}; gaps:{gaps}"
+    if decision == "review":
+        return f"change/review before ship: {category}; coverage:{label}; gaps:{gaps}"
+    if decision == "block" and category == "auth_or_context_blocked":
+        primary = decision_reason.get("primary_reason", "required_context_missing")
+        return f"block until approved context/replay gap is resolved: {primary}; coverage:{label}; gaps:{gaps}"
+    if decision == "block":
+        return f"block release: {category}; coverage:{label}; gaps:{gaps}"
+    return f"manual triage required: {category}; coverage:{label}; gaps:{gaps}"
 
 
 
@@ -274,12 +297,12 @@ def _markdown(matrix: dict[str, Any]) -> str:
         "",
         "RedThread replay/dry-run is evidence; the final `approve` / `review` / `block` verdict is currently emitted by the local Adopt RedThread bridge gate.",
         "",
-        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Coverage | Auth/replay diagnostics | Binding audit | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Exact reason | Control detail |",
-        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Coverage | Auth/replay diagnostics | Binding audit | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Reviewer action | Exact reason | Control detail |",
+        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
         lines.append(
-            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {coverage_label}; gaps:{coverage_gaps} | category:{auth_replay_failure_category}; auth_gap:{auth_context_gap}; write_gap:{write_context_gap} | {binding_audit} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {exact_reason} | {redthread_control_detail} |".format(
+            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {coverage_label}; gaps:{coverage_gaps} | category:{auth_replay_failure_category}; auth_gap:{auth_context_gap}; write_gap:{write_context_gap} | {binding_audit} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {reviewer_action} | {exact_reason} | {redthread_control_detail} |".format(
                 **{key: _md_escape(value) for key, value in row.items()}
             )
         )

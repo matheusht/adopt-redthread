@@ -559,3 +559,29 @@ Verification:
 python3 -m unittest tests.test_evidence_report -v
 ```
 
+## 2026-05-01 — evidence matrix reviewer-action slice
+
+Planned next slice: make the evidence matrix answer the validation question reviewers are supposed to ask: ship, change/review, or block.
+
+Implemented:
+
+- Added a `reviewer_action` field to each evidence matrix row.
+- Added a `Reviewer action` column to the markdown matrix.
+- The action is derived from existing gate decision, decision-reason category, and coverage label:
+  - `approve` becomes a ship candidate, not an unconditional production release claim.
+  - `review` becomes change/review before ship.
+  - auth/context `block` becomes block until the approved context/replay gap is resolved.
+- Added focused matrix test coverage for approve/review/block action wording.
+
+Guardrails held:
+
+- No `approve` / `review` / `block` semantic changes.
+- No raw artifact values are introduced; the field uses sanitized summary categories and coverage gaps.
+- No new dependencies or integrations.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_matrix -v
+```
+

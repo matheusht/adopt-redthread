@@ -530,3 +530,32 @@ Verification:
 python3 -m unittest tests.test_redthread_runtime_adapter tests.test_prepublish_gate -v
 ```
 
+## 2026-05-01 — reviewer quick-read evidence report slice
+
+Planned next slice: reduce silent-reviewer confusion before the external reviewer test by putting the five required comprehension answers at the top of each evidence report.
+
+Implemented:
+
+- Added a `## Reviewer quick read` section to generated evidence reports.
+- The section summarizes, using sanitized fields only:
+  - tested input artifact and ingestion type
+  - whether live workflow replay ran, workflow result counts, workflow classes, and binding applied/planned counts
+  - RedThread replay/dry-run evidence
+  - local gate outcome, decision category, and confirmed-security-finding boolean
+  - why the outcome is correct
+  - remaining coverage gaps
+  - next useful probe from the attack brief
+- Added focused report test coverage for block/auth-context wording and binding quick-read counts.
+
+Guardrails held:
+
+- No new dependencies or integrations.
+- No verdict semantic changes.
+- Quick-read content is derived from already-sanitized summaries and does not expose raw HAR/session/header/body/request/response values.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_report -v
+```
+

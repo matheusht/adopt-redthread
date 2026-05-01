@@ -57,6 +57,18 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
     lines = [
         f"# Evidence Report: {root.name}",
         "",
+        "## Reviewer quick read",
+        "",
+        "This section is the no-walkthrough summary: what was tested, what evidence ran, why the gate decided, and what is still not proven.",
+        "",
+        f"- Tested input: `{Path(str(summary.get('input_file', 'unknown'))).name}` via `{summary.get('ingestion', 'unknown')}` with `{summary.get('fixture_count', 0)}` fixtures.",
+        f"- Workflow exercised: {_workflow_quick_read(summary, workflow_status, requirement_summary, binding_summary)}",
+        f"- RedThread evaluated: replay_passed=`{bool(redthread_passed)}`, dry_run_executed=`{summary.get('redthread_dryrun_executed', False)}`, rubric=`{summary.get('dryrun_rubric_name', 'n/a')}`.",
+        f"- Local gate outcome: `{gate.get('decision', summary.get('gate_decision', 'unknown'))}`; category=`{decision_reason_summary.get('category', 'unknown')}`; confirmed_security_finding=`{decision_reason_summary.get('confirmed_security_finding', False)}`.",
+        f"- Why this outcome: {decision_reason_summary.get('explanation', 'n/a')}",
+        f"- Still not proven: {_reviewer_gap_line(coverage_summary)}",
+        f"- Next useful probe: {attack_brief_summary.get('top_targeted_probe', 'n/a')}",
+        "",
         "## Decision",
         "",
         "RedThread replay/dry-run is evidence for this report; the final `approve` / `review` / `block` verdict below is currently emitted by the local Adopt RedThread bridge gate.",
@@ -180,6 +192,33 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(report)
     return report
+
+
+def _workflow_quick_read(
+    summary: dict[str, Any],
+    workflow_status: dict[str, int],
+    requirement_summary: dict[str, Any],
+    binding_summary: dict[str, Any],
+) -> str:
+    if not summary.get("live_workflow_replay_executed", False):
+        return "No live workflow replay executed; evidence is fixture/replay/dry-run only."
+    classes = _flat_counts(requirement_summary.get("workflow_class_counts", {}))
+    applied = requirement_summary.get("applied_response_binding_count", binding_summary.get("applied_response_binding_count", 0))
+    planned = requirement_summary.get("declared_response_binding_count", binding_summary.get("planned_response_binding_count", 0))
+    return (
+        f"Live workflow replay executed with `{workflow_status['successful']}` successful, "
+        f"`{workflow_status['blocked']}` blocked, and `{workflow_status['aborted']}` aborted workflows; "
+        f"classes=`{classes}`; bindings_applied_planned=`{applied}/{planned}`."
+    )
+
+
+
+def _reviewer_gap_line(coverage_summary: dict[str, Any]) -> str:
+    gaps = coverage_summary.get("coverage_gaps", [])
+    if not gaps:
+        return "No explicit coverage gaps were emitted for this evidence envelope."
+    return _join(gaps)
+
 
 
 def _decision_narrative(gate: dict[str, Any], summary: dict[str, Any]) -> str:

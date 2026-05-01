@@ -136,6 +136,13 @@ class EvidenceReportTests(unittest.TestCase):
 
             report = build_evidence_report(run_dir)
 
+        self.assertIn("## Reviewer quick read", report)
+        self.assertIn("Tested input: `victoria_filtered.har` via `zapi` with `3` fixtures", report)
+        self.assertIn("Workflow exercised: Live workflow replay executed with `0` successful, `1` blocked", report)
+        self.assertIn("bindings_applied_planned=`1/1`", report)
+        self.assertIn("Local gate outcome: `block`; category=`auth_or_context_blocked`; confirmed_security_finding=`False`", report)
+        self.assertIn("Still not proven: auth_or_replay_blocked,tenant_user_boundary_unproven,workflow_blocked", report)
+        self.assertIn("Next useful probe: Verify user/tenant identifiers", report)
         self.assertIn("RedThread replay/dry-run is evidence", report)
         self.assertIn("Local bridge gate decision", report)
         self.assertIn("Exact decision reason", report)

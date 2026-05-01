@@ -797,3 +797,52 @@ Verification:
 python3 -m unittest tests.test_reviewer_packet -v
 make evidence-packet
 ```
+
+## 2026-05-01 — reviewer observation template slice
+
+Planned next slice: make the reviewer packet produce a small capture template for the silent-review validation questions so observations can be recorded without raw artifacts.
+
+Implemented:
+
+- `scripts/build_reviewer_packet.py` now writes `runs/reviewer_packet/reviewer_observation_template.md`.
+- The template records reviewer role, ship/change/block decision, trusted evidence, unclear evidence, next probe requested, and behavior-change signal.
+- The template repeats the six silent-review questions and explicitly forbids pasting raw HAR, auth, session, request body, response body, or secret values.
+- Added focused test coverage for template generation.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No new execution path, integration, dependency, or raw-artifact collection.
+- The template captures reviewer judgments only, not app/session data.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_reviewer_packet -v
+make evidence-packet
+```
+
+## 2026-05-01 — reviewer packet artifact-manifest slice
+
+Planned next slice: make the reviewer packet identify the exact sanitized report and matrix artifacts handed to a reviewer without embedding raw contents.
+
+Implemented:
+
+- Added a sanitized artifact manifest to `reviewer_packet.json` and `reviewer_packet.md`.
+- The manifest records path, existence, SHA-256, byte count, and line count for the evidence report and evidence matrix.
+- This lets a reviewer/session note pin which sanitized artifacts were reviewed while keeping `runs/` raw artifacts ignored and local.
+- Updated README and script docs to describe the richer packet output.
+- Added focused test coverage for manifest hashes and line counts.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw report/matrix contents are copied into the packet beyond paths and hashes.
+- No new dependency; hashing uses the Python standard library.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_reviewer_packet -v
+make evidence-packet
+```

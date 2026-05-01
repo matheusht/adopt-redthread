@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -33,6 +34,15 @@ REVIEWER_QUESTIONS = (
     "Did the attack brief identify the next probe you would run?",
     "Did the evidence distinguish confirmed issue vs auth/replay failure vs insufficient evidence?",
     "Would you want this before every release of this agent/tool?",
+)
+
+OBSERVATION_FIELDS = (
+    ("reviewer_role", "Reviewer role, e.g. security engineer, AI engineer, founder, or buyer."),
+    ("release_decision", "Reviewer decision after reading only the packet artifacts: ship, change, block, or unsure."),
+    ("trusted_evidence", "Evidence that most increased trust."),
+    ("unclear_or_weak_evidence", "Evidence that remained confusing, weak, or missing."),
+    ("next_probe_requested", "Next probe or rerun the reviewer wanted before release."),
+    ("behavior_change", "Did the evidence change a ship/change/block decision, trigger a fix, or trigger a rerun request?"),
 )
 
 
@@ -82,7 +92,9 @@ def build_reviewer_packet_from_artifacts(
     output_root.mkdir(parents=True, exist_ok=True)
     report_path = Path(evidence_report)
     matrix_path = Path(evidence_matrix)
-    audit = audit_sanitized_markdown([report_path, matrix_path])
+    artifact_paths = {"evidence_report": report_path, "evidence_matrix": matrix_path}
+    template_path = output_root / "reviewer_observation_template.md"
+    audit = audit_sanitized_markdown(list(artifact_paths.values()))
     if fail_on_marker_hit and audit["marker_hit_count"]:
         raise RuntimeError(f"sanitized marker audit failed with {audit['marker_hit_count']} hits")
     packet_audit = _packet_safe_audit(audit)
@@ -92,7 +104,9 @@ def build_reviewer_packet_from_artifacts(
         "artifacts": {
             "evidence_report": _display_path(report_path),
             "evidence_matrix": _display_path(matrix_path),
+            "reviewer_observation_template": _display_path(template_path),
         },
+        "artifact_manifest": _artifact_manifest(artifact_paths),
         "reviewer_questions": list(REVIEWER_QUESTIONS),
         "decision_semantics": {
             "approve": "ship candidate for the tested evidence envelope; not a whole-app safety proof",
@@ -100,11 +114,48 @@ def build_reviewer_packet_from_artifacts(
             "block": "do not ship from this run until required context, replay, or evidence blockers are resolved",
         },
         "sanitized_marker_audit": packet_audit,
+        "observation_template": _observation_template(),
     }
     packet_md = _markdown(payload)
     (output_root / "reviewer_packet.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     (output_root / "reviewer_packet.md").write_text(packet_md, encoding="utf-8")
+    template_path.write_text(_observation_markdown(payload["observation_template"]), encoding="utf-8")
     return payload
+
+
+def _artifact_manifest(paths: dict[str, Path]) -> dict[str, dict[str, Any]]:
+    manifest: dict[str, dict[str, Any]] = {}
+    for name, path in paths.items():
+        if path.exists():
+            data = path.read_bytes()
+            text = data.decode("utf-8", errors="replace")
+            manifest[name] = {
+                "path": _display_path(path),
+                "exists": True,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "byte_count": len(data),
+                "line_count": len(text.splitlines()),
+            }
+        else:
+            manifest[name] = {
+                "path": _display_path(path),
+                "exists": False,
+                "sha256": None,
+                "byte_count": 0,
+                "line_count": 0,
+            }
+    return manifest
+
+
+
+def _observation_template() -> dict[str, Any]:
+    return {
+        "schema_version": "adopt_redthread.reviewer_observation_template.v1",
+        "instructions": "Use after the reviewer reads the packet artifacts without a walkthrough. Do not paste raw HAR, cookie, auth header, request body, response body, or secret values into answers.",
+        "fields": [{"field": field, "prompt": prompt, "answer": ""} for field, prompt in OBSERVATION_FIELDS],
+        "silent_reviewer_questions": [{"question": question, "answer": ""} for question in REVIEWER_QUESTIONS],
+    }
+
 
 
 def audit_sanitized_markdown(paths: list[str | Path]) -> dict[str, Any]:
@@ -150,6 +201,23 @@ def _markdown(payload: dict[str, Any]) -> str:
         "",
         f"- Evidence report: `{payload['artifacts']['evidence_report']}`",
         f"- Evidence matrix: `{payload['artifacts']['evidence_matrix']}`",
+        f"- Reviewer observation template: `{payload['artifacts']['reviewer_observation_template']}`",
+        "",
+        "## Sanitized artifact manifest",
+        "",
+        "| Artifact | Lines | Bytes | SHA-256 |",
+        "|---|---:|---:|---|",
+    ]
+    for name, artifact in payload["artifact_manifest"].items():
+        lines.append(
+            "| {name} | {line_count} | {byte_count} | `{sha256}` |".format(
+                name=name,
+                line_count=artifact["line_count"],
+                byte_count=artifact["byte_count"],
+                sha256=artifact["sha256"],
+            )
+        )
+    lines.extend([
         "",
         "## Decision semantics",
         "",
@@ -159,7 +227,7 @@ def _markdown(payload: dict[str, Any]) -> str:
         "",
         "## Silent reviewer questions",
         "",
-    ]
+    ])
     lines.extend(f"{index}. {question}" for index, question in enumerate(payload["reviewer_questions"], start=1))
     lines.extend(
         [
@@ -181,11 +249,48 @@ def _markdown(payload: dict[str, Any]) -> str:
             "",
             "## Handoff rule",
             "",
-            "Give the report and matrix to the reviewer first. Do not explain the run until they answer the silent reviewer questions.",
+            "Give the report and matrix to the reviewer first. Do not explain the run until they answer the silent reviewer questions. Use the observation template only after they answer.",
             "",
         ]
     )
     return "\n".join(lines)
+
+
+
+def _observation_markdown(template: dict[str, Any]) -> str:
+    lines = [
+        "# Reviewer Observation Template",
+        "",
+        template["instructions"],
+        "",
+        "## Review metadata",
+        "",
+    ]
+    for field in template["fields"]:
+        lines.extend([
+            f"### {field['field']}",
+            field["prompt"],
+            "",
+            "Answer:",
+            "",
+        ])
+    lines.extend(["## Silent reviewer answers", ""])
+    for index, question in enumerate(template["silent_reviewer_questions"], start=1):
+        lines.extend([
+            f"### Question {index}",
+            question["question"],
+            "",
+            "Answer:",
+            "",
+        ])
+    lines.extend([
+        "## Sanitization rule",
+        "",
+        "Record only reviewer judgments and sanitized evidence labels. Do not paste raw captured values, session material, request bodies, response bodies, or secrets.",
+        "",
+    ])
+    return "\n".join(lines)
+
 
 
 def _display_path(path: Path) -> str:

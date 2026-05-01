@@ -13,7 +13,7 @@ Current scripts:
 - `generate_reviewed_write_reference.py` — run the deterministic ATP-like reviewed-write reference demo and hide auth/write/binding setup from the operator
 - `build_evidence_report.py` — build a markdown evidence report from a bridge run directory, including plain-English block reasons
 - `build_evidence_matrix.py` — build a local approve/review/block evidence matrix with responsible decision agents and sanitized summaries only
-- `build_reviewer_packet.py` — build a sanitized reviewer handoff packet that points to the report/matrix, includes silent-review questions, and audits generated markdown for configured sensitive markers
+- `build_reviewer_packet.py` — build a sanitized reviewer handoff packet that points to the report/matrix, includes silent-review questions and an observation template, records artifact hashes, and audits generated markdown for configured sensitive markers
 - `check_atp_zapi_reference.py` — validate the local ATP Tennis ZAPI reference run and write a sanitized non-secret evidence summary
 - `run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
 - `run_live_workflow_replay.py` — execute grouped sequential workflow replay from workflow and attack plans using the same auth/write guardrails
@@ -45,7 +45,7 @@ Handy commands:
 - `make demo-reviewed-write-reference` — run the deterministic reviewed-write reference and write `runs/reviewed_write_reference/evidence_report.md`
 - `make evidence-report` — rebuild the markdown evidence report for `runs/reviewed_write_reference/`
 - `make evidence-matrix` — build `runs/evidence_matrix/evidence_matrix.{md,json}` with approve, review, and block rows
-- `make evidence-packet` — build `runs/reviewer_packet/reviewer_packet.{md,json}` from the sanitized report/matrix and fail if configured sensitive markers appear
+- `make evidence-packet` — build `runs/reviewer_packet/reviewer_packet.{md,json}` plus `reviewer_observation_template.md` from the sanitized report/matrix and fail if configured sensitive markers appear
 - `make check-zapi-reference` — validate `demo_session_filtered.har` plus `runs/atp_tennis_01_live_bound/` against checked-in non-secret expectations
 - `make demo-bridge-pipeline` — run the full one-command pipeline from the sanitized HAR sample
 - `make live-zapi-bridge URL=https://example.com` — run a real ZAPI capture, then execute the full bridge flow

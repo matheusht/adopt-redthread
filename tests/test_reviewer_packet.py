@@ -24,15 +24,25 @@ class ReviewerPacketTests(unittest.TestCase):
                 fail_on_marker_hit=True,
             )
             packet_md = (output / "reviewer_packet.md").read_text(encoding="utf-8")
+            observation_md = (output / "reviewer_observation_template.md").read_text(encoding="utf-8")
 
         self.assertEqual(packet["schema_version"], "adopt_redthread.reviewer_packet.v1")
         self.assertTrue(packet["sanitized_marker_audit"]["passed"])
         self.assertEqual(packet["sanitized_marker_audit"]["marker_hit_count"], 0)
         self.assertIn("## Open these sanitized artifacts", packet_md)
+        self.assertIn("## Sanitized artifact manifest", packet_md)
+        self.assertIn("reviewer_observation_template.md", packet_md)
         self.assertIn("Based on this evidence, would you ship, change, or block the release?", packet_md)
         self.assertIn("Did the evidence distinguish confirmed issue vs auth/replay failure vs insufficient evidence?", packet_md)
         self.assertIn("Give the report and matrix to the reviewer first", packet_md)
         self.assertIn("Raw HAR/session/cookie/header/body/run values stay ignored", packet_md)
+        self.assertEqual(len(packet["artifact_manifest"]["evidence_report"]["sha256"]), 64)
+        self.assertEqual(packet["artifact_manifest"]["evidence_report"]["line_count"], 2)
+        self.assertEqual(packet["observation_template"]["schema_version"], "adopt_redthread.reviewer_observation_template.v1")
+        self.assertIn("# Reviewer Observation Template", observation_md)
+        self.assertIn("### behavior_change", observation_md)
+        self.assertIn("Answer:", observation_md)
+        self.assertIn("Do not paste raw captured values", observation_md)
 
     def test_marker_audit_flags_sensitive_markers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

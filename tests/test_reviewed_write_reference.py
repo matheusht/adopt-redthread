@@ -34,7 +34,9 @@ class ReviewedWriteReferenceTests(unittest.TestCase):
         self.assertFalse(summary["redthread_dryrun_executed"])
         self.assertEqual(summary["gate_decision"], "review")
         self.assertEqual(gate["warnings"], ["manual_review_required_for_write_paths"])
-        self.assertIn("Local gate decision: `review`", report)
+        self.assertIn("Local bridge gate decision: `review`", report)
+        self.assertIn("RedThread replay/dry-run is evidence", report)
+        self.assertIn("Approved write context required: `True`", report)
         self.assertIn("write paths are present", report)
 
 

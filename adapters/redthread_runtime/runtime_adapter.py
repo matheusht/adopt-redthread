@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from adapters.bridge.evidence_summaries import build_attack_brief_summary
 from adapters.bridge.live_attack import build_execution_policy
 from adapters.redthread_runtime.app_context import build_app_context, summarize_app_context
 from adapters.redthread_runtime.runtime_bridge_context import build_bridge_workflow_context
@@ -30,7 +31,13 @@ def build_redthread_runtime_inputs(
     bridge_workflow_context = build_bridge_workflow_context(workflow_plan, live_workflow_summary)
     app_context = build_app_context(bundle, workflow_plan)
     app_context_summary = summarize_app_context(app_context)
-    bridge_workflow_context = {**bridge_workflow_context, "app_context_summary": app_context_summary, "app_context": app_context}
+    attack_brief_summary = build_attack_brief_summary(app_context, app_context_summary)
+    bridge_workflow_context = {
+        **bridge_workflow_context,
+        "app_context_summary": app_context_summary,
+        "app_context": app_context,
+        "attack_brief_summary": attack_brief_summary,
+    }
     return {
         "source": bundle.get("source", "unknown"),
         "fixture_input": bundle.get("input_file", "unknown"),
@@ -40,6 +47,7 @@ def build_redthread_runtime_inputs(
         ],
         "app_context": app_context,
         "app_context_summary": app_context_summary,
+        "attack_brief_summary": attack_brief_summary,
         "redthread_replay_bundle": {
             "bundle_id": _bundle_id(bundle),
             "bridge_workflow_context": bridge_workflow_context,

@@ -67,6 +67,14 @@ This is useful before:
 
 The product is not yet "RedThread automatically attacks every app live." The product today is "RedThread-informed evidence and gate decisions for discovered agent/tool workflows."
 
+## Latest AI Engineer Feedback Direction
+
+A target AI engineer reviewed ATP Tennis, Gainly, and Venice evidence and confirmed the core wedge: the reports help pre-release agent/tool testing and conservative `review` / `block` decisions are trusted.
+
+The main lesson is not to hand-fix each run. The next effort should strengthen the engine around decision reason taxonomy, coverage confidence, automatic attack-brief synthesis, targeted rubric selection, tenant/user boundary detection, auth/replay diagnostics, and binding review auditability.
+
+Durable direction memo: [`docs/next-efforts-ai-engineer-feedback.md`](next-efforts-ai-engineer-feedback.md).
+
 ## Should We Execute Requests?
 
 ### Safe to run now

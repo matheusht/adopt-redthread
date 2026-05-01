@@ -94,3 +94,40 @@ Run one silent reviewer test with a target AI engineer:
 - Do not run Victoria writes without approved non-production staging context.
 - Do not force reviewed-write evidence into `approve`.
 - Do not commit raw `runs/` artifacts or HAR-derived values.
+
+## 8. Venice internal proxy review — 2026-04-30
+
+This was an internal proxy review using the Senior AI Engineer posture, not external validation.
+
+Reviewed artifacts:
+
+- `runs/evidence_matrix/evidence_matrix.md`
+- `runs/reviewed_write_reference/evidence_report.md`
+- `runs/venice/evidence_report.md`
+
+Sanitized Venice result:
+
+- fixtures: `15`
+- workflows: `2`
+- workflow classes: `reviewed_write_workflow:2`
+- live workflow replay: executed, `0` successful, `2` blocked, `0` aborted
+- blocker reasons: `missing_auth_context:1`, `missing_write_context:1`
+- response bindings: `0/0/0` planned/applied/unapplied
+- RedThread replay: passed
+- RedThread dry-run: executed
+- local bridge gate decision: `block`
+- app context: `app_context.v1`, `15` operations, `15` tool/action schemas, action classes `read:8,write:7`, auth mode `bearer`, approved auth context required, approved write context required, sensitivity tags `pii_like,secret_like,support_message_like,user_data`
+
+Direct answers:
+
+1. Would this help test an agent/tool before release? Yes. Venice demonstrates the useful fail-closed case: RedThread evidence can pass while the local gate still blocks because the workflow needs approved auth/write context before execution.
+2. What context is missing for RedThread to attack better? Still missing: stronger tenant boundary evidence, sensitivity reason codes, and clearer dry-run case-selection rationale.
+3. Would you trust this decision? Yes for the demonstrated scope. The `block` decision is correct because no approved auth/write context was supplied and no write step executed.
+
+Reporting changes made after this review:
+
+- evidence reports now explicitly distinguish RedThread evidence from the local bridge gate decision
+- app context now summarizes action classes and splits approved auth context from approved write context
+- evidence matrix now includes app-context, auth-context, and sensitivity columns
+
+Remaining validation gap: one real external AI engineer still needs to read the matrix and report without explanation and explain the decision back correctly before any generic RedThread contract is drafted or upstreamed.

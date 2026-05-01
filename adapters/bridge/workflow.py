@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from adapters.adopt_actions.loader import build_action_fixture_bundle
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_coverage_summary, build_decision_reason_summary
 from adapters.bridge.live_attack import build_live_attack_plan
 from adapters.bridge.live_workflow import build_live_workflow_plan
 from adapters.bridge.workflow_io import artifact_paths, export_optional_json_artifact, run_redthread_dryrun, run_redthread_replay, write_json
@@ -179,6 +180,24 @@ def run_bridge_workflow(
     if dryrun_summary is not None:
         summary["dryrun_case_id"] = dryrun_summary["case_id"]
         summary["dryrun_rubric_name"] = dryrun_summary["rubric_name"]
+    summary["attack_brief_summary"] = build_attack_brief_summary(
+        runtime_inputs.get("app_context", {}),
+        runtime_inputs.get("app_context_summary", {}),
+        dryrun_rubric_name=summary.get("dryrun_rubric_name"),
+    )
+    summary["decision_reason_summary"] = build_decision_reason_summary(
+        gate_verdict,
+        summary,
+        live_workflow=live_workflow_summary,
+        live_safe_replay=live_safe_replay_summary,
+        redthread=replay_verdict,
+    )
+    summary["coverage_summary"] = build_coverage_summary(
+        summary,
+        live_workflow=live_workflow_summary,
+        live_safe_replay=live_safe_replay_summary,
+        app_context_summary=runtime_inputs.get("app_context_summary", {}),
+    )
     write_json(paths["summary"], summary)
     return summary
 

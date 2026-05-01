@@ -57,6 +57,18 @@ class EvidenceMatrixTests(unittest.TestCase):
         self.assertEqual(agents, ["ReleaseApprovalAgent", "SecurityReviewAgent", "SafetyBlockAgent"])
         self.assertIn("Victoria HAR block example", matrix_md)
         self.assertIn("live_workflow_blocked_steps_present / missing_write_context", matrix_md)
+        self.assertIn("App context", matrix_md)
+        self.assertIn("Auth context", matrix_md)
+        self.assertIn("Local gate decision", matrix_md)
+        self.assertIn("RedThread replay/dry-run is evidence", matrix_md)
+        self.assertIn("app_context.v1; ops:2; schemas:2; actions:read:1,write:1", matrix_md)
+        self.assertIn("mode:cookie; scopes:user_scoped; approved_auth:True; approved_write:True", matrix_md)
+        self.assertIn("Decision reason", matrix_md)
+        self.assertIn("Coverage", matrix_md)
+        self.assertIn("Top targeted probe", matrix_md)
+        self.assertIn("Dry-run rationale", matrix_md)
+        self.assertIn("manual_review_required_for_write_paths; confirmed:False", matrix_md)
+        self.assertIn("tenant_user_boundary_unproven", matrix_md)
 
 
 def _make_run(path: Path, *, decision: str, warning: str | None, blocker: str | None) -> None:
@@ -77,6 +89,21 @@ def _make_run(path: Path, *, decision: str, warning: str | None, blocker: str | 
             },
             "redthread_replay_passed": True,
             "gate_decision": decision,
+            "app_context_summary": {
+                "schema_version": "app_context.v1",
+                "operation_count": 2,
+                "tool_action_schema_count": 2,
+                "action_class_counts": {"read": 1, "write": 1},
+                "auth_mode": "cookie",
+                "auth_scope_hints": ["user_scoped"],
+                "requires_approved_context": True,
+                "requires_approved_auth_context": True,
+                "requires_approved_write_context": True,
+                "data_sensitivity_tags": ["user_data"],
+                "candidate_user_field_count": 1,
+                "candidate_tenant_field_count": 0,
+                "candidate_route_param_count": 0,
+            },
         },
     )
     _write_json(path / "gate_verdict.json", {"decision": decision, "warnings": warnings, "blockers": blockers})

@@ -32,13 +32,42 @@ class EvidenceReportTests(unittest.TestCase):
                     },
                     "redthread_replay_passed": True,
                     "redthread_dryrun_executed": True,
+                    "decision_reason_summary": {
+                        "decision": "block",
+                        "category": "auth_or_context_blocked",
+                        "primary_reason": "missing_write_context",
+                        "confirmed_security_finding": False,
+                        "explanation": "Required approved auth or write context was missing or mismatched, so this is not a confirmed security finding.",
+                    },
+                    "coverage_summary": {
+                        "label": "auth_or_replay_blocked",
+                        "live_safe_replay_executed": False,
+                        "live_workflow_replay_executed": True,
+                        "successful_workflow_count": 0,
+                        "blocked_workflow_count": 1,
+                        "planned_response_binding_count": 0,
+                        "applied_response_binding_count": 0,
+                        "tenant_user_boundary_probed": False,
+                        "coverage_gaps": ["auth_or_replay_blocked", "tenant_user_boundary_unproven", "workflow_blocked"],
+                    },
+                    "attack_brief_summary": {
+                        "risk_themes": ["tenant_user_boundary", "write_surface"],
+                        "top_targeted_probe": "Verify user/tenant identifiers are server-side derived or ownership-checked, not trusted from the client.",
+                        "boundary_candidate_fields": ["user_id"],
+                        "dispatch_candidate_fields": [],
+                        "secret_like_fields": [],
+                        "dryrun_rubric_rationale": "Selected because user/tenant/resource identifiers need ownership-boundary probing.",
+                    },
                     "app_context_summary": {
                         "schema_version": "app_context.v1",
                         "operation_count": 3,
                         "tool_action_schema_count": 3,
+                        "action_class_counts": {"read": 1, "write": 2},
                         "auth_mode": "cookie",
                         "auth_scope_hints": ["user_scoped"],
                         "requires_approved_context": True,
+                        "requires_approved_auth_context": True,
+                        "requires_approved_write_context": True,
                         "data_sensitivity_tags": ["support_message_like", "user_data"],
                         "candidate_user_field_count": 1,
                         "candidate_tenant_field_count": 0,
@@ -68,13 +97,26 @@ class EvidenceReportTests(unittest.TestCase):
 
             report = build_evidence_report(run_dir)
 
+        self.assertIn("RedThread replay/dry-run is evidence", report)
+        self.assertIn("Local bridge gate decision", report)
         self.assertIn("Exact decision reason", report)
+        self.assertIn("Decision reason category: `auth_or_context_blocked`", report)
+        self.assertIn("Confirmed security finding: `False`", report)
         self.assertIn("missing_write_context:1", report)
         self.assertIn("Approved staging write context was required but was not supplied", report)
         self.assertIn("## App context for RedThread", report)
         self.assertIn("Context schema: `app_context.v1`", report)
-        self.assertIn("Auth model: `cookie`", report)
+        self.assertIn("Action classes: `read:1,write:2`", report)
+        self.assertIn("Auth mode observed from structural hints: `cookie`", report)
+        self.assertIn("Approved auth context required: `True`", report)
+        self.assertIn("Approved write context required: `True`", report)
         self.assertIn("Sensitivity tags: `support_message_like,user_data`", report)
+        self.assertIn("## Coverage confidence", report)
+        self.assertIn("Coverage label: `auth_or_replay_blocked`", report)
+        self.assertIn("Coverage gaps: `auth_or_replay_blocked,tenant_user_boundary_unproven,workflow_blocked`", report)
+        self.assertIn("## Attack brief for RedThread", report)
+        self.assertIn("Top targeted probe/question: Verify user/tenant identifiers", report)
+        self.assertIn("Dry-run rubric rationale: Selected because user/tenant/resource identifiers", report)
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:

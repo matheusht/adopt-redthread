@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_coverage_summary, build_decision_reason_summary
 from scripts.generate_hero_binding_truth import build_hero_artifacts
 from scripts.generate_reviewed_write_reference import run_reviewed_write_reference
 
@@ -77,6 +78,17 @@ def _victoria_row(run_dir: Path, expected_path: Path) -> dict[str, Any]:
     expected_doc = _load(expected_path)
     expected = expected_doc["expected"]
     agent = AGENTS["block"]
+    summary = {
+        "fixture_count": expected["fixture_count"],
+        "live_workflow_count": expected["workflow_count"],
+        "live_workflow_reason_counts": {expected["workflow_reason"]: 1},
+        "live_workflow_requirement_summary": {"workflow_class_counts": {expected["workflow_class"]: 1}},
+        "redthread_replay_passed": expected["redthread_replay_passed"],
+        "gate_decision": expected["gate_decision"],
+        "app_context_summary": expected.get("app_context_summary", {}),
+    }
+    gate = {"decision": expected["gate_decision"], "warnings": [], "blockers": [expected["gate_blocker"]]}
+    live_workflow = {"reason_counts": {expected["workflow_reason"]: 1}, "blocked_workflow_count": 1, "successful_workflow_count": 0}
     return {
         "scenario_id": "victoria_expected_block",
         "scenario_label": "Victoria HAR block example",
@@ -91,6 +103,8 @@ def _victoria_row(run_dir: Path, expected_path: Path) -> dict[str, Any]:
         "binding_planned": expected["declared_response_binding_count"],
         "binding_applied": expected["applied_response_binding_count"],
         "binding_failed": expected["unapplied_response_binding_count"],
+        **_app_context_cells(expected.get("app_context_summary", {})),
+        **_engine_summary_cells(summary, gate, live_workflow, {}),
         "redthread_replay_passed": expected["redthread_replay_passed"],
         "gate_decision": expected["gate_decision"],
         "exact_reason": f"{expected['gate_blocker']} / {expected['workflow_reason']}",
@@ -108,6 +122,7 @@ def _row_from_run(scenario_id: str, outcome_slot: str, run_dir: Path, label: str
 
     requirement = summary.get("live_workflow_requirement_summary") or live_workflow.get("workflow_requirement_summary", {})
     binding = summary.get("live_workflow_binding_application_summary") or live_workflow.get("binding_application_summary", {})
+    app_context_summary = summary.get("app_context_summary") or runtime_inputs.get("app_context_summary", {})
     agent = AGENTS[outcome_slot]
     return {
         "scenario_id": scenario_id,
@@ -123,12 +138,61 @@ def _row_from_run(scenario_id: str, outcome_slot: str, run_dir: Path, label: str
         "binding_planned": binding.get("planned_response_binding_count", requirement.get("declared_response_binding_count", 0)),
         "binding_applied": binding.get("applied_response_binding_count", requirement.get("applied_response_binding_count", 0)),
         "binding_failed": binding.get("unapplied_response_binding_count", 0),
+        **_app_context_cells(app_context_summary),
+        **_engine_summary_cells(summary, gate, live_workflow, runtime_inputs),
         "redthread_replay_passed": bool(redthread.get("passed", summary.get("redthread_replay_passed", False))),
         "gate_decision": gate.get("decision", summary.get("gate_decision", "unknown")),
         "exact_reason": _exact_reason(gate, summary, live_workflow),
         "redthread_control_detail": _control_detail(runtime_inputs),
         "raw_artifact_policy": "local ignored run artifact; do not commit raw run files",
     }
+
+
+def _app_context_cells(summary: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(summary, dict) or not summary:
+        return {
+            "app_context_summary": "n/a",
+            "app_context_auth_summary": "n/a",
+            "app_context_sensitivity": "n/a",
+        }
+    action_classes = _flat_counts(summary.get("action_class_counts", {}))
+    schema = summary.get("schema_version", "n/a")
+    operations = summary.get("operation_count", 0)
+    tools = summary.get("tool_action_schema_count", 0)
+    auth_mode = summary.get("auth_mode", "unknown")
+    auth_scope = _join(summary.get("auth_scope_hints", []))
+    approved_auth = summary.get("requires_approved_auth_context", summary.get("requires_approved_context", False))
+    approved_write = summary.get("requires_approved_write_context", summary.get("requires_approved_context", False))
+    boundary = (
+        f"user_fields:{summary.get('candidate_user_field_count', 0)},"
+        f"tenant_fields:{summary.get('candidate_tenant_field_count', 0)},"
+        f"route_params:{summary.get('candidate_route_param_count', 0)}"
+    )
+    return {
+        "app_context_summary": f"{schema}; ops:{operations}; schemas:{tools}; actions:{action_classes}",
+        "app_context_auth_summary": f"mode:{auth_mode}; scopes:{auth_scope}; approved_auth:{approved_auth}; approved_write:{approved_write}",
+        "app_context_sensitivity": f"tags:{_join(summary.get('data_sensitivity_tags', []))}; boundary:{boundary}",
+    }
+
+
+def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_workflow: dict[str, Any], runtime_inputs: dict[str, Any]) -> dict[str, Any]:
+    app_context_summary = summary.get("app_context_summary") or runtime_inputs.get("app_context_summary", {})
+    decision_reason = summary.get("decision_reason_summary") or build_decision_reason_summary(gate, summary, live_workflow=live_workflow)
+    coverage = summary.get("coverage_summary") or build_coverage_summary(summary, live_workflow=live_workflow, app_context_summary=app_context_summary)
+    attack_brief = summary.get("attack_brief_summary") or runtime_inputs.get("attack_brief_summary") or build_attack_brief_summary(
+        runtime_inputs.get("app_context", {}),
+        app_context_summary,
+        dryrun_rubric_name=summary.get("dryrun_rubric_name"),
+    )
+    return {
+        "decision_reason_category": decision_reason.get("category", "unknown"),
+        "confirmed_security_finding": bool(decision_reason.get("confirmed_security_finding", False)),
+        "coverage_label": coverage.get("label", "unknown"),
+        "coverage_gaps": _join(coverage.get("coverage_gaps", [])),
+        "top_targeted_probe": attack_brief.get("top_targeted_probe", "n/a"),
+        "dryrun_rubric_rationale": attack_brief.get("dryrun_rubric_rationale", "n/a"),
+    }
+
 
 
 def _exact_reason(gate: dict[str, Any], summary: dict[str, Any], live_workflow: dict[str, Any]) -> str:
@@ -184,12 +248,14 @@ def _markdown(matrix: dict[str, Any]) -> str:
         "",
         matrix["artifact_policy"],
         "",
-        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | RedThread replay | Gate decision | Exact reason | Control detail |",
-        "|---|---|---|---|---:|---:|---:|---|---|---|---|",
+        "RedThread replay/dry-run is evidence; the final `approve` / `review` / `block` verdict is currently emitted by the local Adopt RedThread bridge gate.",
+        "",
+        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Coverage | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Exact reason | Control detail |",
+        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
         lines.append(
-            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {redthread_replay_passed} | `{gate_decision}` | {exact_reason} | {redthread_control_detail} |".format(
+            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {coverage_label}; gaps:{coverage_gaps} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {exact_reason} | {redthread_control_detail} |".format(
                 **{key: _md_escape(value) for key, value in row.items()}
             )
         )

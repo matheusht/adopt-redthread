@@ -41,13 +41,14 @@ def build_app_context(bundle: dict[str, Any], workflow_plan: dict[str, Any] | No
     tool_action_schema = [_tool_action_schema(operation, fixture) for operation, fixture in zip(operations, fixtures, strict=False)]
     field_inventory = _field_inventory(fixtures)
     boundary = _tenant_user_boundary(fixtures)
+    approved_context = _approved_context_requirements(fixtures, workflow_plan)
     return {
         "schema_version": "app_context.v1",
         "source": str(bundle.get("source", "unknown")),
         "ingestion_mode": str(bundle.get("ingestion_mode", "unknown")),
         "workflow_order": workflow_order,
         "tool_action_schema": tool_action_schema,
-        "auth_model": _auth_model(fixtures, boundary),
+        "auth_model": _auth_model(fixtures, boundary, approved_context),
         "data_sensitivity": _data_sensitivity(fixtures, field_inventory, boundary),
         "tenant_user_boundary": boundary,
     }
@@ -57,13 +58,22 @@ def summarize_app_context(app_context: dict[str, Any]) -> dict[str, Any]:
     auth_model = app_context.get("auth_model", {}) if isinstance(app_context.get("auth_model"), dict) else {}
     sensitivity = app_context.get("data_sensitivity", {}) if isinstance(app_context.get("data_sensitivity"), dict) else {}
     boundary = app_context.get("tenant_user_boundary", {}) if isinstance(app_context.get("tenant_user_boundary"), dict) else {}
+    tool_schemas = app_context.get("tool_action_schema", [])
+    action_class_counts = _count_values(
+        schema.get("action_class")
+        for schema in tool_schemas
+        if isinstance(schema, dict)
+    )
     return {
         "schema_version": app_context.get("schema_version", "app_context.v1"),
         "operation_count": len(app_context.get("workflow_order", [])),
-        "tool_action_schema_count": len(app_context.get("tool_action_schema", [])),
+        "tool_action_schema_count": len(tool_schemas),
+        "action_class_counts": action_class_counts,
         "auth_mode": auth_model.get("mode", "unknown"),
         "auth_scope_hints": auth_model.get("scope_hints", []),
         "requires_approved_context": bool(auth_model.get("requires_approved_context", False)),
+        "requires_approved_auth_context": bool(auth_model.get("requires_approved_auth_context", False)),
+        "requires_approved_write_context": bool(auth_model.get("requires_approved_write_context", False)),
         "data_sensitivity_tags": sensitivity.get("tags", []),
         "candidate_user_field_count": len(boundary.get("candidate_user_fields", [])),
         "candidate_tenant_field_count": len(boundary.get("candidate_tenant_fields", [])),
@@ -121,6 +131,7 @@ def _tool_action_schema(operation: dict[str, Any], fixture: dict[str, Any]) -> d
         "operation_id": operation["operation_id"],
         "method": operation["method"],
         "path_template": operation["path_template"],
+        "action_class": _action_class(fixture),
         "request_fields": sorted(dict.fromkeys([*query_params, *body_fields])),
         "response_fields": response_fields,
         "field_locations": {
@@ -131,7 +142,7 @@ def _tool_action_schema(operation: dict[str, Any], fixture: dict[str, Any]) -> d
     }
 
 
-def _auth_model(fixtures: list[dict[str, Any]], boundary: dict[str, Any]) -> dict[str, Any]:
+def _auth_model(fixtures: list[dict[str, Any]], boundary: dict[str, Any], approved_context: dict[str, bool]) -> dict[str, Any]:
     hints = {str(hint).lower() for fixture in fixtures for hint in fixture.get("auth_hints", [])}
     mode = "anonymous"
     if any("bearer" in hint for hint in hints) or "authorization" in hints:
@@ -155,18 +166,70 @@ def _auth_model(fixtures: list[dict[str, Any]], boundary: dict[str, Any]) -> dic
     if any(_has_hint(str(fixture.get("endpoint_family", "")), {"admin"}) or "/admin/" in str(fixture.get("path", "")) for fixture in fixtures):
         scope_hints.append("admin_scoped")
 
-    requires_context = any(
-        fixture.get("auth_hints")
-        or fixture.get("approval_required")
-        or fixture.get("replay_class") in {"manual_review", "safe_read_with_review", "sandbox_only"}
+    requires_approved_auth_context = approved_context["auth"] or any(
+        fixture.get("auth_hints") or fixture.get("replay_class") == "safe_read_with_review"
         for fixture in fixtures
     )
+    requires_approved_write_context = approved_context["write"] or any(
+        _action_class(fixture) in {"write", "destructive"}
+        and (fixture.get("approval_required") or fixture.get("replay_class") in {"manual_review", "sandbox_only"})
+        for fixture in fixtures
+    )
+    requires_context = requires_approved_auth_context or requires_approved_write_context
     return {
         "mode": mode,
         "scope_hints": sorted(dict.fromkeys(scope_hints)),
         "requires_approved_context": bool(requires_context),
+        "requires_approved_auth_context": bool(requires_approved_auth_context),
+        "requires_approved_write_context": bool(requires_approved_write_context),
         "auth_header_families": sorted({hint for hint in hints if hint in AUTH_HEADER_NAMES}),
     }
+
+
+def _approved_context_requirements(fixtures: list[dict[str, Any]], workflow_plan: dict[str, Any] | None) -> dict[str, bool]:
+    auth_required = False
+    write_required = False
+    if isinstance(workflow_plan, dict):
+        for workflow in workflow_plan.get("workflows", []):
+            if not isinstance(workflow, dict):
+                continue
+            session_requirements = workflow.get("session_context_requirements", {})
+            if isinstance(session_requirements, dict):
+                auth_required = auth_required or bool(session_requirements.get("approved_auth_context_required"))
+                write_required = write_required or bool(session_requirements.get("approved_write_context_required"))
+            for step in workflow.get("steps", []):
+                if not isinstance(step, dict):
+                    continue
+                step_requirements = step.get("step_context_requirements", {})
+                if isinstance(step_requirements, dict):
+                    auth_required = auth_required or bool(step_requirements.get("auth_context_required"))
+                    write_required = write_required or bool(step_requirements.get("write_context_required"))
+    if not auth_required:
+        auth_required = any(fixture.get("auth_hints") for fixture in fixtures)
+    if not write_required:
+        write_required = any(_action_class(fixture) in {"write", "destructive"} for fixture in fixtures)
+    return {"auth": bool(auth_required), "write": bool(write_required)}
+
+
+def _action_class(fixture: dict[str, Any]) -> str:
+    method = str(fixture.get("method", "GET")).upper()
+    attack_types = {str(value) for value in fixture.get("candidate_attack_types", [])}
+    replay_class = str(fixture.get("replay_class", ""))
+    if method in {"DELETE", "PATCH"} or "destructive_action_abuse" in attack_types:
+        return "destructive"
+    if method in {"POST", "PUT"} or replay_class in {"manual_review", "sandbox_only"}:
+        return "write"
+    return "read"
+
+
+def _count_values(values: Any) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        if value is None:
+            continue
+        key = str(value)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
 
 
 def _data_sensitivity(fixtures: list[dict[str, Any]], field_inventory: list[str], boundary: dict[str, Any]) -> dict[str, Any]:

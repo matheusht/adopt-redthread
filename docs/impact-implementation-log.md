@@ -298,3 +298,87 @@ Result:
 
 Keep this contract in `adopt-redthread` until reviewer comprehension is proven. The next step is to use the Senior AI Engineer review posture against the evidence report and matrix, record unclear points, and only then propose a tiny generic RedThread evidence/context contract upstream.
 
+## 2026-04-30 — Venice evidence run and reviewer-facing wording pass
+
+Ran the full available bridge pipeline on `venice.har` into local ignored artifacts under `runs/venice/`.
+
+Sanitized result:
+
+- fixture count: `15`
+- workflow count: `2`
+- workflow class: `reviewed_write_workflow:2`
+- live workflow replay: `0` executed successfully, `2` blocked, `0` aborted
+- blocker reasons: `missing_auth_context:1`, `missing_write_context:1`
+- response bindings planned/applied/unapplied: `0/0/0`
+- RedThread replay: passed
+- RedThread dry-run: executed
+- local bridge gate decision: `block`
+
+This is a correct fail-closed result. The run had RedThread evidence, but the local bridge gate blocked because approved auth/write context was required and was not supplied.
+
+Reviewer-facing changes:
+
+- `scripts/build_evidence_report.py` now states that RedThread replay/dry-run is evidence and the final verdict is currently emitted by the local Adopt RedThread bridge gate.
+- `adapters/redthread_runtime/app_context.py` now summarizes action classes and splits approved auth context from approved write context.
+- `scripts/build_evidence_matrix.py` now includes app-context, auth-context, and sensitivity columns.
+
+Validation remains incomplete until one real external AI engineer reads the matrix/report without explanation and can explain whether they trust the decision.
+
+## 2026-05-01 — external AI engineer feedback direction
+
+A target AI engineer reviewed three evidence runs: ATP Tennis, Gainly, and Venice.
+
+Sanitized cross-run result:
+
+- ATP's `review` decision was trusted because workflow replay executed end-to-end and response bindings applied, but tenant/resource boundary evidence and binding-review auditability were still missing.
+- Gainly's `review` decision was technically trusted but weak because evidence was mostly fixture/dry-run level with no workflow/live replay coverage. The useful general signal was generic action-dispatch and token-like field risk.
+- Venice's `block` decision was trusted with a caveat: the block reflected auth/session/replay failure, not a confirmed security finding. The useful general signal was strong app-context inference plus missing user-boundary validation.
+
+Direction chosen:
+
+- strengthen the engine generally instead of hand-fixing the three runs
+- add clearer decision reason categories so `block` can distinguish security finding, auth/replay failure, and insufficient evidence
+- add coverage confidence so weak planning-only runs do not look equivalent to end-to-end workflow evidence
+- generate a sanitized attack brief from app context so users do not need to know what RedThread needs
+- improve targeted rubric selection, tenant/user boundary candidate detection, auth delivery diagnostics, and binding review auditability
+
+Durable memo:
+
+```text
+docs/next-efforts-ai-engineer-feedback.md
+```
+
+This keeps the long-term direction intact: pre-release evidence assurance for AI agent/tool workflows, not generic scanner expansion or per-app patching.
+
+## 2026-05-01 — first feedback-driven engine/reporting slice
+
+Implemented the first general engine slice from `docs/next-efforts-ai-engineer-feedback.md` without changing `approve` / `review` / `block` semantics.
+
+Added sanitized summaries:
+
+- `decision_reason_summary`: classifies decisions as approval, manual review, auth/context block, replay failure, binding/context block, or other blocked state; blocks caused by auth/session/replay gaps are not labeled as confirmed vulnerabilities.
+- `coverage_summary`: distinguishes strong workflow coverage, weak fixture/dry-run-only coverage, auth/replay-blocked coverage, and explicit coverage gaps such as unproven tenant/user boundary.
+- `attack_brief_summary`: derives sanitized risk themes, boundary/dispatch/secret-like field classes, top targeted probe, and dry-run rubric rationale from `app_context.v1` structural metadata.
+
+Updated reviewer outputs:
+
+- `scripts/build_evidence_report.py` now shows decision reason category, confirmed-finding flag, coverage confidence, top targeted probe/question, and dry-run rubric rationale.
+- `scripts/build_evidence_matrix.py` now includes the same engine summary columns across approve/review/block examples.
+- `adapters/bridge/workflow.py` now writes these summaries into `workflow_summary.json`.
+- `adapters/redthread_runtime/runtime_adapter.py` now includes `attack_brief_summary` in runtime inputs and bridge workflow context.
+
+Acceptance-target tests cover:
+
+- ATP-like strong workflow coverage with tenant/user boundary still unproven.
+- Gainly-like weak fixture/dry-run-only coverage with dispatch and token-like field risk.
+- Venice-like auth/context blocked coverage that is not reported as a confirmed vulnerability.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_summaries tests.test_evidence_report tests.test_evidence_matrix tests.test_bridge_workflow tests.test_redthread_runtime_adapter -v
+make evidence-report
+make evidence-matrix
+make test
+```
+

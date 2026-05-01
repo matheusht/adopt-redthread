@@ -1,0 +1,27 @@
+{
+    "approved": true,
+    "target_env": "staging",
+    "target_hosts": [
+        "outerface.venice.ai"
+    ],
+    "case_approvals": {
+        "post_api_inference_model_router_v3": {
+            "method": "POST",
+            "path": "/api/inference/model_router_v3",
+            "use_bound_body_json": true,
+            "use_bound_headers": true
+        },
+        "post_api_inference_chat": {
+            "method": "POST",
+            "path": "/api/inference/chat",
+            "use_bound_body_json": true,
+            "use_bound_headers": true
+        },
+        "post_api_inference_image_prompt_enhance": {
+            "method": "POST",
+            "path": "/api/inference/image_prompt_enhance",
+            "use_bound_body_json": true,
+            "use_bound_headers": true
+        }
+    }
+}

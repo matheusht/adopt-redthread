@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary, build_rerun_trigger_summary
 
 def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = None) -> str:
     root = Path(run_dir)
@@ -58,6 +58,13 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
     trusted_evidence = _trusted_evidence_line(summary, workflow_status, requirement_summary, binding_summary, redthread_passed)
     finding_type = _finding_type_line(decision_reason_summary, auth_diagnostics_summary)
     next_evidence_lines = _next_evidence_lines(coverage_summary, auth_diagnostics_summary, binding_audit_summary, attack_brief_summary)
+    rerun_trigger_summary = build_rerun_trigger_summary(
+        coverage_summary,
+        auth_diagnostics_summary,
+        binding_audit_summary,
+        app_context_summary,
+    )
+    rerun_trigger_lines = _rerun_trigger_lines(rerun_trigger_summary)
 
     lines = [
         f"# Evidence Report: {root.name}",
@@ -84,6 +91,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- What is still unclear or weak? {_reviewer_gap_line(coverage_summary)}",
         f"- Which next probe would increase confidence? {attack_brief_summary.get('top_targeted_probe', 'n/a')}",
         f"- What evidence should I collect next? {_inline_next_evidence(next_evidence_lines)}",
+        f"- What changes force a rerun? {_inline_rerun_triggers(rerun_trigger_lines)}",
         f"- Confirmed issue, auth/replay failure, or insufficient evidence? {finding_type}",
         "- Repeat before release? Rerun this evidence path when tool scopes, auth/write context, binding behavior, or boundary selectors change before release.",
         "",
@@ -201,6 +209,10 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         "",
         *next_evidence_lines,
         "",
+        "## Rerun triggers",
+        "",
+        *rerun_trigger_lines,
+        "",
         "## Not proven by this run",
         "",
         *not_proven_lines,
@@ -274,6 +286,20 @@ def _trusted_evidence_line(
 def _inline_next_evidence(lines: list[str]) -> str:
     cleaned = [line[2:] if line.startswith("- ") else line for line in lines]
     return " | ".join(cleaned[:3]) if cleaned else "No additional evidence request emitted."
+
+
+
+def _inline_rerun_triggers(lines: list[str]) -> str:
+    cleaned = [line[2:] if line.startswith("- ") else line for line in lines]
+    return " | ".join(cleaned[:3]) if cleaned else "No rerun trigger emitted."
+
+
+
+def _rerun_trigger_lines(rerun_trigger_summary: dict[str, Any]) -> list[str]:
+    explanations = [str(item) for item in rerun_trigger_summary.get("explanations", []) if str(item).strip()]
+    if not explanations:
+        return ["- rerun when the tested evidence envelope changes"]
+    return [f"- {item}" for item in explanations]
 
 
 

@@ -292,6 +292,48 @@ def build_attack_brief_summary(
     }
 
 
+def build_rerun_trigger_summary(
+    coverage_summary: dict[str, Any],
+    auth_diagnostics_summary: dict[str, Any],
+    binding_audit_summary: dict[str, Any] | None = None,
+    app_context_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return sanitized conditions that should force this evidence path to be rerun."""
+
+    binding_audit_summary = binding_audit_summary if isinstance(binding_audit_summary, dict) else {}
+    app_context_summary = app_context_summary if isinstance(app_context_summary, dict) else {}
+    gaps = {str(item) for item in coverage_summary.get("coverage_gaps", [])}
+    triggers: list[tuple[str, str]] = []
+
+    if app_context_summary.get("operation_count") or app_context_summary.get("tool_action_schema_count") or app_context_summary.get("action_class_counts"):
+        triggers.append(("tool_action_schema_or_scope_changes", "rerun when tool/action schemas, operation order, action class, or exposed scope changes"))
+    if auth_diagnostics_summary.get("approved_auth_context_required") or auth_diagnostics_summary.get("approved_write_context_required") or auth_diagnostics_summary.get("auth_context_gap") or auth_diagnostics_summary.get("write_context_gap"):
+        triggers.append(("auth_or_write_context_changes", "rerun when approved auth, session, target environment, or staging write context changes"))
+    if "workflow_blocked" in gaps or "no_live_or_workflow_replay" in gaps or coverage_summary.get("live_workflow_replay_executed"):
+        triggers.append(("workflow_execution_or_policy_changes", "rerun when workflow replay policy, host/environment continuity, or executable step status changes"))
+    pending = int((binding_audit_summary.get("status_counts", {}) or {}).get("pending", 0) or 0)
+    unapplied = int(binding_audit_summary.get("unapplied_binding_count", 0) or 0)
+    planned = int(coverage_summary.get("planned_response_binding_count", 0) or 0)
+    if planned or pending or unapplied or "bindings_not_fully_applied" in gaps:
+        triggers.append(("response_binding_review_or_behavior_changes", "rerun when response bindings are approved, rejected, replaced, newly inferred, or stop applying structurally"))
+    boundary_candidates = int(coverage_summary.get("tenant_user_boundary_candidate_count", 0) or 0)
+    if boundary_candidates or "tenant_user_boundary_unproven" in gaps:
+        triggers.append(("tenant_user_boundary_selector_changes", "rerun when user, tenant, resource, route, or ownership-boundary selectors change"))
+    if coverage_summary.get("redthread_dryrun_executed"):
+        triggers.append(("redthread_rubric_or_attack_brief_changes", "rerun when the selected RedThread rubric, attack brief, or top targeted probe changes"))
+
+    if not triggers:
+        triggers.append(("evidence_envelope_changes", "rerun when the tested input, tool scope, auth posture, binding behavior, or release policy changes"))
+
+    deduped = list(dict.fromkeys(triggers))
+    return {
+        "schema_version": "rerun_trigger_summary.v1",
+        "triggers": [code for code, _ in deduped],
+        "explanations": [text for _, text in deduped],
+    }
+
+
+
 def targeted_missing_context_questions(risk_themes: list[str] | None = None) -> list[str]:
     risk_set = set(risk_themes or [])
     questions: list[str] = []

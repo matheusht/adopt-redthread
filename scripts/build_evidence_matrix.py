@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary, build_rerun_trigger_summary
 from scripts.generate_hero_binding_truth import build_hero_artifacts
 from scripts.generate_reviewed_write_reference import run_reviewed_write_reference
 
@@ -196,6 +196,7 @@ def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_wo
         app_context_summary=app_context_summary,
     )
     binding_audit = summary.get("live_workflow_binding_audit_summary") or live_workflow.get("binding_audit_summary", {})
+    rerun_triggers = build_rerun_trigger_summary(coverage, auth_diagnostics, binding_audit, app_context_summary)
     return {
         "decision_reason_category": decision_reason.get("category", "unknown"),
         "confirmed_security_finding": bool(decision_reason.get("confirmed_security_finding", False)),
@@ -208,9 +209,16 @@ def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_wo
         "write_context_gap": bool(auth_diagnostics.get("write_context_gap", False)),
         "binding_audit": _binding_audit_cell(binding_audit),
         "next_evidence_needed": _next_evidence_cell(coverage, auth_diagnostics, binding_audit, attack_brief),
+        "rerun_triggers": _rerun_trigger_cell(rerun_triggers),
         "top_targeted_probe": attack_brief.get("top_targeted_probe", "n/a"),
         "dryrun_rubric_rationale": attack_brief.get("dryrun_rubric_rationale", "n/a"),
     }
+
+
+
+def _rerun_trigger_cell(rerun_trigger_summary: dict[str, Any]) -> str:
+    triggers = [str(item) for item in rerun_trigger_summary.get("triggers", []) if str(item).strip()]
+    return "; ".join(triggers) if triggers else "evidence_envelope_changes"
 
 
 
@@ -367,12 +375,12 @@ def _markdown(matrix: dict[str, Any]) -> str:
         "",
         "RedThread replay/dry-run is evidence; the final `approve` / `review` / `block` verdict is currently emitted by the local Adopt RedThread bridge gate.",
         "",
-        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Finding type | Trusted evidence | Coverage | Auth/replay diagnostics | Binding audit | Next evidence needed | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Reviewer action | Exact reason | Control detail |",
-        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Finding type | Trusted evidence | Coverage | Auth/replay diagnostics | Binding audit | Next evidence needed | Rerun triggers | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Reviewer action | Exact reason | Control detail |",
+        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
         lines.append(
-            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {finding_type} | {trusted_evidence} | {coverage_label}; gaps:{coverage_gaps} | category:{auth_replay_failure_category}; auth_gap:{auth_context_gap}; write_gap:{write_context_gap} | {binding_audit} | {next_evidence_needed} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {reviewer_action} | {exact_reason} | {redthread_control_detail} |".format(
+            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {finding_type} | {trusted_evidence} | {coverage_label}; gaps:{coverage_gaps} | category:{auth_replay_failure_category}; auth_gap:{auth_context_gap}; write_gap:{write_context_gap} | {binding_audit} | {next_evidence_needed} | {rerun_triggers} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {reviewer_action} | {exact_reason} | {redthread_control_detail} |".format(
                 **{key: _md_escape(value) for key, value in row.items()}
             )
         )

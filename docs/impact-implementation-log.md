@@ -846,3 +846,50 @@ Verification:
 python3 -m unittest tests.test_reviewer_packet -v
 make evidence-packet
 ```
+
+## 2026-05-01 — report and matrix rerun-trigger slice
+
+Planned next slice: make reports and matrix rows say which sanitized evidence changes require a rerun before release, instead of relying only on a generic repeat-before-release sentence.
+
+Implemented:
+
+- Added `build_rerun_trigger_summary(...)` in `adapters/bridge/evidence_summaries.py`.
+- Evidence reports now include a `## Rerun triggers` section and a silent-review checklist answer for “What changes force a rerun?”
+- Evidence matrix rows now include a `Rerun triggers` column with compact trigger codes.
+- Trigger logic stays structural: tool/action scope, auth/write context, workflow policy/status, response-binding review/application, tenant/user/resource selectors, and RedThread rubric/attack-brief changes.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw HAR/session/cookie/auth/header/body/request/response values emitted.
+- No new dependency or live execution path.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_summaries tests.test_evidence_report tests.test_evidence_matrix -v
+```
+
+## 2026-05-01 — reviewer packet handoff-completeness audit slice
+
+Planned next slice: make the reviewer packet fail closed if the sanitized report or matrix is missing the sections needed for silent review.
+
+Implemented:
+
+- Added `audit_handoff_completeness(...)` in `scripts/build_reviewer_packet.py`.
+- The packet now records a `handoff_completeness_audit` alongside the sanitized marker audit.
+- `make evidence-packet` now passes `--fail-on-incomplete-handoff` as well as `--fail-on-marker-hit`.
+- Required report markers cover quick read, silent checklist, next evidence, rerun triggers, and not-proven sections.
+- Required matrix markers cover reviewer action, finding type, trusted evidence, next evidence, and rerun triggers.
+
+Guardrails held:
+
+- This is a completeness tripwire for generated sanitized markdown only, not a raw-artifact scanner.
+- The packet still points to sanitized artifacts and does not copy raw run contents.
+- No verdict semantic changes.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_reviewer_packet -v
+```

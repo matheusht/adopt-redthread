@@ -33,7 +33,7 @@ evidence-matrix:
 	$(PYTHON) scripts/build_evidence_matrix.py --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src
 
 evidence-packet:
-	$(PYTHON) scripts/build_reviewer_packet.py --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src --fail-on-marker-hit
+	$(PYTHON) scripts/build_reviewer_packet.py --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src --fail-on-marker-hit --fail-on-incomplete-handoff
 
 demo-bridge-pipeline:
 	$(PYTHON) scripts/run_bridge_pipeline.py fixtures/zapi_samples/sample_filtered_har.json runs/sample_har_pipeline --ingestion zapi --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src

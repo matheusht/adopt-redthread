@@ -45,6 +45,22 @@ OBSERVATION_FIELDS = (
     ("behavior_change", "Did the evidence change a ship/change/block decision, trigger a fix, or trigger a rerun request?"),
 )
 
+REQUIRED_REPORT_MARKERS = (
+    "## Reviewer quick read",
+    "## Silent reviewer checklist",
+    "## Next evidence to collect",
+    "## Rerun triggers",
+    "## Not proven by this run",
+)
+
+REQUIRED_MATRIX_MARKERS = (
+    "Reviewer action",
+    "Finding type",
+    "Trusted evidence",
+    "Next evidence needed",
+    "Rerun triggers",
+)
+
 
 def build_reviewer_packet(
     *,
@@ -59,6 +75,7 @@ def build_reviewer_packet(
     redthread_python: str | Path = REPO_ROOT.parent / "redthread" / ".venv" / "bin" / "python",
     redthread_src: str | Path = REPO_ROOT.parent / "redthread" / "src",
     fail_on_marker_hit: bool = False,
+    fail_on_incomplete_handoff: bool = False,
 ) -> dict[str, Any]:
     """Build the reviewer handoff packet from the existing sanitized report and matrix surfaces."""
     build_evidence_matrix(
@@ -78,6 +95,7 @@ def build_reviewer_packet(
         evidence_matrix=Path(matrix_output_dir) / "evidence_matrix.md",
         output_dir=output_dir,
         fail_on_marker_hit=fail_on_marker_hit,
+        fail_on_incomplete_handoff=fail_on_incomplete_handoff,
     )
 
 
@@ -87,6 +105,7 @@ def build_reviewer_packet_from_artifacts(
     evidence_matrix: str | Path,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     fail_on_marker_hit: bool = False,
+    fail_on_incomplete_handoff: bool = False,
 ) -> dict[str, Any]:
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
@@ -97,6 +116,9 @@ def build_reviewer_packet_from_artifacts(
     audit = audit_sanitized_markdown(list(artifact_paths.values()))
     if fail_on_marker_hit and audit["marker_hit_count"]:
         raise RuntimeError(f"sanitized marker audit failed with {audit['marker_hit_count']} hits")
+    completeness_audit = audit_handoff_completeness(report_path, matrix_path)
+    if fail_on_incomplete_handoff and not completeness_audit["passed"]:
+        raise RuntimeError(f"reviewer handoff completeness audit failed with {completeness_audit['missing_marker_count']} missing markers")
     packet_audit = _packet_safe_audit(audit)
     payload = {
         "schema_version": "adopt_redthread.reviewer_packet.v1",
@@ -114,6 +136,7 @@ def build_reviewer_packet_from_artifacts(
             "block": "do not ship from this run until required context, replay, or evidence blockers are resolved",
         },
         "sanitized_marker_audit": packet_audit,
+        "handoff_completeness_audit": completeness_audit,
         "observation_template": _observation_template(),
     }
     packet_md = _markdown(payload)
@@ -158,6 +181,30 @@ def _observation_template() -> dict[str, Any]:
 
 
 
+def audit_handoff_completeness(evidence_report: str | Path, evidence_matrix: str | Path) -> dict[str, Any]:
+    checks = {
+        "evidence_report": {"path": _display_path(Path(evidence_report)), "required_markers": list(REQUIRED_REPORT_MARKERS)},
+        "evidence_matrix": {"path": _display_path(Path(evidence_matrix)), "required_markers": list(REQUIRED_MATRIX_MARKERS)},
+    }
+    missing: list[dict[str, str]] = []
+    for artifact, check in checks.items():
+        path = Path(evidence_report) if artifact == "evidence_report" else Path(evidence_matrix)
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        for marker in check["required_markers"]:
+            if marker not in text:
+                missing.append({"artifact": artifact, "marker": marker})
+    return {
+        "checked_artifacts": {
+            name: {"path": payload["path"], "required_marker_count": len(payload["required_markers"])}
+            for name, payload in checks.items()
+        },
+        "missing_marker_count": len(missing),
+        "passed": len(missing) == 0,
+        "missing_markers": missing,
+    }
+
+
+
 def audit_sanitized_markdown(paths: list[str | Path]) -> dict[str, Any]:
     checked_files: list[str] = []
     hits: list[dict[str, str]] = []
@@ -192,6 +239,7 @@ def _packet_safe_audit(audit: dict[str, Any]) -> dict[str, Any]:
 
 def _markdown(payload: dict[str, Any]) -> str:
     audit = payload["sanitized_marker_audit"]
+    completeness = payload["handoff_completeness_audit"]
     lines = [
         "# Reviewer Evidence Packet",
         "",
@@ -246,6 +294,12 @@ def _markdown(payload: dict[str, Any]) -> str:
         lines.append("- Hit files: `none`")
     lines.extend(
         [
+            "",
+            "## Handoff completeness audit",
+            "",
+            f"- Passed: `{completeness['passed']}`",
+            f"- Missing required markers: `{completeness['missing_marker_count']}`",
+            f"- Checked artifacts: `{','.join(sorted(completeness['checked_artifacts']))}`",
             "",
             "## Handoff rule",
             "",
@@ -313,6 +367,7 @@ def main() -> None:
     parser.add_argument("--redthread-python", default=str(REPO_ROOT.parent / "redthread" / ".venv" / "bin" / "python"))
     parser.add_argument("--redthread-src", default=str(REPO_ROOT.parent / "redthread" / "src"))
     parser.add_argument("--fail-on-marker-hit", action="store_true", help="Exit non-zero if generated markdown contains configured sensitive markers")
+    parser.add_argument("--fail-on-incomplete-handoff", action="store_true", help="Exit non-zero if report/matrix do not contain required reviewer handoff sections")
     args = parser.parse_args()
 
     packet = build_reviewer_packet(
@@ -327,9 +382,14 @@ def main() -> None:
         redthread_python=args.redthread_python,
         redthread_src=args.redthread_src,
         fail_on_marker_hit=args.fail_on_marker_hit,
+        fail_on_incomplete_handoff=args.fail_on_incomplete_handoff,
     )
     print(f"reviewer packet -> {Path(args.output_dir) / 'reviewer_packet.md'}")
-    print(json.dumps({"marker_hits": packet["sanitized_marker_audit"]["marker_hit_count"], "passed": packet["sanitized_marker_audit"]["passed"]}, indent=2))
+    print(json.dumps({
+        "marker_hits": packet["sanitized_marker_audit"]["marker_hit_count"],
+        "marker_audit_passed": packet["sanitized_marker_audit"]["passed"],
+        "handoff_complete": packet["handoff_completeness_audit"]["passed"],
+    }, indent=2))
 
 
 if __name__ == "__main__":

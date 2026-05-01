@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary, select_campaign_strategy
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary, build_rerun_trigger_summary, select_campaign_strategy
 
 
 class EvidenceSummaryTests(unittest.TestCase):
@@ -134,6 +134,32 @@ class EvidenceSummaryTests(unittest.TestCase):
         self.assertEqual(server_rejected["http_status_counts"], {"http_status_401": 1})
         self.assertEqual(server_rejected["auth_applied_result_counts"], {"applied": 1})
         self.assertIn("auth-like rejection", server_rejected["sanitized_notes"][0])
+
+    def test_rerun_trigger_summary_is_sanitized_and_actionable(self) -> None:
+        triggers = build_rerun_trigger_summary(
+            {
+                "live_workflow_replay_executed": True,
+                "planned_response_binding_count": 2,
+                "tenant_user_boundary_candidate_count": 1,
+                "redthread_dryrun_executed": True,
+                "coverage_gaps": ["workflow_blocked", "tenant_user_boundary_unproven"],
+            },
+            {
+                "approved_auth_context_required": True,
+                "approved_write_context_required": True,
+                "auth_context_gap": True,
+                "write_context_gap": True,
+            },
+            {"status_counts": {"pending": 1}, "unapplied_binding_count": 1},
+            {"operation_count": 2, "tool_action_schema_count": 2, "action_class_counts": {"write": 1}},
+        )
+
+        self.assertEqual(triggers["schema_version"], "rerun_trigger_summary.v1")
+        self.assertIn("tool_action_schema_or_scope_changes", triggers["triggers"])
+        self.assertIn("auth_or_write_context_changes", triggers["triggers"])
+        self.assertIn("tenant_user_boundary_selector_changes", triggers["triggers"])
+        self.assertIn("response_binding_review_or_behavior_changes", triggers["triggers"])
+        self.assertTrue(all("secret" not in item.lower() for item in triggers["explanations"]))
 
     def test_venice_like_auth_block_is_not_reported_as_confirmed_vulnerability(self) -> None:
         summary = {

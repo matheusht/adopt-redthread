@@ -70,6 +70,7 @@ class EvidenceMatrixTests(unittest.TestCase):
         self.assertIn("Decision reason", matrix_md)
         self.assertIn("Finding type", matrix_md)
         self.assertIn("Trusted evidence", matrix_md)
+        self.assertIn("Next evidence needed", matrix_md)
         self.assertIn("Coverage", matrix_md)
         self.assertIn("Auth/replay diagnostics", matrix_md)
         self.assertIn("Binding audit", matrix_md)
@@ -80,6 +81,8 @@ class EvidenceMatrixTests(unittest.TestCase):
         self.assertIn("not confirmed security finding; category:manual_review_required_for_write_paths", matrix_md)
         self.assertIn("auth/replay/context failure:missing_write_context; not confirmed vulnerability", matrix_md)
         self.assertIn("workflow evidence present:1; bindings applied:1/1; RedThread replay passed:True", matrix_md)
+        self.assertIn("approved staging write context + workflow rerun", matrix_md)
+        self.assertIn("ownership-boundary probe:", matrix_md)
         self.assertIn("tenant_user_boundary_unproven", matrix_md)
 
 

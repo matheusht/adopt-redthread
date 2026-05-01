@@ -693,3 +693,56 @@ Verification:
 python3 -m unittest tests.test_evidence_matrix -v
 ```
 
+## 2026-05-01 — report next-evidence guidance slice
+
+Planned next slice: make the evidence report state exactly what additional sanitized evidence would increase confidence, instead of only saying what is not proven.
+
+Implemented:
+
+- Added `## Next evidence to collect` to generated evidence reports.
+- Added a silent-reviewer checklist answer for what to collect next.
+- Derived next evidence requests from coverage gaps, auth diagnostics, binding audit, and attack brief summaries.
+- The report now calls out, when applicable:
+  - approved non-production staging write context and workflow rerun
+  - approved auth context refresh and replay rerun
+  - workflow blocker resolution and rerun
+  - binding review and continuity rerun
+  - targeted ownership-boundary probe
+  - bounded safe/workflow replay for fixture-only evidence
+- Added focused report test coverage for write-context, workflow-blocker, and boundary-probe next-evidence wording.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw artifact values are introduced; next-evidence text uses sanitized categories/counts and already-sanitized probe wording.
+- No new dependencies or integrations.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_report -v
+```
+
+## 2026-05-01 — matrix next-evidence guidance slice
+
+Planned next slice: carry next-evidence guidance into the matrix so each approve/review/block row tells the reviewer what would improve confidence next.
+
+Implemented:
+
+- Added `next_evidence_needed` to each evidence matrix row.
+- Added a `Next evidence needed` column to the markdown matrix.
+- Matrix next-evidence guidance is derived from the same sanitized evidence classes: coverage gaps, auth diagnostics, binding audit, and attack brief.
+- Added focused matrix test coverage for approved staging write context rerun and ownership-boundary probe wording.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw artifact values are introduced; matrix cells use sanitized categories/counts and sanitized probe wording only.
+- No new dependencies or integrations.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_matrix -v
+```
+

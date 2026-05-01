@@ -57,6 +57,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
     reviewer_action = _reviewer_action(gate, summary, decision_reason_summary, coverage_summary)
     trusted_evidence = _trusted_evidence_line(summary, workflow_status, requirement_summary, binding_summary, redthread_passed)
     finding_type = _finding_type_line(decision_reason_summary, auth_diagnostics_summary)
+    next_evidence_lines = _next_evidence_lines(coverage_summary, auth_diagnostics_summary, binding_audit_summary, attack_brief_summary)
 
     lines = [
         f"# Evidence Report: {root.name}",
@@ -82,6 +83,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- What evidence should I trust most? {trusted_evidence}",
         f"- What is still unclear or weak? {_reviewer_gap_line(coverage_summary)}",
         f"- Which next probe would increase confidence? {attack_brief_summary.get('top_targeted_probe', 'n/a')}",
+        f"- What evidence should I collect next? {_inline_next_evidence(next_evidence_lines)}",
         f"- Confirmed issue, auth/replay failure, or insufficient evidence? {finding_type}",
         "- Repeat before release? Rerun this evidence path when tool scopes, auth/write context, binding behavior, or boundary selectors change before release.",
         "",
@@ -195,6 +197,10 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         "",
         _decision_narrative(gate, summary),
         "",
+        "## Next evidence to collect",
+        "",
+        *next_evidence_lines,
+        "",
         "## Not proven by this run",
         "",
         *not_proven_lines,
@@ -262,6 +268,42 @@ def _trusted_evidence_line(
     if not parts:
         return "fixture normalization only; no live workflow, binding, or RedThread replay evidence was available"
     return "; ".join(parts)
+
+
+
+def _inline_next_evidence(lines: list[str]) -> str:
+    cleaned = [line[2:] if line.startswith("- ") else line for line in lines]
+    return " | ".join(cleaned[:3]) if cleaned else "No additional evidence request emitted."
+
+
+
+def _next_evidence_lines(
+    coverage_summary: dict[str, Any],
+    auth_diagnostics_summary: dict[str, Any],
+    binding_audit_summary: dict[str, Any],
+    attack_brief_summary: dict[str, Any],
+) -> list[str]:
+    gaps = {str(item) for item in coverage_summary.get("coverage_gaps", [])}
+    replay_failure = str(auth_diagnostics_summary.get("replay_failure_category", "unknown"))
+    lines: list[str] = []
+    if auth_diagnostics_summary.get("write_context_gap") or replay_failure == "missing_write_context":
+        lines.append("- supply approved non-production staging write context and rerun workflow replay; keep write paths at review until human approval")
+    if auth_diagnostics_summary.get("auth_context_gap") or replay_failure in {"missing_auth_context", "auth_header_family_mismatch", "server_rejected_auth"}:
+        lines.append("- supply or refresh approved auth context matching the observed structural auth families, then rerun replay")
+    if "workflow_blocked" in gaps:
+        lines.append("- resolve the emitted workflow blocker category and rerun live workflow replay under the existing safety policy")
+    unapplied = int(binding_audit_summary.get("unapplied_binding_count", 0) or 0)
+    pending = int((binding_audit_summary.get("status_counts", {}) or {}).get("pending", 0) or 0)
+    if "bindings_not_fully_applied" in gaps or unapplied or pending:
+        lines.append("- review, approve, reject, or replace pending response bindings, then rerun to confirm structural request continuity")
+    if "tenant_user_boundary_unproven" in gaps:
+        probe = attack_brief_summary.get("top_targeted_probe", "run the top targeted ownership-boundary probe")
+        lines.append(f"- run the targeted ownership-boundary probe: {probe}")
+    if "no_live_or_workflow_replay" in gaps:
+        lines.append("- add a bounded safe-read or approved workflow replay; current evidence is fixture/replay/dry-run only")
+    if not lines:
+        lines.append("- no additional evidence request was emitted by this run; rerun before release if tool scopes, auth, write behavior, bindings, or boundary selectors change")
+    return list(dict.fromkeys(lines))
 
 
 

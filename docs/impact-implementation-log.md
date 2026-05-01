@@ -1240,3 +1240,51 @@ What it does not do:
 - does not execute against production or staging
 - does not change `approve` / `review` / `block` semantics
 - does not remove `tenant_user_boundary_unproven` until actual boundary result evidence exists
+
+## 2026-05-01 — boundary result artifact and reviewer-surface integration
+
+### Slice 1 — tenant/user boundary result template/validator
+
+Implemented:
+
+- `scripts/build_boundary_probe_result.py`
+- `make evidence-boundary-probe-result`
+- `tests/test_boundary_probe_result.py`
+- `docs/tenant-user-boundary-probe-result.md`
+
+What it does:
+
+- writes `runs/boundary_probe_result/tenant_user_boundary_probe_result.{md,json}`
+- defaults to the honest current status: `blocked_missing_context`
+- records `boundary_probe_executed=false`, `gate_decision=review`, and `confirmed_security_finding=false`
+- records only selector labels, selector class/location, operation ID, path template, result classes, status family, replay failure category, context-readiness labels, and marker-audit status
+- validates future sanitized observed-result JSON without executing a probe
+- fails closed on configured sensitive-marker hits and forbidden raw-field keys
+
+What it does not do:
+
+- does not run a tenant/user boundary probe
+- does not read or copy raw actor, tenant, resource, auth, cookie, session, request-body, response-body, or write-context values
+- does not convert reviewed-write evidence into `approve`
+- does not label missing context as a confirmed vulnerability
+
+### Slice 2 — boundary result evidence surfaced in report, matrix, packet, and handoff
+
+Implemented:
+
+- `scripts/build_evidence_report.py` now adds a `## Tenant/user boundary probe result` section and a quick-read boundary result line
+- `scripts/build_evidence_matrix.py` now adds a `Boundary probe result` column
+- `scripts/build_reviewer_packet.py` now includes the boundary result artifact in the manifest when present and marks it optional in the cold-review protocol
+- `scripts/build_external_review_handoff.py` now copies `tenant_user_boundary_probe_result.md` when present
+- `docs/next-two-slices-plan.md` documents scope and acceptance criteria
+
+Behavior:
+
+- when the result artifact is absent, surfaces preserve the existing absent/`tenant_user_boundary_unproven` wording
+- when the result artifact is present, surfaces show result status, executed flag, selector evidence, own/cross result classes, replay failure category, gate interpretation, confirmed-finding flag, and marker audit status
+- `blocked_missing_context` changes the next-evidence wording toward approved boundary context, not toward a claim that a probe ran
+
+Still blocked:
+
+- live boundary execution remains blocked until approved non-production context exists with safe actor scopes, selector bindings, and operator approval
+- the result artifact is evidence plumbing, not external validation and not a live executor

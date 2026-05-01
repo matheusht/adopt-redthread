@@ -38,6 +38,7 @@ class ExternalReviewHandoffTests(unittest.TestCase):
                 evidence_matrix=matrix,
                 reviewer_packet=packet,
                 observation_template=template,
+                boundary_probe_result=None,
                 output_dir=output,
                 fail_on_marker_hit=True,
                 fail_on_incomplete_handoff=True,
@@ -59,6 +60,53 @@ class ExternalReviewHandoffTests(unittest.TestCase):
         self.assertIn("Give the reviewer only the allowed files", instructions)
         self.assertNotIn("authorization:", instructions.casefold())
         self.assertNotIn("value_preview", instructions.casefold())
+
+    def test_copies_boundary_probe_result_when_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "evidence_report.md"
+            matrix = root / "evidence_matrix.md"
+            packet = root / "reviewer_packet.md"
+            template = root / "reviewer_observation_template.md"
+            boundary = root / "tenant_user_boundary_probe_result.md"
+            output = root / "handoff"
+            report.write_text(
+                "# Evidence Report\n"
+                "## Reviewer quick read\n"
+                "## Silent reviewer checklist\n"
+                "## Next evidence to collect\n"
+                "## Rerun triggers\n"
+                "## Not proven by this run\n",
+                encoding="utf-8",
+            )
+            matrix.write_text(
+                "# Evidence Matrix\n"
+                "Reviewer action | Finding type | Trusted evidence | Next evidence needed | Rerun triggers\n",
+                encoding="utf-8",
+            )
+            packet.write_text("# Reviewer Evidence Packet\nAllowed artifacts only.\n", encoding="utf-8")
+            template.write_text("# Reviewer Observation Template\nAnswer:\n", encoding="utf-8")
+            boundary.write_text("# Tenant/User Boundary Probe Result\nResult status: `blocked_missing_context`\n", encoding="utf-8")
+
+            payload = build_external_review_handoff(
+                evidence_report=report,
+                evidence_matrix=matrix,
+                reviewer_packet=packet,
+                observation_template=template,
+                boundary_probe_result=boundary,
+                output_dir=output,
+                fail_on_marker_hit=True,
+                fail_on_incomplete_handoff=True,
+            )
+            instructions = (output / "external_reviewer_instructions.md").read_text(encoding="utf-8")
+            boundary_copy_exists = (output / "tenant_user_boundary_probe_result.md").exists()
+
+        self.assertIn("boundary_probe_result", payload["artifacts"])
+        self.assertTrue(boundary_copy_exists)
+        self.assertIn("tenant_user_boundary_probe_result.md", instructions)
+        self.assertIn("tenant_user_boundary_probe_result.md", payload["protocol"]["allowed_artifacts"])
+        self.assertEqual(len(payload["artifacts"]), 6)
+        self.assertTrue(payload["output_marker_audit"]["passed"])
 
     def test_marker_hit_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -90,6 +138,7 @@ class ExternalReviewHandoffTests(unittest.TestCase):
                     evidence_matrix=matrix,
                     reviewer_packet=packet,
                     observation_template=template,
+                    boundary_probe_result=None,
                     output_dir=root / "handoff",
                     fail_on_marker_hit=True,
                 )

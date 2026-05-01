@@ -18,6 +18,26 @@ class EvidenceMatrixTests(unittest.TestCase):
             victoria_expected = root / "victoria_expected_block.json"
             _make_run(hero, decision="approve", warning=None, blocker=None)
             _make_run(reviewed, decision="review", warning="manual_review_required_for_write_paths", blocker=None)
+            boundary_result_dir = root / "boundary_probe_result"
+            boundary_result_dir.mkdir()
+            _write_json(
+                boundary_result_dir / "tenant_user_boundary_probe_result.json",
+                {
+                    "schema_version": "adopt_redthread.boundary_probe_result.v1",
+                    "result_status": "blocked_missing_context",
+                    "boundary_probe_executed": False,
+                    "selector_evidence": {
+                        "selector_name": "chatid",
+                        "selector_class": "resource",
+                        "selector_location": "body_field",
+                        "operation_id": "op_004_post_api_chat",
+                        "path_template": "/api/chat",
+                    },
+                    "own_scope_result_class": "not_run",
+                    "cross_scope_result_class": "not_run",
+                    "confirmed_security_finding": False,
+                },
+            )
             _write_json(
                 victoria_expected,
                 {
@@ -78,6 +98,8 @@ class EvidenceMatrixTests(unittest.TestCase):
         self.assertIn("Coverage", matrix_md)
         self.assertIn("Auth/replay diagnostics", matrix_md)
         self.assertIn("Binding audit", matrix_md)
+        self.assertIn("Boundary probe result", matrix_md)
+        self.assertIn("status:blocked_missing_context", matrix_md)
         self.assertIn("category:missing_write_context", matrix_md)
         self.assertIn("Top targeted probe", matrix_md)
         self.assertIn("Dry-run rationale", matrix_md)
@@ -88,7 +110,7 @@ class EvidenceMatrixTests(unittest.TestCase):
         self.assertIn("approved staging write context + workflow rerun", matrix_md)
         self.assertIn("tool_action_schema_or_scope_changes", matrix_md)
         self.assertIn("tenant_user_boundary_selector_changes", matrix_md)
-        self.assertIn("ownership-boundary probe:", matrix_md)
+        self.assertIn("approved boundary context + sanitized boundary result", matrix_md)
         self.assertIn("tenant_user_boundary_unproven", matrix_md)
 
 

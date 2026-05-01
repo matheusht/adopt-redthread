@@ -17,6 +17,7 @@ from scripts.build_evidence_report import build_evidence_report
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "runs" / "reviewer_packet"
 DEFAULT_REPORT_RUN_DIR = REPO_ROOT / "runs" / "reviewed_write_reference"
+DEFAULT_BOUNDARY_RESULT = REPO_ROOT / "runs" / "boundary_probe_result" / "tenant_user_boundary_probe_result.md"
 
 SENSITIVE_MARKERS = (
     "value_preview",
@@ -50,6 +51,7 @@ COLD_REVIEW_PROTOCOL = {
         "evidence_report",
         "evidence_matrix",
         "reviewer_packet",
+        "boundary_probe_result_if_present",
     ],
     "forbidden_inputs": [
         "raw HAR files",
@@ -101,6 +103,7 @@ def build_reviewer_packet(
     regenerate: bool = True,
     redthread_python: str | Path = REPO_ROOT.parent / "redthread" / ".venv" / "bin" / "python",
     redthread_src: str | Path = REPO_ROOT.parent / "redthread" / "src",
+    boundary_probe_result: str | Path | None = DEFAULT_BOUNDARY_RESULT,
     fail_on_marker_hit: bool = False,
     fail_on_incomplete_handoff: bool = False,
 ) -> dict[str, Any]:
@@ -120,6 +123,7 @@ def build_reviewer_packet(
     return build_reviewer_packet_from_artifacts(
         evidence_report=report_path,
         evidence_matrix=Path(matrix_output_dir) / "evidence_matrix.md",
+        boundary_probe_result=boundary_probe_result,
         output_dir=output_dir,
         fail_on_marker_hit=fail_on_marker_hit,
         fail_on_incomplete_handoff=fail_on_incomplete_handoff,
@@ -130,6 +134,7 @@ def build_reviewer_packet_from_artifacts(
     *,
     evidence_report: str | Path,
     evidence_matrix: str | Path,
+    boundary_probe_result: str | Path | None = DEFAULT_BOUNDARY_RESULT,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     fail_on_marker_hit: bool = False,
     fail_on_incomplete_handoff: bool = False,
@@ -139,6 +144,9 @@ def build_reviewer_packet_from_artifacts(
     report_path = Path(evidence_report)
     matrix_path = Path(evidence_matrix)
     artifact_paths = {"evidence_report": report_path, "evidence_matrix": matrix_path}
+    boundary_result_path = Path(boundary_probe_result) if boundary_probe_result else None
+    if boundary_result_path and boundary_result_path.exists():
+        artifact_paths["boundary_probe_result"] = boundary_result_path
     template_path = output_root / "reviewer_observation_template.md"
     audit = audit_sanitized_markdown(list(artifact_paths.values()))
     if fail_on_marker_hit and audit["marker_hit_count"]:
@@ -154,6 +162,7 @@ def build_reviewer_packet_from_artifacts(
             "evidence_report": _display_path(report_path),
             "evidence_matrix": _display_path(matrix_path),
             "reviewer_observation_template": _display_path(template_path),
+            **({"boundary_probe_result": _display_path(boundary_result_path)} if boundary_result_path and boundary_result_path.exists() else {}),
         },
         "artifact_manifest": _artifact_manifest(artifact_paths),
         "reviewer_questions": list(REVIEWER_QUESTIONS),
@@ -278,6 +287,7 @@ def _markdown(payload: dict[str, Any]) -> str:
         f"- Evidence report: `{payload['artifacts']['evidence_report']}`",
         f"- Evidence matrix: `{payload['artifacts']['evidence_matrix']}`",
         f"- Reviewer observation template: `{payload['artifacts']['reviewer_observation_template']}`",
+        *([f"- Boundary probe result: `{payload['artifacts']['boundary_probe_result']}`"] if "boundary_probe_result" in payload["artifacts"] else ["- Boundary probe result: `absent; tenant_user_boundary_unproven wording remains driven by report/matrix coverage gaps`"]),
         "",
         "## Sanitized artifact manifest",
         "",
@@ -358,7 +368,7 @@ def _markdown(payload: dict[str, Any]) -> str:
             "",
             "## Handoff rule",
             "",
-            "Give the report and matrix to the reviewer first. Do not explain the run until they answer the silent reviewer questions. Use the observation template only after they answer.",
+            "Give the report, matrix, and boundary result if present to the reviewer first. Do not explain the run until they answer the silent reviewer questions. Use the observation template only after they answer.",
             "",
             "After the reviewer fills the template, run `make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md` to produce the sanitized observation summary. Treat an incomplete summary as `incomplete_not_reviewer_evidence`, not as validation.",
             "",
@@ -423,6 +433,7 @@ def main() -> None:
     parser.add_argument("--use-existing", action="store_true", help="Do not regenerate deterministic approve/review matrix rows")
     parser.add_argument("--redthread-python", default=str(REPO_ROOT.parent / "redthread" / ".venv" / "bin" / "python"))
     parser.add_argument("--redthread-src", default=str(REPO_ROOT.parent / "redthread" / "src"))
+    parser.add_argument("--boundary-probe-result", default=str(DEFAULT_BOUNDARY_RESULT), help="Optional sanitized boundary result markdown to include if present")
     parser.add_argument("--fail-on-marker-hit", action="store_true", help="Exit non-zero if generated markdown contains configured sensitive markers")
     parser.add_argument("--fail-on-incomplete-handoff", action="store_true", help="Exit non-zero if report/matrix do not contain required reviewer handoff sections")
     args = parser.parse_args()
@@ -438,6 +449,7 @@ def main() -> None:
         regenerate=not args.use_existing,
         redthread_python=args.redthread_python,
         redthread_src=args.redthread_src,
+        boundary_probe_result=args.boundary_probe_result,
         fail_on_marker_hit=args.fail_on_marker_hit,
         fail_on_incomplete_handoff=args.fail_on_incomplete_handoff,
     )

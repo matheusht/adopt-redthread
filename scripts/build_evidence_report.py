@@ -12,7 +12,14 @@ if str(REPO_ROOT) not in sys.path:
 
 from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_auth_diagnostics_summary, build_coverage_summary, build_decision_reason_summary, build_rerun_trigger_summary
 
-def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = None) -> str:
+BOUNDARY_RESULT_FILENAME = "tenant_user_boundary_probe_result.json"
+
+def build_evidence_report(
+    run_dir: str | Path,
+    output_path: str | Path | None = None,
+    *,
+    boundary_result_path: str | Path | None = None,
+) -> str:
     root = Path(run_dir)
     summary = _load(root / "workflow_summary.json")
     gate = _load(root / "gate_verdict.json")
@@ -53,11 +60,13 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         app_context_summary=app_context_summary,
     )
     binding_audit_summary = summary.get("live_workflow_binding_audit_summary") or (workflow or {}).get("binding_audit_summary", {})
-    not_proven_lines = _not_proven_lines(coverage_summary, auth_diagnostics_summary)
+    boundary_result = _load_boundary_result(root, boundary_result_path)
+    boundary_result_line = _boundary_result_line(boundary_result, coverage_summary)
+    not_proven_lines = _not_proven_lines(coverage_summary, auth_diagnostics_summary, boundary_result)
     reviewer_action = _reviewer_action(gate, summary, decision_reason_summary, coverage_summary)
     trusted_evidence = _trusted_evidence_line(summary, workflow_status, requirement_summary, binding_summary, redthread_passed)
     finding_type = _finding_type_line(decision_reason_summary, auth_diagnostics_summary)
-    next_evidence_lines = _next_evidence_lines(coverage_summary, auth_diagnostics_summary, binding_audit_summary, attack_brief_summary)
+    next_evidence_lines = _next_evidence_lines(coverage_summary, auth_diagnostics_summary, binding_audit_summary, attack_brief_summary, boundary_result)
     rerun_trigger_summary = build_rerun_trigger_summary(
         coverage_summary,
         auth_diagnostics_summary,
@@ -80,6 +89,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- Reviewer action: {reviewer_action}",
         f"- Why this outcome: {decision_reason_summary.get('explanation', 'n/a')}",
         f"- Still not proven: {_reviewer_gap_line(coverage_summary)}",
+        f"- Boundary probe result: {boundary_result_line}",
         f"- Next useful probe: {attack_brief_summary.get('top_targeted_probe', 'n/a')}",
         "",
         "## Silent reviewer checklist",
@@ -93,6 +103,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- What evidence should I collect next? {_inline_next_evidence(next_evidence_lines)}",
         f"- What changes force a rerun? {_inline_rerun_triggers(rerun_trigger_lines)}",
         f"- Confirmed issue, auth/replay failure, or insufficient evidence? {finding_type}",
+        f"- Boundary probe evidence present? {boundary_result_line}",
         "- Repeat before release? Rerun this evidence path when tool scopes, auth/write context, binding behavior, or boundary selectors change before release.",
         "",
         "## How to read this evidence",
@@ -134,6 +145,10 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- Applied/planned bindings: `{coverage_summary.get('applied_response_binding_count', 0)}/{coverage_summary.get('planned_response_binding_count', 0)}`",
         f"- Tenant/user boundary probed: `{coverage_summary.get('tenant_user_boundary_probed', False)}`",
         f"- Coverage gaps: `{_join(coverage_summary.get('coverage_gaps', []))}`",
+        "",
+        "## Tenant/user boundary probe result",
+        "",
+        *_boundary_result_section(boundary_result, coverage_summary),
         "",
         "## Auth delivery diagnostics",
         "",
@@ -318,6 +333,7 @@ def _next_evidence_lines(
     auth_diagnostics_summary: dict[str, Any],
     binding_audit_summary: dict[str, Any],
     attack_brief_summary: dict[str, Any],
+    boundary_result: dict[str, Any] | None = None,
 ) -> list[str]:
     gaps = {str(item) for item in coverage_summary.get("coverage_gaps", [])}
     replay_failure = str(auth_diagnostics_summary.get("replay_failure_category", "unknown"))
@@ -332,9 +348,15 @@ def _next_evidence_lines(
     pending = int((binding_audit_summary.get("status_counts", {}) or {}).get("pending", 0) or 0)
     if "bindings_not_fully_applied" in gaps or unapplied or pending:
         lines.append("- review, approve, reject, or replace pending response bindings, then rerun to confirm structural request continuity")
+    boundary_status = str((boundary_result or {}).get("result_status", "absent"))
     if "tenant_user_boundary_unproven" in gaps:
-        probe = attack_brief_summary.get("top_targeted_probe", "run the top targeted ownership-boundary probe")
-        lines.append(f"- run the targeted ownership-boundary probe: {probe}")
+        if boundary_status == "blocked_missing_context":
+            lines.append("- supply approved non-production boundary probe context, actor-scope labels, selector bindings, and operator approval; then record a sanitized boundary result")
+        elif boundary_status in {"not_run", "absent"}:
+            probe = attack_brief_summary.get("top_targeted_probe", "run the top targeted ownership-boundary probe")
+            lines.append(f"- run the targeted ownership-boundary probe: {probe}")
+        elif boundary_status == "auth_or_replay_failed":
+            lines.append("- rerun the boundary probe after resolving the recorded auth/replay failure category")
     if "no_live_or_workflow_replay" in gaps:
         lines.append("- add a bounded safe-read or approved workflow replay; current evidence is fixture/replay/dry-run only")
     if not lines:
@@ -379,7 +401,11 @@ def _reviewer_action(
 
 
 
-def _not_proven_lines(coverage_summary: dict[str, Any], auth_diagnostics_summary: dict[str, Any]) -> list[str]:
+def _not_proven_lines(
+    coverage_summary: dict[str, Any],
+    auth_diagnostics_summary: dict[str, Any],
+    boundary_result: dict[str, Any] | None = None,
+) -> list[str]:
     gaps = {str(item) for item in coverage_summary.get("coverage_gaps", [])}
     lines: list[str] = []
     if "no_live_or_workflow_replay" in gaps:
@@ -388,7 +414,8 @@ def _not_proven_lines(coverage_summary: dict[str, Any], auth_diagnostics_summary
         lines.append("- successful execution of the blocked workflow under approved context")
     if "bindings_not_fully_applied" in gaps:
         lines.append("- complete response-binding application for every planned binding")
-    if "tenant_user_boundary_unproven" in gaps:
+    boundary_status = str((boundary_result or {}).get("result_status", "absent"))
+    if "tenant_user_boundary_unproven" in gaps and boundary_status != "passed_boundary_probe":
         lines.append("- cross-user, cross-tenant, or resource-ownership enforcement")
     if "auth_or_replay_blocked" in gaps or auth_diagnostics_summary.get("replay_failure_category") not in {None, "none", "unknown"}:
         lines.append("- valid auth/session/write-context delivery for this run; this is not proof of a confirmed vulnerability")
@@ -494,6 +521,67 @@ def _binding_audit_records(records: list[dict[str, Any]]) -> str:
     return ";".join(parts)
 
 
+def _load_boundary_result(root: Path, boundary_result_path: str | Path | None) -> dict[str, Any] | None:
+    candidates: list[Path] = []
+    if boundary_result_path is not None:
+        candidates.append(Path(boundary_result_path))
+    candidates.extend([
+        root / BOUNDARY_RESULT_FILENAME,
+        root.parent / "boundary_probe_result" / BOUNDARY_RESULT_FILENAME,
+    ])
+    for path in candidates:
+        if path.exists():
+            loaded = _load_optional(path)
+            if isinstance(loaded, dict) and loaded.get("schema_version") == "adopt_redthread.boundary_probe_result.v1":
+                loaded["_artifact_path"] = _display_path(path)
+                return loaded
+    return None
+
+
+def _boundary_result_line(boundary_result: dict[str, Any] | None, coverage_summary: dict[str, Any]) -> str:
+    gaps = {str(item) for item in coverage_summary.get("coverage_gaps", [])}
+    if not boundary_result:
+        if "tenant_user_boundary_unproven" in gaps:
+            return "absent; `tenant_user_boundary_unproven` remains in this evidence envelope"
+        return "absent; no tenant/user boundary gap was emitted for this envelope"
+    status = boundary_result.get("result_status", "unknown")
+    executed = boundary_result.get("boundary_probe_executed", False)
+    finding = boundary_result.get("confirmed_security_finding", False)
+    selector = boundary_result.get("selector_evidence", {}) if isinstance(boundary_result.get("selector_evidence"), dict) else {}
+    selector_label = "/".join(str(selector.get(key, "unknown")) for key in ("selector_class", "selector_location", "operation_id"))
+    return f"{status}; executed:{executed}; selector:{selector_label}; confirmed_security_finding:{finding}"
+
+
+def _boundary_result_section(boundary_result: dict[str, Any] | None, coverage_summary: dict[str, Any]) -> list[str]:
+    if not boundary_result:
+        return [
+            "- Result artifact: `absent`",
+            f"- Interpretation: {_boundary_result_line(None, coverage_summary)}",
+            "- Gate effect: no verdict change; current boundary wording remains driven by coverage gaps.",
+        ]
+    selector = boundary_result.get("selector_evidence", {}) if isinstance(boundary_result.get("selector_evidence"), dict) else {}
+    interpretation = boundary_result.get("interpretation", {}) if isinstance(boundary_result.get("interpretation"), dict) else {}
+    audit = boundary_result.get("configured_sensitive_marker_check", {}) if isinstance(boundary_result.get("configured_sensitive_marker_check"), dict) else {}
+    return [
+        f"- Result artifact: `{boundary_result.get('_artifact_path', 'present')}`",
+        f"- Result status: `{boundary_result.get('result_status', 'unknown')}`",
+        f"- Boundary probe executed: `{boundary_result.get('boundary_probe_executed', False)}`",
+        f"- Selector: `{selector.get('selector_name', 'unknown')}` class=`{selector.get('selector_class', 'unknown')}` location=`{selector.get('selector_location', 'unknown')}` operation=`{selector.get('operation_id', 'unknown')}` path=`{selector.get('path_template', 'unknown')}`",
+        f"- Own/cross-scope result classes: `{boundary_result.get('own_scope_result_class', 'unknown')}/{boundary_result.get('cross_scope_result_class', 'unknown')}`",
+        f"- Replay failure category: `{boundary_result.get('replay_failure_category', 'unknown')}`",
+        f"- Gate decision interpretation: `{boundary_result.get('gate_decision', 'unknown')}`; confirmed_security_finding=`{boundary_result.get('confirmed_security_finding', False)}`",
+        f"- Gate effect: {interpretation.get('gate_effect', 'no verdict change from this artifact alone')}",
+        f"- Marker audit passed: `{audit.get('passed', False)}`; marker_hits=`{audit.get('marker_hit_count', 'unknown')}`; raw_field_key_hits=`{audit.get('raw_field_hit_count', 'unknown')}`",
+    ]
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def _load(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
 
@@ -506,11 +594,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build a markdown evidence report from a bridge run directory.")
     parser.add_argument("--run-dir", default="runs/reviewed_write_reference", help="Run directory containing workflow_summary.json")
     parser.add_argument("--output", default=None, help="Output markdown path; defaults to <run-dir>/evidence_report.md")
+    parser.add_argument("--boundary-probe-result", default=None, help="Optional sanitized boundary probe result JSON; defaults to sibling runs/boundary_probe_result if present")
     args = parser.parse_args()
 
     run_dir = Path(args.run_dir)
     output = Path(args.output) if args.output else run_dir / "evidence_report.md"
-    report = build_evidence_report(run_dir, output)
+    report = build_evidence_report(run_dir, output, boundary_result_path=args.boundary_probe_result)
     print(f"evidence report -> {output}")
     print(report)
 

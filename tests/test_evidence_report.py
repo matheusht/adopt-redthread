@@ -207,6 +207,80 @@ class EvidenceReportTests(unittest.TestCase):
         self.assertIn("cross-user, cross-tenant, or resource-ownership enforcement", report)
         self.assertIn("valid auth/session/write-context delivery for this run; this is not proof of a confirmed vulnerability", report)
 
+    def test_report_surfaces_boundary_probe_result_without_changing_verdict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run_dir = root / "reviewed"
+            result_dir = root / "boundary_probe_result"
+            run_dir.mkdir()
+            result_dir.mkdir()
+            _write_json(
+                run_dir / "workflow_summary.json",
+                {
+                    "input_file": "fixture.har",
+                    "fixture_count": 1,
+                    "live_workflow_count": 1,
+                    "live_workflow_replay_executed": True,
+                    "redthread_replay_passed": True,
+                    "redthread_dryrun_executed": True,
+                    "gate_decision": "review",
+                    "coverage_summary": {
+                        "label": "workflow_replay_with_review_gap",
+                        "live_safe_replay_executed": False,
+                        "live_workflow_replay_executed": True,
+                        "successful_workflow_count": 1,
+                        "blocked_workflow_count": 0,
+                        "planned_response_binding_count": 0,
+                        "applied_response_binding_count": 0,
+                        "tenant_user_boundary_probed": False,
+                        "coverage_gaps": ["tenant_user_boundary_unproven"],
+                    },
+                    "decision_reason_summary": {
+                        "decision": "review",
+                        "category": "manual_review_required_for_write_paths",
+                        "confirmed_security_finding": False,
+                        "explanation": "Write-capable path remains review.",
+                    },
+                    "auth_diagnostics_summary": {"replay_failure_category": "none"},
+                    "attack_brief_summary": {"top_targeted_probe": "Verify ownership boundary."},
+                },
+            )
+            _write_json(run_dir / "gate_verdict.json", {"decision": "review", "warnings": ["manual_review_required_for_write_paths"], "blockers": []})
+            _write_json(run_dir / "live_workflow_replay.json", {"successful_workflow_count": 1, "blocked_workflow_count": 0, "aborted_workflow_count": 0})
+            _write_json(run_dir / "redthread_replay_verdict.json", {"passed": True})
+            _write_json(
+                result_dir / "tenant_user_boundary_probe_result.json",
+                {
+                    "schema_version": "adopt_redthread.boundary_probe_result.v1",
+                    "result_status": "blocked_missing_context",
+                    "boundary_probe_executed": False,
+                    "selector_evidence": {
+                        "selector_name": "chatid",
+                        "selector_class": "resource",
+                        "selector_location": "body_field",
+                        "operation_id": "op_004_post_api_chat",
+                        "path_template": "/api/chat",
+                    },
+                    "own_scope_result_class": "not_run",
+                    "cross_scope_result_class": "not_run",
+                    "http_status_family": "not_applicable",
+                    "replay_failure_category": "missing_approved_boundary_probe_context",
+                    "gate_decision": "review",
+                    "confirmed_security_finding": False,
+                    "interpretation": {"gate_effect": "Review; missing context is not a confirmed vulnerability."},
+                    "configured_sensitive_marker_check": {"passed": True, "marker_hit_count": 0, "raw_field_hit_count": 0},
+                },
+            )
+
+            report = build_evidence_report(run_dir)
+
+        self.assertIn("## Tenant/user boundary probe result", report)
+        self.assertIn("Result status: `blocked_missing_context`", report)
+        self.assertIn("Boundary probe result: blocked_missing_context; executed:False", report)
+        self.assertIn("Gate decision interpretation: `review`; confirmed_security_finding=`False`", report)
+        self.assertIn("Local bridge gate decision: `review`", report)
+        self.assertIn("supply approved non-production boundary probe context", report)
+
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n")

@@ -12,6 +12,7 @@ Allowed evidence:
 - `runs/evidence_matrix/evidence_matrix.md`
 - `runs/reviewer_packet/reviewer_packet.md`
 - `runs/reviewer_packet/reviewer_observation_template.md` after the reviewer has answered silently
+- `runs/boundary_probe_result/tenant_user_boundary_probe_result.md` when present; current default is a sanitized `blocked_missing_context` result, not execution proof
 - `runs/reviewer_packet/reviewer_observation_summary.{md,json}` after summarization
 - `runs/reviewer_validation/reviewer_validation_rollup.{md,json}` after multiple summaries exist
 
@@ -33,6 +34,19 @@ Forbidden evidence:
    make evidence-matrix
    make evidence-packet
    ```
+
+   If boundary result evidence should be included, generate it before rebuilding the packet/handoff:
+
+   ```bash
+   make evidence-boundary-probe-plan
+   make evidence-boundary-execution-design
+   make evidence-boundary-probe-result
+   make evidence-report
+   make evidence-matrix
+   make evidence-packet
+   ```
+
+   The default boundary result is `blocked_missing_context`; it is not proof that a boundary probe executed.
 
 2. For an external human review, build the sanitized handoff directory:
 

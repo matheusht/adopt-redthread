@@ -8,13 +8,18 @@ This is not validation by itself. It becomes validation evidence only after fill
 
 ## Build the handoff
 
-Regenerate the base evidence first:
+Regenerate the base evidence first. If the boundary result artifact should be visible in the packet, build it before rebuilding report/matrix/packet:
 
 ```bash
+make evidence-boundary-probe-plan
+make evidence-boundary-execution-design
+make evidence-boundary-probe-result
 make evidence-report
 make evidence-matrix
 make evidence-packet
 ```
+
+If no boundary result artifact exists, the packet/handoff preserves the existing absent/`tenant_user_boundary_unproven` wording.
 
 Then build the external handoff directory:
 
@@ -30,6 +35,7 @@ runs/external_review_handoff/
 ├── evidence_matrix.md
 ├── reviewer_packet.md
 ├── reviewer_observation_template.md
+├── tenant_user_boundary_probe_result.md  # only when present
 ├── external_reviewer_instructions.md
 └── external_review_handoff_manifest.json
 ```
@@ -44,6 +50,7 @@ Give the reviewer only these files:
 - `evidence_matrix.md`
 - `reviewer_packet.md`
 - `reviewer_observation_template.md`
+- `tenant_user_boundary_probe_result.md` when present; current default is `blocked_missing_context`, not execution proof
 - `external_reviewer_instructions.md`
 
 Do not give repo access, terminal access, raw captures, source code, walkthrough explanations, or prior reviewer answers before they answer the silent-review questions.

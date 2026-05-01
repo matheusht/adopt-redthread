@@ -16,6 +16,7 @@ from scripts.generate_reviewed_write_reference import run_reviewed_write_referen
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "runs" / "evidence_matrix"
 DEFAULT_VICTORIA_EXPECTED = REPO_ROOT / "fixtures" / "reference_demos" / "victoria_expected_block.json"
+BOUNDARY_RESULT_FILENAME = "tenant_user_boundary_probe_result.json"
 
 
 AGENTS = {
@@ -110,6 +111,7 @@ def _victoria_row(run_dir: Path, expected_path: Path) -> dict[str, Any]:
         "reviewer_action": _reviewer_action(gate, summary, live_workflow, {}),
         "exact_reason": f"{expected['gate_blocker']} / {expected['workflow_reason']}",
         "redthread_control_detail": expected["redthread_control_detail"],
+        "boundary_probe_result": _boundary_result_cell(None, expected.get("coverage_summary", {})),
         "raw_artifact_policy": expected_doc["artifact_policy"],
     }
 
@@ -120,6 +122,7 @@ def _row_from_run(scenario_id: str, outcome_slot: str, run_dir: Path, label: str
     live_workflow = _load_optional(run_dir / "live_workflow_replay.json") or {}
     runtime_inputs = _load_optional(run_dir / "redthread_runtime_inputs.json") or {}
     redthread = _load_optional(run_dir / "redthread_replay_verdict.json") or {}
+    boundary_result = _load_boundary_result(run_dir, allow_shared=(scenario_id == "reviewed_write_reference"))
 
     requirement = summary.get("live_workflow_requirement_summary") or live_workflow.get("workflow_requirement_summary", {})
     binding = summary.get("live_workflow_binding_application_summary") or live_workflow.get("binding_application_summary", {})
@@ -140,12 +143,13 @@ def _row_from_run(scenario_id: str, outcome_slot: str, run_dir: Path, label: str
         "binding_applied": binding.get("applied_response_binding_count", requirement.get("applied_response_binding_count", 0)),
         "binding_failed": binding.get("unapplied_response_binding_count", 0),
         **_app_context_cells(app_context_summary),
-        **_engine_summary_cells(summary, gate, live_workflow, runtime_inputs),
+        **_engine_summary_cells(summary, gate, live_workflow, runtime_inputs, boundary_result=boundary_result),
         "redthread_replay_passed": bool(redthread.get("passed", summary.get("redthread_replay_passed", False))),
         "gate_decision": gate.get("decision", summary.get("gate_decision", "unknown")),
         "reviewer_action": _reviewer_action(gate, summary, live_workflow, runtime_inputs),
         "exact_reason": _exact_reason(gate, summary, live_workflow),
         "redthread_control_detail": _control_detail(runtime_inputs),
+        "boundary_probe_result": _boundary_result_cell(boundary_result, summary.get("coverage_summary", {})),
         "raw_artifact_policy": "local ignored run artifact; do not commit raw run files",
     }
 
@@ -180,7 +184,14 @@ def _app_context_cells(summary: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_workflow: dict[str, Any], runtime_inputs: dict[str, Any]) -> dict[str, Any]:
+def _engine_summary_cells(
+    summary: dict[str, Any],
+    gate: dict[str, Any],
+    live_workflow: dict[str, Any],
+    runtime_inputs: dict[str, Any],
+    *,
+    boundary_result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     app_context_summary = summary.get("app_context_summary") or runtime_inputs.get("app_context_summary", {})
     decision_reason = summary.get("decision_reason_summary") or build_decision_reason_summary(gate, summary, live_workflow=live_workflow)
     coverage = summary.get("coverage_summary") or build_coverage_summary(summary, live_workflow=live_workflow, app_context_summary=app_context_summary)
@@ -208,7 +219,7 @@ def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_wo
         "auth_context_gap": bool(auth_diagnostics.get("auth_context_gap", False)),
         "write_context_gap": bool(auth_diagnostics.get("write_context_gap", False)),
         "binding_audit": _binding_audit_cell(binding_audit),
-        "next_evidence_needed": _next_evidence_cell(coverage, auth_diagnostics, binding_audit, attack_brief),
+        "next_evidence_needed": _next_evidence_cell(coverage, auth_diagnostics, binding_audit, attack_brief, boundary_result=boundary_result),
         "rerun_triggers": _rerun_trigger_cell(rerun_triggers),
         "top_targeted_probe": attack_brief.get("top_targeted_probe", "n/a"),
         "dryrun_rubric_rationale": attack_brief.get("dryrun_rubric_rationale", "n/a"),
@@ -227,6 +238,8 @@ def _next_evidence_cell(
     auth_diagnostics: dict[str, Any],
     binding_audit: dict[str, Any],
     attack_brief: dict[str, Any],
+    *,
+    boundary_result: dict[str, Any] | None = None,
 ) -> str:
     gaps = {str(item) for item in coverage.get("coverage_gaps", [])}
     replay_failure = str(auth_diagnostics.get("replay_failure_category", "unknown"))
@@ -242,8 +255,14 @@ def _next_evidence_cell(
     if "bindings_not_fully_applied" in gaps or unapplied or pending:
         parts.append("binding review + continuity rerun")
     if "tenant_user_boundary_unproven" in gaps:
-        probe = attack_brief.get("top_targeted_probe", "ownership-boundary probe")
-        parts.append(f"ownership-boundary probe: {probe}")
+        boundary_status = str((boundary_result or {}).get("result_status", "absent"))
+        if boundary_status == "blocked_missing_context":
+            parts.append("approved boundary context + sanitized boundary result")
+        elif boundary_status == "auth_or_replay_failed":
+            parts.append("resolve boundary auth/replay failure + rerun boundary probe")
+        else:
+            probe = attack_brief.get("top_targeted_probe", "ownership-boundary probe")
+            parts.append(f"ownership-boundary probe: {probe}")
     if "no_live_or_workflow_replay" in gaps:
         parts.append("bounded safe/workflow replay")
     return "; ".join(dict.fromkeys(parts)) if parts else "no additional evidence request emitted"
@@ -356,6 +375,35 @@ def _runtime_fixture_count(runtime_inputs: dict[str, Any]) -> int:
     return int(value) if isinstance(value, int) else 0
 
 
+def _load_boundary_result(run_dir: Path, *, allow_shared: bool = False) -> dict[str, Any] | None:
+    paths = [run_dir / BOUNDARY_RESULT_FILENAME]
+    if allow_shared:
+        paths.append(run_dir.parent / "boundary_probe_result" / BOUNDARY_RESULT_FILENAME)
+    for path in paths:
+        if path.exists():
+            loaded = _load_optional(path)
+            if isinstance(loaded, dict) and loaded.get("schema_version") == "adopt_redthread.boundary_probe_result.v1":
+                return loaded
+    return None
+
+
+def _boundary_result_cell(boundary_result: dict[str, Any] | None, coverage: dict[str, Any]) -> str:
+    gaps = {str(item) for item in coverage.get("coverage_gaps", [])} if isinstance(coverage, dict) else set()
+    if not boundary_result:
+        if "tenant_user_boundary_unproven" in gaps:
+            return "absent; tenant_user_boundary_unproven"
+        return "absent"
+    selector = boundary_result.get("selector_evidence", {}) if isinstance(boundary_result.get("selector_evidence"), dict) else {}
+    selector_label = "/".join(str(selector.get(key, "unknown")) for key in ("selector_class", "selector_location", "operation_id"))
+    return (
+        f"status:{boundary_result.get('result_status', 'unknown')}; "
+        f"executed:{boundary_result.get('boundary_probe_executed', False)}; "
+        f"selector:{selector_label}; "
+        f"own_cross:{boundary_result.get('own_scope_result_class', 'unknown')}/{boundary_result.get('cross_scope_result_class', 'unknown')}; "
+        f"finding:{boundary_result.get('confirmed_security_finding', False)}"
+    )
+
+
 def _binding_audit_cell(binding_audit: dict[str, Any]) -> str:
     if not binding_audit:
         return "n/a"
@@ -383,12 +431,12 @@ def _markdown(matrix: dict[str, Any]) -> str:
         "- `block` means do not ship from this run until required context, replay, or evidence blockers are resolved.",
         "- Finding type separates confirmed findings from auth/replay/context failures and insufficient evidence.",
         "",
-        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Finding type | Trusted evidence | Coverage | Auth/replay diagnostics | Binding audit | Next evidence needed | Rerun triggers | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Reviewer action | Exact reason | Control detail |",
-        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Finding type | Trusted evidence | Coverage | Auth/replay diagnostics | Binding audit | Boundary probe result | Next evidence needed | Rerun triggers | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Reviewer action | Exact reason | Control detail |",
+        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
         lines.append(
-            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {finding_type} | {trusted_evidence} | {coverage_label}; gaps:{coverage_gaps} | category:{auth_replay_failure_category}; auth_gap:{auth_context_gap}; write_gap:{write_context_gap} | {binding_audit} | {next_evidence_needed} | {rerun_triggers} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {reviewer_action} | {exact_reason} | {redthread_control_detail} |".format(
+            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {finding_type} | {trusted_evidence} | {coverage_label}; gaps:{coverage_gaps} | category:{auth_replay_failure_category}; auth_gap:{auth_context_gap}; write_gap:{write_context_gap} | {binding_audit} | {boundary_probe_result} | {next_evidence_needed} | {rerun_triggers} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {reviewer_action} | {exact_reason} | {redthread_control_detail} |".format(
                 **{key: _md_escape(value) for key, value in row.items()}
             )
         )

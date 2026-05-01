@@ -5,7 +5,7 @@ OBSERVATION ?= runs/reviewer_packet/reviewer_observation_template.md
 OBSERVATION_OUTPUT ?= runs/reviewer_packet
 SUMMARIES ?= runs/reviewer_packet/reviewer_observation_summary.json
 
-.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix evidence-packet evidence-external-review-handoff evidence-boundary-probe-plan evidence-boundary-execution-design evidence-observation-summary evidence-validation-rollup redthread-contract-proposal demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
+.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix evidence-packet evidence-external-review-handoff evidence-boundary-probe-plan evidence-boundary-execution-design evidence-boundary-probe-result evidence-observation-summary evidence-validation-rollup redthread-contract-proposal demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
 
 test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
@@ -47,6 +47,9 @@ evidence-boundary-probe-plan:
 
 evidence-boundary-execution-design:
 	$(PYTHON) scripts/build_boundary_execution_design.py --probe-plan runs/boundary_probe_plan/tenant_user_boundary_probe_plan.json --fail-on-marker-hit
+
+evidence-boundary-probe-result:
+	$(PYTHON) scripts/build_boundary_probe_result.py --probe-plan runs/boundary_probe_plan/tenant_user_boundary_probe_plan.json --execution-design runs/boundary_execution_design/tenant_user_boundary_execution_design.json --fail-on-marker-hit
 
 evidence-observation-summary:
 	$(PYTHON) scripts/summarize_reviewer_observation.py --observation $(OBSERVATION) --output-dir $(OBSERVATION_OUTPUT) --fail-on-marker-hit

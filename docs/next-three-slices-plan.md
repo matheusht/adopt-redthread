@@ -88,6 +88,6 @@ Convert the repeated reviewer ask into a safe execution design before writing an
 - Auth/replay/context failure remains separate from confirmed vulnerability language.
 - Reviewed-write does not become `approve` from design alone.
 
-## Next slice after these
+## Follow-up implemented
 
-Implement a boundary probe result-template/validator, then integrate completed boundary result evidence into the report and matrix. Do not build live execution until approved non-production context exists.
+The next two slices are now tracked in [`docs/next-two-slices-plan.md`](next-two-slices-plan.md): a boundary probe result template/validator and report/matrix/packet integration for that result artifact. Live boundary execution remains blocked until approved non-production context exists.

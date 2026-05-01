@@ -22,6 +22,7 @@ DEFAULT_REPORT = REPO_ROOT / "runs" / "reviewed_write_reference" / "evidence_rep
 DEFAULT_MATRIX = REPO_ROOT / "runs" / "evidence_matrix" / "evidence_matrix.md"
 DEFAULT_PACKET = DEFAULT_PACKET_DIR / "reviewer_packet.md"
 DEFAULT_TEMPLATE = DEFAULT_PACKET_DIR / "reviewer_observation_template.md"
+DEFAULT_BOUNDARY_RESULT = REPO_ROOT / "runs" / "boundary_probe_result" / "tenant_user_boundary_probe_result.md"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "runs" / "external_review_handoff"
 SCHEMA_VERSION = "adopt_redthread.external_review_handoff.v1"
 
@@ -30,6 +31,7 @@ CANONICAL_ARTIFACTS = {
     "evidence_matrix": "evidence_matrix.md",
     "reviewer_packet": "reviewer_packet.md",
     "reviewer_observation_template": "reviewer_observation_template.md",
+    "boundary_probe_result": "tenant_user_boundary_probe_result.md",
 }
 
 FORBIDDEN_INPUTS = [
@@ -47,6 +49,7 @@ def build_external_review_handoff(
     evidence_matrix: str | Path = DEFAULT_MATRIX,
     reviewer_packet: str | Path = DEFAULT_PACKET,
     observation_template: str | Path = DEFAULT_TEMPLATE,
+    boundary_probe_result: str | Path | None = DEFAULT_BOUNDARY_RESULT,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     target_review_count: int = 3,
     fail_on_marker_hit: bool = True,
@@ -65,6 +68,9 @@ def build_external_review_handoff(
         "reviewer_packet": Path(reviewer_packet),
         "reviewer_observation_template": Path(observation_template),
     }
+    boundary_result_path = Path(boundary_probe_result) if boundary_probe_result else None
+    if boundary_result_path and boundary_result_path.exists():
+        sources["boundary_probe_result"] = boundary_result_path
     missing = [name for name, path in sources.items() if not path.exists()]
     if missing:
         raise FileNotFoundError(f"missing required handoff artifacts: {', '.join(missing)}")
@@ -85,7 +91,7 @@ def build_external_review_handoff(
         shutil.copyfile(source, destination)
         copied[name] = destination
 
-    instructions = _instructions_markdown(target_review_count=target_review_count)
+    instructions = _instructions_markdown(target_review_count=target_review_count, include_boundary_result="boundary_probe_result" in sources)
     instructions_path = output_root / "external_reviewer_instructions.md"
     instructions_path.write_text(instructions, encoding="utf-8")
 
@@ -102,7 +108,7 @@ def build_external_review_handoff(
         "target_review_count": int(target_review_count),
         "artifacts": _artifact_manifest({**copied, "external_reviewer_instructions": instructions_path}),
         "protocol": {
-            "allowed_artifacts": [CANONICAL_ARTIFACTS[name] for name in CANONICAL_ARTIFACTS] + ["external_reviewer_instructions.md"],
+            "allowed_artifacts": [CANONICAL_ARTIFACTS[name] for name in sources] + ["external_reviewer_instructions.md"],
             "forbidden_inputs": FORBIDDEN_INPUTS,
             "silent_review_required": True,
             "completion_rule": "A review counts only after the filled observation template is summarized with marker audit passed and complete=true.",
@@ -149,8 +155,9 @@ def _packet_safe_audit(audit: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _instructions_markdown(*, target_review_count: int) -> str:
+def _instructions_markdown(*, target_review_count: int, include_boundary_result: bool) -> str:
     forbidden = "\n".join(f"- {item}" for item in FORBIDDEN_INPUTS)
+    optional_boundary = "- `tenant_user_boundary_probe_result.md`\n" if include_boundary_result else ""
     return f"""# External Human Cold-Review Instructions
 
 Use this directory to run a silent external review of the sanitized evidence packet.
@@ -163,7 +170,7 @@ This is **not** validation by itself. It becomes validation evidence only after 
 - `evidence_matrix.md`
 - `reviewer_packet.md`
 - `reviewer_observation_template.md`
-- `external_reviewer_instructions.md`
+{optional_boundary}- `external_reviewer_instructions.md`
 
 ## Forbidden inputs
 
@@ -206,6 +213,7 @@ def main() -> None:
     parser.add_argument("--evidence-matrix", default=str(DEFAULT_MATRIX))
     parser.add_argument("--reviewer-packet", default=str(DEFAULT_PACKET))
     parser.add_argument("--observation-template", default=str(DEFAULT_TEMPLATE))
+    parser.add_argument("--boundary-probe-result", default=str(DEFAULT_BOUNDARY_RESULT), help="Optional sanitized boundary result markdown to copy if present")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--target-review-count", type=int, default=3)
     parser.add_argument("--fail-on-marker-hit", action="store_true", help="Exit non-zero if configured sensitive markers are present")
@@ -217,6 +225,7 @@ def main() -> None:
         evidence_matrix=args.evidence_matrix,
         reviewer_packet=args.reviewer_packet,
         observation_template=args.observation_template,
+        boundary_probe_result=args.boundary_probe_result,
         output_dir=args.output_dir,
         target_review_count=args.target_review_count,
         fail_on_marker_hit=args.fail_on_marker_hit,

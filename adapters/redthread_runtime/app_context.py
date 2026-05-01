@@ -11,6 +11,7 @@ SECRET_FIELD_HINTS = {"token", "secret", "password", "cookie", "session", "key",
 PII_FIELD_HINTS = {"email", "phone", "ssn", "name", "address", "profile"}
 FINANCIAL_FIELD_HINTS = {"payment", "billing", "invoice", "price", "subscription", "product", "card"}
 MESSAGE_FIELD_HINTS = {"message", "msg", "chat", "prompt", "content", "body", "comment", "conversation"}
+RESOURCE_FIELD_HINTS = {"chat", "conversation", "thread", "project", "document", "file", "order", "report", "resource", "memory"}
 SAFE_FIELD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.\-\[\]]{0,79}$")
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 HEX_RE = re.compile(r"^[0-9a-fA-F]{16,}$")
@@ -40,7 +41,7 @@ def build_app_context(bundle: dict[str, Any], workflow_plan: dict[str, Any] | No
     ]
     tool_action_schema = [_tool_action_schema(operation, fixture) for operation, fixture in zip(operations, fixtures, strict=False)]
     field_inventory = _field_inventory(fixtures)
-    boundary = _tenant_user_boundary(fixtures)
+    boundary = _tenant_user_boundary(fixtures, operations)
     approved_context = _approved_context_requirements(fixtures, workflow_plan)
     return {
         "schema_version": "app_context.v1",
@@ -77,7 +78,10 @@ def summarize_app_context(app_context: dict[str, Any]) -> dict[str, Any]:
         "data_sensitivity_tags": sensitivity.get("tags", []),
         "candidate_user_field_count": len(boundary.get("candidate_user_fields", [])),
         "candidate_tenant_field_count": len(boundary.get("candidate_tenant_fields", [])),
+        "candidate_resource_field_count": len(boundary.get("candidate_resource_fields", [])),
         "candidate_route_param_count": len(boundary.get("candidate_route_params", [])),
+        "candidate_boundary_selector_count": len(boundary.get("candidate_boundary_selectors", [])),
+        "boundary_reason_categories": boundary.get("reason_categories", []),
     }
 
 
@@ -260,14 +264,89 @@ def _data_sensitivity(fixtures: list[dict[str, Any]], field_inventory: list[str]
     }
 
 
-def _tenant_user_boundary(fixtures: list[dict[str, Any]]) -> dict[str, Any]:
+def _tenant_user_boundary(fixtures: list[dict[str, Any]], operations: list[dict[str, Any]]) -> dict[str, Any]:
+    selectors = _boundary_selectors(fixtures, operations)
     fields = _field_inventory(fixtures)
-    paths = [str(fixture.get("path", "")) for fixture in fixtures]
+    route_params = [selector["name"] for selector in selectors if selector.get("location") == "route_param"]
+    reason_categories = [str(selector.get("reason_category")) for selector in selectors if selector.get("reason_category")]
     return {
         "candidate_user_fields": [field for field in fields if _has_hint(field, USER_FIELD_HINTS)],
         "candidate_tenant_fields": [field for field in fields if _has_hint(field, TENANT_FIELD_HINTS)],
-        "candidate_route_params": sorted(dict.fromkeys(param for path in paths for param in _route_param_hints(path))),
+        "candidate_resource_fields": [field for field in fields if _has_hint(field, RESOURCE_FIELD_HINTS)],
+        "candidate_route_params": sorted(dict.fromkeys(route_params)),
+        "candidate_boundary_selectors": selectors[:50],
+        "reason_categories": sorted(dict.fromkeys(reason_categories)),
     }
+
+
+def _boundary_selectors(fixtures: list[dict[str, Any]], operations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    selectors: list[dict[str, Any]] = []
+    for fixture, operation in zip(fixtures, operations, strict=False):
+        for location, source_key in (("query_param", "query_params"), ("body_field", "body_fields"), ("response_field", "response_fields")):
+            for field in _safe_names(fixture.get(source_key, [])):
+                boundary_class = _boundary_class(field)
+                if boundary_class:
+                    selectors.append(_boundary_selector(field, location, boundary_class, operation, f"{boundary_class}_field_selector"))
+        selectors.extend(_route_param_selectors(operation))
+    return _unique_selectors(selectors)
+
+
+def _boundary_selector(name: str, location: str, boundary_class: str, operation: dict[str, Any], reason_category: str) -> dict[str, Any]:
+    return {
+        "name": name,
+        "location": location,
+        "class": boundary_class,
+        "operation_id": operation["operation_id"],
+        "path_template": operation["path_template"],
+        "reason_category": reason_category,
+    }
+
+
+def _route_param_selectors(operation: dict[str, Any]) -> list[dict[str, Any]]:
+    path_template = str(operation.get("path_template", "/"))
+    segments = [segment for segment in path_template.split("/") if segment]
+    selectors: list[dict[str, Any]] = []
+    for index, segment in enumerate(segments):
+        if not (segment.startswith("{") and segment.endswith("}")):
+            continue
+        previous = _nearest_named_segment(segments, index)
+        param_name = segment[1:-1] or "id"
+        selector_name = f"{previous}.{param_name}" if previous else param_name
+        boundary_class = _boundary_class(selector_name) or _boundary_class(previous) or "resource"
+        selectors.append(_boundary_selector(selector_name, "route_param", boundary_class, operation, f"{boundary_class}_route_param_selector"))
+    return selectors
+
+
+def _nearest_named_segment(segments: list[str], index: int) -> str:
+    for candidate in reversed(segments[:index]):
+        if not (candidate.startswith("{") and candidate.endswith("}")):
+            return candidate
+    return ""
+
+
+def _boundary_class(name: str) -> str | None:
+    if _has_hint(name, TENANT_FIELD_HINTS):
+        return "tenant"
+    if _has_hint(name, USER_FIELD_HINTS):
+        return "user"
+    if _has_hint(name, RESOURCE_FIELD_HINTS):
+        return "resource"
+    if name.endswith("_id") or name.endswith(".id") or name == "id":
+        return "resource"
+    return None
+
+
+def _unique_selectors(selectors: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    unique: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for selector in selectors:
+        key = (
+            str(selector.get("operation_id", "")),
+            str(selector.get("location", "")),
+            str(selector.get("class", "")),
+            str(selector.get("name", "")),
+        )
+        unique[key] = selector
+    return [unique[key] for key in sorted(unique)]
 
 
 def _field_inventory(fixtures: list[dict[str, Any]]) -> list[str]:

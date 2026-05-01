@@ -43,7 +43,13 @@ class EvidenceSummaryTests(unittest.TestCase):
                     "request_fields": ["action", "credentials.access_token", "resource_id"],
                     "response_fields": ["status"],
                 }
-            ]
+            ],
+            "tenant_user_boundary": {
+                "candidate_boundary_selectors": [
+                    {"name": "resource_id", "location": "body_field", "class": "resource", "reason_category": "resource_field_selector"}
+                ],
+                "reason_categories": ["resource_field_selector"],
+            },
         }
         app_context_summary = {
             "auth_mode": "bearer",
@@ -51,6 +57,8 @@ class EvidenceSummaryTests(unittest.TestCase):
             "requires_approved_write_context": True,
             "action_class_counts": {"write": 1},
             "data_sensitivity_tags": ["secret_like"],
+            "candidate_boundary_selector_count": 1,
+            "boundary_reason_categories": ["resource_field_selector"],
         }
 
         coverage = build_coverage_summary(summary, app_context_summary=summary["app_context_summary"])
@@ -60,6 +68,9 @@ class EvidenceSummaryTests(unittest.TestCase):
         self.assertIn("dispatch_surface", attack_brief["risk_themes"])
         self.assertIn("secret_like_fields", attack_brief["risk_themes"])
         self.assertIn("action", attack_brief["dispatch_candidate_fields"])
+        self.assertEqual(attack_brief["boundary_selector_count"], 1)
+        self.assertEqual(attack_brief["boundary_candidate_classes"], ["resource"])
+        self.assertEqual(attack_brief["boundary_candidate_locations"], ["body_field"])
         self.assertIn("credentials.access_token", attack_brief["secret_like_fields"])
         self.assertIn("allowlisted", attack_brief["top_targeted_probe"])
         self.assertIn("generic action/dispatch fields", attack_brief["dryrun_rubric_rationale"])

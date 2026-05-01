@@ -191,6 +191,8 @@ def build_attack_brief_summary(
     app_context = app_context if isinstance(app_context, dict) else {}
     app_context_summary = app_context_summary if isinstance(app_context_summary, dict) else {}
     tool_schemas = [item for item in app_context.get("tool_action_schema", []) if isinstance(item, dict)]
+    boundary = app_context.get("tenant_user_boundary", {}) if isinstance(app_context.get("tenant_user_boundary"), dict) else {}
+    boundary_selectors = [item for item in boundary.get("candidate_boundary_selectors", []) if isinstance(item, dict)]
     fields = _field_names(tool_schemas)
     dispatch_fields = _matching_fields(fields, DISPATCH_FIELD_HINTS)
     user_fields = _matching_fields(fields, USER_FIELD_HINTS)
@@ -210,6 +212,10 @@ def build_attack_brief_summary(
         "action_focus": _flat_counts(action_counts),
         "sensitivity_focus": _join(sensitivity_tags),
         "boundary_candidate_fields": _first_n([*user_fields, *tenant_fields, *resource_fields], 12),
+        "boundary_candidate_classes": _selector_classes(boundary_selectors),
+        "boundary_candidate_locations": _selector_locations(boundary_selectors),
+        "boundary_reason_categories": app_context_summary.get("boundary_reason_categories", boundary.get("reason_categories", [])),
+        "boundary_selector_count": int(app_context_summary.get("candidate_boundary_selector_count", len(boundary_selectors))),
         "dispatch_candidate_fields": _first_n(dispatch_fields, 8),
         "secret_like_fields": _first_n(secret_fields, 8),
         "risk_themes": risk_themes,
@@ -339,6 +345,14 @@ def _fixture_sensitivity_tags(fixture: dict[str, Any], fields: list[str], secret
     if message_fields:
         tags.append("support_message_like")
     return sorted(dict.fromkeys(tags))
+
+
+def _selector_classes(selectors: list[dict[str, Any]]) -> list[str]:
+    return sorted(dict.fromkeys(str(selector.get("class")) for selector in selectors if selector.get("class")))
+
+
+def _selector_locations(selectors: list[dict[str, Any]]) -> list[str]:
+    return sorted(dict.fromkeys(str(selector.get("location")) for selector in selectors if selector.get("location")))
 
 
 def _field_names(tool_schemas: list[dict[str, Any]]) -> list[str]:

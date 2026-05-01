@@ -78,6 +78,50 @@ class RedThreadRuntimeAdapterTests(unittest.TestCase):
         for raw_value in raw_values_that_must_not_leak:
             self.assertNotIn(raw_value, serialized_context)
 
+    def test_runtime_export_detects_boundary_selector_classes_without_values(self) -> None:
+        bundle = {
+            "source": "unit",
+            "input_file": "synthetic.har",
+            "fixture_count": 1,
+            "fixtures": [
+                {
+                    "name": "patch_workspace_document",
+                    "method": "PATCH",
+                    "path": "/api/workspaces/123/documents/456",
+                    "query_params": ["account_id"],
+                    "body_fields": ["target_user_id", "document_id"],
+                    "response_fields": ["owner.id"],
+                    "auth_hints": ["authorization"],
+                    "workflow_group": "documents",
+                    "replay_class": "manual_review",
+                    "approval_required": True,
+                    "candidate_attack_types": ["authorization_bypass"],
+                }
+            ],
+        }
+
+        payload = build_redthread_runtime_inputs(bundle)
+        boundary = payload["app_context"]["tenant_user_boundary"]
+        summary = payload["app_context_summary"]
+        attack_brief = payload["attack_brief_summary"]
+        serialized_context = json.dumps(payload["app_context"], sort_keys=True)
+
+        self.assertIn("target_user_id", boundary["candidate_user_fields"])
+        self.assertIn("document_id", boundary["candidate_resource_fields"])
+        self.assertIn("workspaces.id", boundary["candidate_route_params"])
+        self.assertIn("documents.id", boundary["candidate_route_params"])
+        self.assertGreaterEqual(summary["candidate_boundary_selector_count"], 5)
+        self.assertIn("user_field_selector", summary["boundary_reason_categories"])
+        self.assertIn("tenant_route_param_selector", summary["boundary_reason_categories"])
+        self.assertIn("resource_route_param_selector", summary["boundary_reason_categories"])
+        self.assertIn("user", attack_brief["boundary_candidate_classes"])
+        self.assertIn("tenant", attack_brief["boundary_candidate_classes"])
+        self.assertIn("resource", attack_brief["boundary_candidate_classes"])
+        self.assertIn("body_field", attack_brief["boundary_candidate_locations"])
+        self.assertIn("route_param", attack_brief["boundary_candidate_locations"])
+        self.assertNotIn("123", serialized_context)
+        self.assertNotIn("456", serialized_context)
+
     def test_runtime_export_selects_dispatch_authorization_rubric_for_generic_action(self) -> None:
         bundle = {
             "source": "unit",

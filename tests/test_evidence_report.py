@@ -55,6 +55,8 @@ class EvidenceReportTests(unittest.TestCase):
                         "top_targeted_probe": "Verify user/tenant identifiers are server-side derived or ownership-checked, not trusted from the client.",
                         "targeted_missing_context_questions": ["Can this actor access another actor's object with this identifier class?"],
                         "boundary_candidate_fields": ["user_id"],
+                        "boundary_candidate_classes": ["user"],
+                        "boundary_candidate_locations": ["body_field"],
                         "dispatch_candidate_fields": [],
                         "secret_like_fields": [],
                         "dryrun_rubric_rationale": "Selected because user/tenant/resource identifiers need ownership-boundary probing.",
@@ -72,7 +74,10 @@ class EvidenceReportTests(unittest.TestCase):
                         "data_sensitivity_tags": ["support_message_like", "user_data"],
                         "candidate_user_field_count": 1,
                         "candidate_tenant_field_count": 0,
+                        "candidate_resource_field_count": 0,
                         "candidate_route_param_count": 0,
+                        "candidate_boundary_selector_count": 1,
+                        "boundary_reason_categories": ["user_field_selector"],
                     },
                     "gate_decision": "block",
                 },
@@ -112,12 +117,17 @@ class EvidenceReportTests(unittest.TestCase):
         self.assertIn("Approved auth context required: `True`", report)
         self.assertIn("Approved write context required: `True`", report)
         self.assertIn("Sensitivity tags: `support_message_like,user_data`", report)
+        self.assertIn("Candidate resource fields: `0`", report)
+        self.assertIn("Boundary selectors: `1`", report)
+        self.assertIn("Boundary reason categories: `user_field_selector`", report)
         self.assertIn("## Coverage confidence", report)
         self.assertIn("Coverage label: `auth_or_replay_blocked`", report)
         self.assertIn("Coverage gaps: `auth_or_replay_blocked,tenant_user_boundary_unproven,workflow_blocked`", report)
         self.assertIn("## Attack brief for RedThread", report)
         self.assertIn("Top targeted probe/question: Verify user/tenant identifiers", report)
         self.assertIn("Targeted missing-context questions: `Can this actor access another actor's object", report)
+        self.assertIn("Boundary candidate classes: `user`", report)
+        self.assertIn("Boundary candidate locations: `body_field`", report)
         self.assertIn("Dry-run rubric rationale: Selected because user/tenant/resource identifiers", report)
 
 

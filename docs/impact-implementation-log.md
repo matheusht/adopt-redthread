@@ -410,3 +410,34 @@ make evidence-matrix
 make test
 ```
 
+## 2026-05-01 — boundary selector detection slice
+
+Planned next slice: improve tenant/user/resource boundary evidence without changing verdict semantics or adding a broad context wizard.
+
+Implemented:
+
+- `app_context.v1` now emits sanitized `candidate_boundary_selectors` with selector name, location, class, operation ID, path template, and reason category.
+- Boundary detection now covers:
+  - user/account/profile/member/customer/actor-like fields
+  - tenant/org/workspace/company/business-like fields
+  - resource/chat/conversation/document/order/report/memory-like fields
+  - route parameters classified from sanitized path templates such as `workspaces.id` and `documents.id`
+- `app_context_summary` now includes resource-field count, boundary-selector count, and boundary reason categories.
+- `attack_brief_summary` now exposes boundary candidate classes and locations, not raw values.
+- Evidence report and matrix summaries include the new boundary counts/reasons.
+
+Guardrails held:
+
+- No raw path IDs, auth, header, session, body, request, or response values emitted.
+- No `approve` / `review` / `block` semantic changes.
+- Output remains structural metadata only.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_redthread_runtime_adapter tests.test_evidence_summaries tests.test_evidence_report tests.test_evidence_matrix -v
+make evidence-report
+make evidence-matrix
+make test
+```
+

@@ -166,7 +166,10 @@ def _app_context_cells(summary: dict[str, Any]) -> dict[str, Any]:
     boundary = (
         f"user_fields:{summary.get('candidate_user_field_count', 0)},"
         f"tenant_fields:{summary.get('candidate_tenant_field_count', 0)},"
-        f"route_params:{summary.get('candidate_route_param_count', 0)}"
+        f"resource_fields:{summary.get('candidate_resource_field_count', 0)},"
+        f"route_params:{summary.get('candidate_route_param_count', 0)},"
+        f"selectors:{summary.get('candidate_boundary_selector_count', 0)},"
+        f"reasons:{_join(summary.get('boundary_reason_categories', []))}"
     )
     return {
         "app_context_summary": f"{schema}; ops:{operations}; schemas:{tools}; actions:{action_classes}",

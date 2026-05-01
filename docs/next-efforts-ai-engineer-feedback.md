@@ -2,7 +2,7 @@
 
 Date: 2026-05-01
 
-Status: first engine/reporting slice implemented in `adapters/bridge/evidence_summaries.py`, `adapters/bridge/workflow.py`, `scripts/build_evidence_report.py`, and `scripts/build_evidence_matrix.py`.
+Status: first engine/reporting slice plus targeted rubric selection and boundary selector detection implemented in `adapters/bridge/evidence_summaries.py`, `adapters/redthread_runtime/app_context.py`, `adapters/bridge/workflow.py`, `scripts/build_evidence_report.py`, and `scripts/build_evidence_matrix.py`.
 
 ## Executive summary
 

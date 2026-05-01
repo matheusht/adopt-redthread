@@ -199,6 +199,8 @@ def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_wo
     return {
         "decision_reason_category": decision_reason.get("category", "unknown"),
         "confirmed_security_finding": bool(decision_reason.get("confirmed_security_finding", False)),
+        "finding_type": _finding_type_cell(decision_reason, auth_diagnostics),
+        "trusted_evidence": _trusted_evidence_cell(summary, live_workflow),
         "coverage_label": coverage.get("label", "unknown"),
         "coverage_gaps": _join(coverage.get("coverage_gaps", [])),
         "auth_replay_failure_category": auth_diagnostics.get("replay_failure_category", "unknown"),
@@ -208,6 +210,45 @@ def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_wo
         "top_targeted_probe": attack_brief.get("top_targeted_probe", "n/a"),
         "dryrun_rubric_rationale": attack_brief.get("dryrun_rubric_rationale", "n/a"),
     }
+
+
+
+def _trusted_evidence_cell(summary: dict[str, Any], live_workflow: dict[str, Any]) -> str:
+    parts: list[str] = []
+    workflow_count = int(summary.get("live_workflow_count", live_workflow.get("workflow_count", 0)) or 0)
+    workflow_executed = bool(summary.get("live_workflow_replay_executed", False) or live_workflow or workflow_count)
+    if workflow_executed:
+        successful = int(live_workflow.get("successful_workflow_count", summary.get("successful_workflow_count", 0)) or 0)
+        blocked = int(live_workflow.get("blocked_workflow_count", summary.get("blocked_workflow_count", 0)) or 0)
+        aborted = int(live_workflow.get("aborted_workflow_count", summary.get("aborted_workflow_count", 0)) or 0)
+        if successful or blocked or aborted:
+            parts.append(f"workflow status successful:{successful},blocked:{blocked},aborted:{aborted}")
+        else:
+            parts.append(f"workflow evidence present:{workflow_count}")
+    requirement = summary.get("live_workflow_requirement_summary", {})
+    binding = summary.get("live_workflow_binding_application_summary", {})
+    planned = binding.get("planned_response_binding_count", requirement.get("declared_response_binding_count", 0))
+    applied = binding.get("applied_response_binding_count", requirement.get("applied_response_binding_count", 0))
+    if planned:
+        parts.append(f"bindings applied:{applied}/{planned}")
+    if "redthread_replay_passed" in summary:
+        parts.append(f"RedThread replay passed:{bool(summary.get('redthread_replay_passed'))}")
+    if summary.get("redthread_dryrun_executed", False):
+        parts.append(f"RedThread dry-run rubric:{summary.get('dryrun_rubric_name', 'n/a')}")
+    return "; ".join(parts) if parts else "fixture/summary evidence only"
+
+
+
+def _finding_type_cell(decision_reason: dict[str, Any], auth_diagnostics: dict[str, Any]) -> str:
+    category = str(decision_reason.get("category", "unknown"))
+    if decision_reason.get("confirmed_security_finding", False):
+        return f"confirmed security finding; category:{category}"
+    replay_failure = str(auth_diagnostics.get("replay_failure_category", "unknown"))
+    if category == "auth_or_context_blocked" or replay_failure not in {"none", "unknown", "None", ""}:
+        return f"auth/replay/context failure:{replay_failure}; not confirmed vulnerability"
+    if category in {"insufficient_coverage", "tenant_boundary_unproven", "binding_review_needed"}:
+        return f"insufficient or unproven evidence:{category}; not confirmed vulnerability"
+    return f"not confirmed security finding; category:{category}"
 
 
 
@@ -297,12 +338,12 @@ def _markdown(matrix: dict[str, Any]) -> str:
         "",
         "RedThread replay/dry-run is evidence; the final `approve` / `review` / `block` verdict is currently emitted by the local Adopt RedThread bridge gate.",
         "",
-        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Coverage | Auth/replay diagnostics | Binding audit | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Reviewer action | Exact reason | Control detail |",
-        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Outcome | Responsible agent | Scenario | Input | Fixtures | Workflows | Bindings planned/applied/failed | App context | Auth context | Sensitivity | Decision reason | Finding type | Trusted evidence | Coverage | Auth/replay diagnostics | Binding audit | Top targeted probe | Dry-run rationale | RedThread replay | Local gate decision | Reviewer action | Exact reason | Control detail |",
+        "|---|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
         lines.append(
-            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {coverage_label}; gaps:{coverage_gaps} | category:{auth_replay_failure_category}; auth_gap:{auth_context_gap}; write_gap:{write_context_gap} | {binding_audit} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {reviewer_action} | {exact_reason} | {redthread_control_detail} |".format(
+            "| {outcome_slot} | {decision_agent} | {scenario_label} | `{input_artifact}` | {fixture_count} | {workflow_count} | {binding_planned}/{binding_applied}/{binding_failed} | {app_context_summary} | {app_context_auth_summary} | {app_context_sensitivity} | {decision_reason_category}; confirmed:{confirmed_security_finding} | {finding_type} | {trusted_evidence} | {coverage_label}; gaps:{coverage_gaps} | category:{auth_replay_failure_category}; auth_gap:{auth_context_gap}; write_gap:{write_context_gap} | {binding_audit} | {top_targeted_probe} | {dryrun_rubric_rationale} | {redthread_replay_passed} | `{gate_decision}` | {reviewer_action} | {exact_reason} | {redthread_control_detail} |".format(
                 **{key: _md_escape(value) for key, value in row.items()}
             )
         )

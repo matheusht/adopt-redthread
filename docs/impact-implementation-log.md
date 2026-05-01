@@ -668,3 +668,28 @@ Verification:
 python3 -m unittest tests.test_evidence_report -v
 ```
 
+## 2026-05-01 — evidence matrix finding-type/trusted-evidence slice
+
+Planned next slice: carry the silent-reviewer validation answers into the evidence matrix so the approve/review/block rows distinguish trusted proof from finding type at a glance.
+
+Implemented:
+
+- Added `finding_type` to each evidence matrix row.
+- Added `trusted_evidence` to each evidence matrix row.
+- Added `Finding type` and `Trusted evidence` columns to the markdown matrix.
+- Finding type distinguishes confirmed security findings from auth/replay/context failures and insufficient/unproven evidence.
+- Trusted evidence summarizes sanitized workflow, binding, RedThread replay, and dry-run evidence counts.
+- Added focused matrix test coverage for reviewed and blocked finding-type wording and trusted-evidence wording.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw artifact values are introduced; matrix cells use sanitized categories/counts only.
+- No new dependencies or integrations.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_matrix -v
+```
+

@@ -68,6 +68,8 @@ class EvidenceMatrixTests(unittest.TestCase):
         self.assertIn("app_context.v1; ops:2; schemas:2; actions:read:1,write:1", matrix_md)
         self.assertIn("mode:cookie; scopes:user_scoped; approved_auth:True; approved_write:True", matrix_md)
         self.assertIn("Decision reason", matrix_md)
+        self.assertIn("Finding type", matrix_md)
+        self.assertIn("Trusted evidence", matrix_md)
         self.assertIn("Coverage", matrix_md)
         self.assertIn("Auth/replay diagnostics", matrix_md)
         self.assertIn("Binding audit", matrix_md)
@@ -75,6 +77,9 @@ class EvidenceMatrixTests(unittest.TestCase):
         self.assertIn("Top targeted probe", matrix_md)
         self.assertIn("Dry-run rationale", matrix_md)
         self.assertIn("manual_review_required_for_write_paths; confirmed:False", matrix_md)
+        self.assertIn("not confirmed security finding; category:manual_review_required_for_write_paths", matrix_md)
+        self.assertIn("auth/replay/context failure:missing_write_context; not confirmed vulnerability", matrix_md)
+        self.assertIn("workflow evidence present:1; bindings applied:1/1; RedThread replay passed:True", matrix_md)
         self.assertIn("tenant_user_boundary_unproven", matrix_md)
 
 

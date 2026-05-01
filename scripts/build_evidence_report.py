@@ -55,6 +55,8 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
     binding_audit_summary = summary.get("live_workflow_binding_audit_summary") or (workflow or {}).get("binding_audit_summary", {})
     not_proven_lines = _not_proven_lines(coverage_summary, auth_diagnostics_summary)
     reviewer_action = _reviewer_action(gate, summary, decision_reason_summary, coverage_summary)
+    trusted_evidence = _trusted_evidence_line(summary, workflow_status, requirement_summary, binding_summary, redthread_passed)
+    finding_type = _finding_type_line(decision_reason_summary, auth_diagnostics_summary)
 
     lines = [
         f"# Evidence Report: {root.name}",
@@ -71,6 +73,17 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         f"- Why this outcome: {decision_reason_summary.get('explanation', 'n/a')}",
         f"- Still not proven: {_reviewer_gap_line(coverage_summary)}",
         f"- Next useful probe: {attack_brief_summary.get('top_targeted_probe', 'n/a')}",
+        "",
+        "## Silent reviewer checklist",
+        "",
+        "Use this section to answer the validation questions without opening raw artifacts.",
+        "",
+        f"- Ship, change, or block? {reviewer_action}",
+        f"- What evidence should I trust most? {trusted_evidence}",
+        f"- What is still unclear or weak? {_reviewer_gap_line(coverage_summary)}",
+        f"- Which next probe would increase confidence? {attack_brief_summary.get('top_targeted_probe', 'n/a')}",
+        f"- Confirmed issue, auth/replay failure, or insufficient evidence? {finding_type}",
+        "- Repeat before release? Rerun this evidence path when tool scopes, auth/write context, binding behavior, or boundary selectors change before release.",
         "",
         "## Decision",
         "",
@@ -219,6 +232,49 @@ def _reviewer_gap_line(coverage_summary: dict[str, Any]) -> str:
     if not gaps:
         return "No explicit coverage gaps were emitted for this evidence envelope."
     return _join(gaps)
+
+
+
+def _trusted_evidence_line(
+    summary: dict[str, Any],
+    workflow_status: dict[str, int],
+    requirement_summary: dict[str, Any],
+    binding_summary: dict[str, Any],
+    redthread_passed: Any,
+) -> str:
+    parts: list[str] = []
+    if summary.get("live_workflow_replay_executed", False):
+        parts.append(
+            "live workflow replay status successful:{successful},blocked:{blocked},aborted:{aborted}".format(
+                successful=workflow_status["successful"],
+                blocked=workflow_status["blocked"],
+                aborted=workflow_status["aborted"],
+            )
+        )
+    planned = requirement_summary.get("declared_response_binding_count", binding_summary.get("planned_response_binding_count", 0))
+    applied = requirement_summary.get("applied_response_binding_count", binding_summary.get("applied_response_binding_count", 0))
+    if planned:
+        parts.append(f"response bindings applied:{applied}/{planned}")
+    if redthread_passed is not None:
+        parts.append(f"RedThread replay passed:{bool(redthread_passed)}")
+    if summary.get("redthread_dryrun_executed", False):
+        parts.append(f"RedThread dry-run rubric:{summary.get('dryrun_rubric_name', 'n/a')}")
+    if not parts:
+        return "fixture normalization only; no live workflow, binding, or RedThread replay evidence was available"
+    return "; ".join(parts)
+
+
+
+def _finding_type_line(decision_reason_summary: dict[str, Any], auth_diagnostics_summary: dict[str, Any]) -> str:
+    category = str(decision_reason_summary.get("category", "unknown"))
+    if decision_reason_summary.get("confirmed_security_finding", False):
+        return f"confirmed security finding; decision category:{category}"
+    replay_failure = str(auth_diagnostics_summary.get("replay_failure_category", "unknown"))
+    if category == "auth_or_context_blocked" or replay_failure not in {"none", "unknown", "None", ""}:
+        return f"auth/replay/context failure:{replay_failure}; not a confirmed vulnerability"
+    if category in {"insufficient_coverage", "tenant_boundary_unproven", "binding_review_needed"}:
+        return f"insufficient or unproven evidence:{category}; not a confirmed vulnerability"
+    return f"not confirmed as a security finding; decision category:{category}"
 
 
 

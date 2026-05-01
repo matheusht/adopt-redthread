@@ -639,3 +639,32 @@ Verification:
 python3 -m unittest tests.test_evidence_report -v
 ```
 
+## 2026-05-01 — silent reviewer checklist report slice
+
+Planned next slice: make the report answer the validation questions a reviewer is supposed to answer silently: ship/change/block, trusted evidence, weak evidence, next probe, and finding type.
+
+Implemented:
+
+- Added a `## Silent reviewer checklist` section to generated evidence reports.
+- The checklist derives sanitized answers from existing gate, coverage, workflow, binding, RedThread, auth diagnostic, and attack brief summaries.
+- Added helper wording for:
+  - ship/change/block action
+  - strongest trusted evidence
+  - weak or unclear evidence gaps
+  - next confidence-increasing probe
+  - confirmed finding vs auth/replay/context failure vs insufficient evidence
+  - when to rerun before release
+- Added focused report test coverage for the block/auth-context checklist wording.
+
+Guardrails held:
+
+- No verdict semantic changes.
+- No raw artifact values are introduced; checklist text uses sanitized categories/counts only.
+- No new dependencies or integrations.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_report -v
+```
+

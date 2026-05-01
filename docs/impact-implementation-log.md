@@ -1056,3 +1056,120 @@ Verification added:
   - free-form reviewer text is not copied into rollup markdown or JSON
   - configured marker hits fail closed by default
   - three complete consistent reviews produce `ready_for_validation_readout`
+
+## 2026-05-01 — real no-tools AI cold-review validation and capture fixes
+
+Planned the next two validation-focused slices:
+
+1. **Make real cold-review capture robust to actual reviewer output.** Run no-tools cold reviewers against only sanitized artifacts and fix any capture failures before drawing product conclusions.
+2. **Make multi-review validation reproducible.** Allow per-review observation-summary output directories and document the exact AI cold-review readout, including limits.
+
+Real validation run:
+
+- Rebuilt the sanitized artifacts:
+  - `make evidence-report`
+  - `make evidence-matrix`
+  - `make evidence-packet`
+- Ran three separate Pi no-tools cold-review sessions.
+- Disabled repo context files, skills, prompt templates, themes, sessions, and tools for the reviewer runs.
+- Supplied only:
+  - `runs/reviewed_write_reference/evidence_report.md`
+  - `runs/evidence_matrix/evidence_matrix.md`
+  - `runs/reviewer_packet/reviewer_packet.md`
+  - `runs/reviewer_packet/reviewer_observation_template.md`
+- Stored local ignored outputs under `runs/reviewer_validation/cold_review_ai_{1,2,3}/`.
+
+Validation found a real capture bug before any product conclusion:
+
+- All three reviewers filled the template with inline `Answer: value` text.
+- The parser only recognized `Answer:` followed by later lines.
+- Result before the fix: all three summaries were incorrectly marked incomplete.
+
+Implemented fix:
+
+- `scripts/summarize_reviewer_observation.py` now accepts both:
+  - `Answer:` followed by answer lines
+  - `Answer: value` inline
+- Added `test_inline_answer_template_style_is_captured`.
+
+Validation found a second signal bug:
+
+- Reviewers answered Question 6 with `Yes, ... before release` wording.
+- The repeat-review detector only recognized narrower `before every release` wording.
+- Result before the fix: rollup undercounted repeat-review requests.
+
+Implemented fix:
+
+- `scripts/summarize_reviewer_observation.py` now treats silent Question 6 beginning with `Yes`, `Yep`, or `Yeah` as a repeat-review request, unless it begins with `No`.
+- Added `test_question_six_yes_counts_as_repeat_review_request`.
+
+Implemented reproducibility fix:
+
+- `Makefile` now supports `OBSERVATION_OUTPUT` for `make evidence-observation-summary`, so each reviewer summary can be written to a separate directory before rollup.
+
+Regenerated validation result after fixes:
+
+- summary count: `3`
+- complete summaries: `3/3`
+- validation status: `ready_for_validation_readout`
+- decisions: `review:3`
+- decision consistency: `3/3 consistent`
+- marker hits: `0`
+- behavior-change recorded: `3`
+- next-probe requested: `3`
+- repeat-review requested: `3`
+
+Repeated reviewer signal:
+
+- All three AI cold reviewers selected `change`, normalized to project `review`.
+- All three requested tenant/user boundary evidence: verify that the actor cannot access another actor's resource identifier class.
+- This supports keeping reviewed-write as `review`, not `approve`, and prioritizing tenant/user boundary evidence before any new integration.
+
+Documented:
+
+- Added `docs/ai-cold-review-validation-readout.md`.
+- Updated `docs/reviewer-validation-loop.md` with inline-answer support, per-review output directories, repeat-review wording, and the AI validation note.
+- Updated `README.md`, `scripts/README.md`, `docs/project-direction.md`, and `docs/next-efforts-ai-engineer-feedback.md`.
+
+Boundaries:
+
+- This is real AI cold-review validation of the packet mechanics, not external human buyer validation.
+- Do not claim production readiness, demand validation, or full sanitization proof.
+- Do not treat the repeated tenant/user boundary ask as a confirmed vulnerability.
+
+## 2026-05-01 — tenant/user boundary next-probe plan
+
+Followed up on the repeated cold-review signal with a small planning artifact, not a new integration or executor.
+
+Implemented:
+
+- `scripts/build_boundary_probe_plan.py`
+- `make evidence-boundary-probe-plan`
+- `tests/test_boundary_probe_plan.py`
+
+The generated artifact is:
+
+```text
+runs/boundary_probe_plan/tenant_user_boundary_probe_plan.{md,json}
+```
+
+What it does:
+
+- reads existing reviewed-write `workflow_summary.json` and `redthread_runtime_inputs.json`
+- extracts only structural boundary selector evidence: selector names/classes/locations, operation IDs, path templates, and reason categories
+- turns that into a reviewer-readable next-probe plan for own-scope vs cross-actor/cross-tenant checks
+- records pass/review/block interpretation rules without changing the current gate verdict
+- fails closed on the configured sensitive-marker audit
+
+What it does **not** do:
+
+- does not execute against production or staging
+- does not add a new integration
+- does not copy raw HAR/session/cookie/header/body/request/response values
+- does not convert reviewed-write evidence into `approve`
+
+Validation:
+
+- unit tests cover sanitized artifact generation and marker-hit fail-closed behavior
+- real generated-artifact validation ran `make evidence-boundary-probe-plan` against `runs/reviewed_write_reference/`
+- generated-artifact result: `boundary_probe_status=needs_boundary_probe`, `selector_count=3`, `marker_hits=0`, `marker_audit_passed=true`

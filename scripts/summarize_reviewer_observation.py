@@ -91,6 +91,11 @@ def _parse_silent_answers(text: str) -> dict[str, str]:
             collecting = True
             buffer = []
             continue
+        answer_tail = _answer_tail(line)
+        if answer_tail is not None:
+            collecting = True
+            buffer = [answer_tail] if answer_tail else []
+            continue
         if collecting:
             buffer.append(line)
     flush()
@@ -126,10 +131,22 @@ def _parse_answers(text: str) -> dict[str, str]:
             collecting = True
             buffer = []
             continue
+        answer_tail = _answer_tail(line)
+        if answer_tail is not None:
+            collecting = True
+            buffer = [answer_tail] if answer_tail else []
+            continue
         if collecting:
             buffer.append(line)
     flush()
     return answers
+
+
+def _answer_tail(line: str) -> str | None:
+    stripped = line.strip()
+    if not stripped.casefold().startswith("answer:"):
+        return None
+    return stripped.split(":", 1)[1].strip()
 
 
 def _clean_answer(lines: list[str]) -> str:
@@ -174,8 +191,20 @@ def _validation_signals(answers: dict[str, str], silent_answers: dict[str, str])
         "next_probe_requested": bool(next_probe),
         "trusted_evidence_recorded": bool(answers.get("trusted_evidence", "")),
         "unclear_or_weak_evidence_recorded": bool(answers.get("unclear_or_weak_evidence", "")),
-        "wants_repeat_review": _contains_any(" ".join([*answers.values(), *silent_answers.values()]), {"before every release", "every release", "again before", "rerun"}),
+        "wants_repeat_review": _wants_repeat_review(answers, silent_answers),
     }
+
+
+def _wants_repeat_review(answers: dict[str, str], silent_answers: dict[str, str]) -> bool:
+    question_6 = silent_answers.get("question_6", "").strip().casefold()
+    if question_6.startswith(("yes", "yep", "yeah")):
+        return True
+    if question_6.startswith("no"):
+        return False
+    return _contains_any(
+        " ".join([*answers.values(), *silent_answers.values()]),
+        {"before every release", "every release", "again before", "repeat before release", "before release", "rerun"},
+    )
 
 
 def _confusion_summary(answers: dict[str, str]) -> dict[str, Any]:

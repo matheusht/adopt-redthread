@@ -120,6 +120,31 @@ class ReviewerObservationSummaryTests(unittest.TestCase):
         self.assertIn("The matrix is dense", summary_md)
         self.assertNotIn("authorization:", summary_md.casefold())
 
+    def test_inline_answer_template_style_is_captured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            observation = root / "reviewer_observation_template.md"
+            output = root / "out"
+            inline = FILLED_OBSERVATION.replace("Answer:\n", "Answer: ")
+            observation.write_text(inline, encoding="utf-8")
+
+            summary = summarize_reviewer_observation(observation, output_dir=output, fail_on_marker_hit=True)
+
+        self.assertTrue(summary["completion_summary"]["complete"])
+        self.assertEqual(summary["validation_signals"]["release_decision"], "review")
+        self.assertEqual(summary["validation_signals"]["decision_consistency"], "consistent")
+        self.assertEqual(summary["completion_summary"]["answered_silent_question_count"], 6)
+
+    def test_question_six_yes_counts_as_repeat_review_request(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            observation = Path(tmp) / "reviewer_observation_template.md"
+            text = FILLED_OBSERVATION.replace("Yes, before every release.", "Yes, especially when tool scopes or boundary selectors change before release.")
+            observation.write_text(text, encoding="utf-8")
+
+            summary = summarize_reviewer_observation(observation, output_dir=Path(tmp) / "out")
+
+        self.assertTrue(summary["validation_signals"]["wants_repeat_review"])
+
     def test_incomplete_blank_template_is_not_reviewer_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             observation = Path(tmp) / "reviewer_observation_template.md"

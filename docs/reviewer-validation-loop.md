@@ -51,10 +51,24 @@ Forbidden evidence:
    runs/reviewer_packet/reviewer_observation_template.md
    ```
 
-5. Summarize the filled template:
+5. Summarize the filled template. For one-off local use, the default output is `runs/reviewer_packet/`; for multiple reviewers, write each summary to a separate output directory:
 
    ```bash
-   make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md
+   make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md \
+     OBSERVATION_OUTPUT=runs/reviewer_validation/review_1
+   ```
+
+   The parser accepts both template styles reviewers commonly produce:
+
+   ```text
+   Answer:
+   change
+   ```
+
+   and:
+
+   ```text
+   Answer: change
    ```
 
 6. Treat incomplete summaries as non-validation evidence:
@@ -73,7 +87,7 @@ The observation summary records:
 - whether behavior change was recorded
 - whether a next probe was requested
 - whether trusted evidence and weak/unclear evidence were recorded
-- whether the reviewer wants repeat review before every release
+- whether silent Question 6 indicates repeat review before release, including `Yes, ... before release` wording
 - configured sensitive-marker audit status
 
 The summary is still only one reviewer signal. It is not proof of product demand by itself.
@@ -125,6 +139,19 @@ The rollup does not copy free-form reviewer answer text. It buckets reviewer con
 - `artifact_navigation`
 
 Use these counts to decide the next wording or evidence slice. Do not treat them as vulnerability findings.
+
+## AI cold-review validation note
+
+On 2026-05-01, three separate no-tools Pi cold-review runs were given only the sanitized report, matrix, reviewer packet, and observation template. This is real AI-review validation of the packet mechanics, not external buyer or human-security-review validation.
+
+The run found two parser issues before product conclusions were drawn:
+
+- reviewers commonly returned `Answer: value` inline, while the first parser only counted `Answer:` followed by a later line;
+- reviewers answered Question 6 as `Yes, ... before release`, while the first repeat-review detector only counted narrower `before every release` language.
+
+Both issues are now fixed. After regeneration, all three AI cold-review summaries were complete, marker-clean, decision-consistent, and rolled up as `ready_for_validation_readout`; all three selected `change`/project `review`, requested a tenant/user boundary probe, and treated the packet as useful before release.
+
+Do not overclaim this as demand validation. The next stronger validation is still external target reviewers using the same sanitized protocol.
 
 ## Decision rule
 

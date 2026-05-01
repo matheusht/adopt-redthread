@@ -86,6 +86,8 @@ Run these because they are deterministic, local, read-only, or explicitly bounde
 - `make demo-reviewed-write-reference`
 - `make evidence-report`
 - `make evidence-matrix`
+- `make evidence-packet`
+- `make evidence-boundary-probe-plan` (plan-only artifact; no live execution)
 - `make check-zapi-reference` when the local ignored HAR/run artifacts are present
 - `make test`
 - `scripts/run_bridge_pipeline.py` against sanitized fixture inputs
@@ -232,6 +234,7 @@ What should exist:
 - a small set of generic RedThread runtime/evidence fields proposed upstream
 - at least one silent reviewer observation recorded
 - a three-review validation rollup when enough complete cold-review summaries exist
+- external human reviewer validation after the current no-tools AI cold-review readout
 
 Success standard:
 

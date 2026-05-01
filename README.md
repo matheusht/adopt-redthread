@@ -152,7 +152,9 @@ make demo-reviewed-write-reference
 make evidence-report
 make evidence-matrix
 make evidence-packet
+make evidence-external-review-handoff
 make evidence-boundary-probe-plan
+make evidence-boundary-execution-design
 make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md OBSERVATION_OUTPUT=/path/to/review_output_dir
 make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"
 make redthread-contract-proposal
@@ -189,7 +191,9 @@ Generated outputs:
 - `runs/reviewed_write_reference/` — generated deterministic ATP-like reviewed-write reference; run with `make demo-reviewed-write-reference`, inspect `evidence_report.md`
 - `runs/evidence_matrix/` — generated approve/review/block evidence matrix; run with `make evidence-matrix`
 - `runs/reviewer_packet/` — generated sanitized reviewer handoff index with silent-review questions, cold-review protocol, artifact hashes, marker/completeness audit results, reviewer observation template, and optional reviewer-observation summary; run with `make evidence-packet` and `make evidence-observation-summary OBSERVATION=/path/to/filled_template.md`
+- `runs/external_review_handoff/` — generated external human cold-review handoff directory with only sanitized artifacts, instructions, hashes, and marker audit; run with `make evidence-external-review-handoff`; this is not validation until filled observations are summarized
 - `runs/boundary_probe_plan/` — generated sanitized tenant/user boundary next-probe plan from existing reviewed-write evidence; run with `make evidence-boundary-probe-plan`; this is planning evidence, not execution evidence
+- `runs/boundary_execution_design/` — generated copy of the tenant/user boundary execution design and result contract; run with `make evidence-boundary-execution-design`; checked-in source is `docs/tenant-user-boundary-execution-design.md`
 - `runs/reviewer_validation/` — generated validation rollup across sanitized reviewer-observation summaries; run with `make evidence-observation-summary OBSERVATION=/path/to/filled_template.md OBSERVATION_OUTPUT=runs/reviewer_validation/review_1` per reviewer, then `make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"`
 - `runs/redthread_evidence_contract_proposal/` — generated copy of the tiny generic RedThread evidence-contract proposal; run with `make redthread-contract-proposal`; checked-in source is `docs/redthread-evidence-contract-proposal.md`
 - `runs/atp_tennis_01_live_bound/` — real ZAPI reference run; final decision is `review`, not `approve`, because write paths still require manual review; validate with `make check-zapi-reference`
@@ -203,7 +207,10 @@ Generated outputs:
 - `docs/impact-execution-checklist.md` — current impact-first execution checklist and upstream boundary
 - `docs/impact-implementation-log.md` — implementation notes for runtime binding truth and RedThread context surfacing
 - `docs/reviewer-validation-loop.md` — cold-review protocol, observation summary, and multi-review validation rollup flow
+- `docs/external-human-cold-review-handoff.md` — exact external human reviewer handoff protocol and count rules
 - `docs/ai-cold-review-validation-readout.md` — no-tools AI cold-review validation result, parser fixes found by validation, and limits of the evidence
+- `docs/next-three-slices-plan.md` — implementation plan and acceptance criteria for the external handoff plus boundary execution design slices
+- `docs/tenant-user-boundary-execution-design.md` — design-only approved-context and sanitized-result contract for future tenant/user boundary probe execution
 - `docs/hero-flow-binding-truth.md` — demo-grade proof artifact guide for planned/applied binding evidence
 - `docs/architecture.md` — proposed end-to-end integration architecture
 - `docs/live-workflow-explained.md` — simple explanation of what is live now, what is not, and how the workflow should act

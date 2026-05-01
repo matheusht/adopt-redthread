@@ -1173,3 +1173,70 @@ Validation:
 - unit tests cover sanitized artifact generation and marker-hit fail-closed behavior
 - real generated-artifact validation ran `make evidence-boundary-probe-plan` against `runs/reviewed_write_reference/`
 - generated-artifact result: `boundary_probe_status=needs_boundary_probe`, `selector_count=3`, `marker_hits=0`, `marker_audit_passed=true`
+
+## 2026-05-01 — next three implementation slices
+
+Planned and implemented the next three local slices without adding integrations or changing verdict semantics.
+
+### Slice 1 — package sanitized external-review handoff
+
+Implemented:
+
+- `scripts/build_external_review_handoff.py`
+- `make evidence-external-review-handoff`
+- `tests/test_external_review_handoff.py`
+- `docs/external-human-cold-review-handoff.md`
+
+What it does:
+
+- copies only the sanitized reviewer-facing markdown artifacts into `runs/external_review_handoff/`
+- writes `external_reviewer_instructions.md`
+- writes `external_review_handoff_manifest.json` with artifact hashes, marker-audit status, and handoff-completeness status
+- explicitly marks the package as `not_validation_until_filled_observations_are_summarized`
+
+What it does not do:
+
+- does not claim an external review has happened
+- does not copy raw captures, repo context, source files, session material, request/response bodies, or write-context values
+- does not bypass the observation-summary and validation-rollup flow
+
+### Slice 2 — external human validation protocol made executable
+
+The handoff directory now contains a reviewer protocol that can be given to a human reviewer with no walkthrough.
+
+Count rule:
+
+- observation summary must be complete
+- configured sensitive-marker audit must pass
+- release decision must be recorded
+- trusted and weak/unclear evidence must be recorded
+- all six silent-review answers must be present
+
+Blocked status remains:
+
+- actual external human validation is still pending until reviewers fill observations
+- incomplete, walked-through, or marker-hit observations are not validation evidence
+
+### Slice 3 — tenant/user boundary execution design
+
+Implemented:
+
+- `scripts/build_boundary_execution_design.py`
+- `make evidence-boundary-execution-design`
+- `tests/test_boundary_execution_design.py`
+- `docs/tenant-user-boundary-execution-design.md`
+
+What it defines:
+
+- approved local context contract: `adopt_redthread.boundary_probe_context.v1`
+- sanitized boundary result contract: `adopt_redthread.boundary_probe_result.v1`
+- allowed result statuses: `not_run`, `passed_boundary_probe`, `failed_boundary_probe`, `blocked_missing_context`, `auth_or_replay_failed`
+- execution flow to implement later: load approved context, select selector, run own-scope control, run cross-scope probe, write sanitized result
+- decision mapping that keeps auth/replay/context failures separate from confirmed findings
+
+What it does not do:
+
+- does not implement an executor
+- does not execute against production or staging
+- does not change `approve` / `review` / `block` semantics
+- does not remove `tenant_user_boundary_unproven` until actual boundary result evidence exists

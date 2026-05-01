@@ -14,7 +14,9 @@ Current scripts:
 - `build_evidence_report.py` — build a markdown evidence report from a bridge run directory, including plain-English block reasons and rerun triggers
 - `build_evidence_matrix.py` — build a local approve/review/block evidence matrix with responsible decision agents, rerun triggers, and sanitized summaries only
 - `build_reviewer_packet.py` — build a sanitized reviewer handoff packet that points to the report/matrix, includes silent-review questions and an observation template, records artifact hashes, and audits generated markdown for configured sensitive markers plus required handoff sections
+- `build_external_review_handoff.py` — copy only the sanitized reviewer-facing artifacts into an external human cold-review handoff directory, with instructions, hashes, marker audit, and explicit non-validation status until filled observations are summarized
 - `build_boundary_probe_plan.py` — build a sanitized tenant/user boundary probe plan from app-context and coverage evidence; plan-only, no raw values, no execution, and fails on configured sensitive marker hits
+- `build_boundary_execution_design.py` — write the approved-context and sanitized-result contract for future tenant/user boundary probe execution; design-only, no executor
 - `summarize_reviewer_observation.py` — summarize a filled reviewer observation template into sanitized behavior-change/confusion signals without raw run artifacts; accepts both `Answer:` on its own line and `Answer: value` inline template output
 - `summarize_reviewer_validation_rollup.py` — aggregate sanitized reviewer-observation summaries across cold-review sessions into validation status, theme counts, and next actions without copying free-form reviewer answers
 - `build_redthread_evidence_contract_proposal.py` — write the tiny generic RedThread evidence-contract proposal to `docs/` and `runs/` without upstreaming or adding integration plumbing
@@ -50,7 +52,9 @@ Handy commands:
 - `make evidence-report` — rebuild the markdown evidence report for `runs/reviewed_write_reference/`
 - `make evidence-matrix` — build `runs/evidence_matrix/evidence_matrix.{md,json}` with approve, review, and block rows
 - `make evidence-packet` — build `runs/reviewer_packet/reviewer_packet.{md,json}` plus `reviewer_observation_template.md` from the sanitized report/matrix and fail if configured sensitive markers or required handoff sections are missing
+- `make evidence-external-review-handoff` — build `runs/external_review_handoff/` with only sanitized review artifacts, external reviewer instructions, hashes, marker audit, and a clear not-validation-until-summarized status
 - `make evidence-boundary-probe-plan` — build `runs/boundary_probe_plan/tenant_user_boundary_probe_plan.{md,json}` from existing reviewed-write evidence; this is a sanitized next-probe plan, not execution evidence
+- `make evidence-boundary-execution-design` — write `docs/tenant-user-boundary-execution-design.md` plus generated `runs/boundary_execution_design/` copies of the approved-context and boundary-result contract; this is design-only, not execution
 - `make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md OBSERVATION_OUTPUT=/path/to/review_output_dir` — summarize filled silent-review answers into `reviewer_observation_summary.{md,json}` under the output directory and fail on configured sensitive markers; default output is `runs/reviewer_packet/`
 - `make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"` — aggregate sanitized observation summaries into `runs/reviewer_validation/reviewer_validation_rollup.{md,json}`; default uses the current local packet summary
 - `make redthread-contract-proposal` — regenerate `docs/redthread-evidence-contract-proposal.md` and `runs/redthread_evidence_contract_proposal/redthread_evidence_contract_proposal.{md,json}`

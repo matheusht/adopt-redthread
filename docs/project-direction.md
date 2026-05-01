@@ -87,7 +87,9 @@ Run these because they are deterministic, local, read-only, or explicitly bounde
 - `make evidence-report`
 - `make evidence-matrix`
 - `make evidence-packet`
+- `make evidence-external-review-handoff` (sanitized handoff packaging only; not validation by itself)
 - `make evidence-boundary-probe-plan` (plan-only artifact; no live execution)
+- `make evidence-boundary-execution-design` (design-only contract; no live execution)
 - `make check-zapi-reference` when the local ignored HAR/run artifacts are present
 - `make test`
 - `scripts/run_bridge_pipeline.py` against sanitized fixture inputs

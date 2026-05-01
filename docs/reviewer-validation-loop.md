@@ -34,9 +34,17 @@ Forbidden evidence:
    make evidence-packet
    ```
 
-2. Give the reviewer only the sanitized report, matrix, and reviewer packet.
+2. For an external human review, build the sanitized handoff directory:
 
-3. Ask the reviewer to answer the six silent-review questions before any explanation:
+   ```bash
+   make evidence-external-review-handoff
+   ```
+
+   The handoff is documented in [`docs/external-human-cold-review-handoff.md`](external-human-cold-review-handoff.md). It is packaging only, not validation by itself.
+
+3. Give the reviewer only the sanitized report, matrix, reviewer packet, observation template, and external reviewer instructions.
+
+4. Ask the reviewer to answer the six silent-review questions before any explanation:
 
    - Based on this evidence, would you ship, change, or block the release?
    - What part of the decision did you trust most?
@@ -45,13 +53,13 @@ Forbidden evidence:
    - Did the evidence distinguish confirmed issue vs auth/replay failure vs insufficient evidence?
    - Would you want this before every release of this agent/tool?
 
-4. Have the reviewer fill:
+5. Have the reviewer fill a copy of:
 
    ```text
-   runs/reviewer_packet/reviewer_observation_template.md
+   reviewer_observation_template.md
    ```
 
-5. Summarize the filled template. For one-off local use, the default output is `runs/reviewer_packet/`; for multiple reviewers, write each summary to a separate output directory:
+6. Summarize the filled template. For one-off local use, the default output is `runs/reviewer_packet/`; for multiple reviewers, write each summary to a separate output directory:
 
    ```bash
    make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md \
@@ -71,7 +79,7 @@ Forbidden evidence:
    Answer: change
    ```
 
-6. Treat incomplete summaries as non-validation evidence:
+7. Treat incomplete summaries as non-validation evidence:
 
    ```text
    incomplete_not_reviewer_evidence

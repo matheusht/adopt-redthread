@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from adapters.bridge.evidence_summaries import build_attack_brief_summary
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, select_campaign_strategy
 from adapters.bridge.live_attack import build_execution_policy
 from adapters.redthread_runtime.app_context import build_app_context, summarize_app_context
 from adapters.redthread_runtime.runtime_bridge_context import build_bridge_workflow_context
@@ -87,17 +87,22 @@ def build_replay_trace(fixture: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_campaign_case(fixture: dict[str, Any]) -> dict[str, Any]:
-    rubric_name = _rubric_name(fixture)
+    strategy = select_campaign_strategy(fixture)
+    rubric_name = strategy["rubric_name"]
     return {
         "case_id": fixture["name"],
         "fixture_name": fixture["name"],
         "objective": _objective_text(fixture),
         "system_prompt": _system_prompt_text(fixture),
         "rubric_name": rubric_name,
-        "algorithm": _algorithm_hint(fixture),
+        "algorithm": strategy["algorithm"],
         "personas": 1,
         "execution_policy": build_execution_policy(fixture),
-        "why_this_case": f"Generated from {fixture['method']} {fixture['path']} with {rubric_name} focus.",
+        "risk_themes": strategy["risk_themes"],
+        "top_targeted_probe": strategy["top_targeted_probe"],
+        "targeted_questions": strategy["targeted_questions"],
+        "rubric_selection_rationale": strategy["rubric_selection_rationale"],
+        "why_this_case": f"Generated from {fixture['method']} {fixture['path']} with {rubric_name} focus: {strategy['rubric_selection_rationale']}",
     }
 
 

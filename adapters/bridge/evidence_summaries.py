@@ -9,6 +9,53 @@ USER_FIELD_HINTS = {"user", "profile", "account", "owner", "member", "customer",
 TENANT_FIELD_HINTS = {"tenant", "org", "organization", "workspace", "company", "business"}
 RESOURCE_FIELD_HINTS = {"chat", "conversation", "thread", "project", "document", "file", "order", "report", "resource", "memory"}
 DISPATCH_FIELD_HINTS = {"action", "path", "function", "operation", "tool", "route", "handler", "procedure"}
+MESSAGE_FIELD_HINTS = {"message", "msg", "chat", "prompt", "content", "body", "comment", "conversation", "system"}
+
+
+def select_campaign_strategy(fixture: dict[str, Any]) -> dict[str, Any]:
+    """Select a small deterministic RedThread dry-run strategy from sanitized fixture structure."""
+
+    fields = _fixture_fields(fixture)
+    candidates = {str(value) for value in fixture.get("candidate_attack_types", [])}
+    dispatch_fields = _matching_fields(fields, DISPATCH_FIELD_HINTS)
+    secret_fields = _matching_fields(fields, SECRET_FIELD_HINTS)
+    user_fields = _matching_fields(fields, USER_FIELD_HINTS)
+    tenant_fields = _matching_fields(fields, TENANT_FIELD_HINTS)
+    resource_fields = _matching_fields(fields, RESOURCE_FIELD_HINTS)
+    message_fields = _matching_fields(fields, MESSAGE_FIELD_HINTS)
+    action_counts = {_fixture_action_class(fixture): 1}
+    sensitivity_tags = _fixture_sensitivity_tags(fixture, fields, secret_fields, message_fields)
+    risk_themes = _risk_themes(
+        dispatch_fields,
+        user_fields,
+        tenant_fields,
+        resource_fields,
+        secret_fields,
+        action_counts,
+        sensitivity_tags,
+    )
+
+    if dispatch_fields:
+        rubric_name = "authorization_bypass"
+    elif message_fields or "prompt_injection" in candidates:
+        rubric_name = "prompt_injection"
+    elif secret_fields or "data_exfiltration" in candidates or "secret_like" in sensitivity_tags:
+        rubric_name = "sensitive_info"
+    elif user_fields or tenant_fields or resource_fields or "authorization_bypass" in candidates:
+        rubric_name = "authorization_bypass"
+    else:
+        rubric_name = "authorization_bypass"
+
+    algorithm = "crescendo" if rubric_name == "prompt_injection" else "tap" if fixture.get("replay_class") == "sandbox_only" else "pair"
+    probe = _top_probe(dispatch_fields, user_fields, tenant_fields, resource_fields, secret_fields, action_counts)
+    return {
+        "rubric_name": rubric_name,
+        "algorithm": algorithm,
+        "risk_themes": risk_themes,
+        "rubric_selection_rationale": rubric_rationale(rubric_name, risk_themes, probe),
+        "top_targeted_probe": probe,
+        "targeted_questions": targeted_missing_context_questions(risk_themes),
+    }
 
 
 def build_decision_reason_summary(
@@ -134,7 +181,13 @@ def build_coverage_summary(
     }
 
 
-def build_attack_brief_summary(app_context: dict[str, Any] | None, app_context_summary: dict[str, Any] | None = None, *, dryrun_rubric_name: str | None = None) -> dict[str, Any]:
+def build_attack_brief_summary(
+    app_context: dict[str, Any] | None,
+    app_context_summary: dict[str, Any] | None = None,
+    *,
+    dryrun_rubric_name: str | None = None,
+    dryrun_rubric_rationale: str | None = None,
+) -> dict[str, Any]:
     app_context = app_context if isinstance(app_context, dict) else {}
     app_context_summary = app_context_summary if isinstance(app_context_summary, dict) else {}
     tool_schemas = [item for item in app_context.get("tool_action_schema", []) if isinstance(item, dict)]
@@ -161,9 +214,24 @@ def build_attack_brief_summary(app_context: dict[str, Any] | None, app_context_s
         "secret_like_fields": _first_n(secret_fields, 8),
         "risk_themes": risk_themes,
         "top_targeted_probe": probe,
+        "targeted_missing_context_questions": targeted_missing_context_questions(risk_themes),
         "dryrun_rubric_name": rubric,
-        "dryrun_rubric_rationale": rubric_rationale(rubric, risk_themes, probe),
+        "dryrun_rubric_rationale": dryrun_rubric_rationale or rubric_rationale(rubric, risk_themes, probe),
     }
+
+
+def targeted_missing_context_questions(risk_themes: list[str] | None = None) -> list[str]:
+    risk_set = set(risk_themes or [])
+    questions: list[str] = []
+    if "dispatch_surface" in risk_set:
+        questions.append("Is the action/path dispatch allowlisted server-side for this actor?")
+    if "tenant_user_boundary" in risk_set:
+        questions.append("Can this actor access another actor's object with this identifier class?")
+    if "secret_like_fields" in risk_set:
+        questions.append("Are secret-like fields server-derived or rejected when supplied by untrusted clients?")
+    if "write_surface" in risk_set:
+        questions.append("Can this write/destructive operation run only with approved staging context and human review?")
+    return questions[:3]
 
 
 def rubric_rationale(rubric_name: str | None, risk_themes: list[str] | None = None, probe: str | None = None) -> str:
@@ -234,6 +302,43 @@ def _value_from(summary: dict[str, Any], workflow: dict[str, Any] | None, summar
     if workflow and workflow_key in workflow:
         return workflow[workflow_key]
     return default
+
+
+def _fixture_fields(fixture: dict[str, Any]) -> list[str]:
+    fields: list[str] = []
+    for key in ("query_params", "body_fields", "response_fields"):
+        values = fixture.get(key, [])
+        if isinstance(values, list):
+            fields.extend(str(value).strip().lower() for value in values if str(value).strip())
+    fields.extend(
+        str(fixture.get(key, "")).strip().lower()
+        for key in ("path", "endpoint_family", "workflow_group")
+        if str(fixture.get(key, "")).strip()
+    )
+    return sorted(dict.fromkeys(fields))
+
+
+def _fixture_action_class(fixture: dict[str, Any]) -> str:
+    method = str(fixture.get("method", "GET")).upper()
+    attack_types = {str(value) for value in fixture.get("candidate_attack_types", [])}
+    replay_class = str(fixture.get("replay_class", ""))
+    if method in {"DELETE", "PATCH"} or "destructive_action_abuse" in attack_types:
+        return "destructive"
+    if method in {"POST", "PUT"} or replay_class in {"manual_review", "sandbox_only"}:
+        return "write"
+    return "read"
+
+
+def _fixture_sensitivity_tags(fixture: dict[str, Any], fields: list[str], secret_fields: list[str], message_fields: list[str]) -> list[str]:
+    tags: list[str] = []
+    sensitivity = str(fixture.get("data_sensitivity", "")).lower()
+    if sensitivity == "secret" or secret_fields:
+        tags.append("secret_like")
+    if sensitivity == "pii" or _matching_fields(fields, USER_FIELD_HINTS | {"email", "phone", "name"}):
+        tags.append("user_data")
+    if message_fields:
+        tags.append("support_message_like")
+    return sorted(dict.fromkeys(tags))
 
 
 def _field_names(tool_schemas: list[dict[str, Any]]) -> list[str]:

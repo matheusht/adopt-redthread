@@ -44,6 +44,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         runtime_inputs.get("app_context", {}),
         app_context_summary,
         dryrun_rubric_name=summary.get("dryrun_rubric_name"),
+        dryrun_rubric_rationale=summary.get("dryrun_rubric_rationale"),
     )
 
     lines = [
@@ -98,6 +99,7 @@ def build_evidence_report(run_dir: str | Path, output_path: str | Path | None = 
         "",
         f"- Risk themes: `{_join(attack_brief_summary.get('risk_themes', []))}`",
         f"- Top targeted probe/question: {attack_brief_summary.get('top_targeted_probe', 'n/a')}",
+        f"- Targeted missing-context questions: `{_join(attack_brief_summary.get('targeted_missing_context_questions', []))}`",
         f"- Boundary candidate fields: `{_join(attack_brief_summary.get('boundary_candidate_fields', []))}`",
         f"- Dispatch candidate fields: `{_join(attack_brief_summary.get('dispatch_candidate_fields', []))}`",
         f"- Secret-like fields: `{_join(attack_brief_summary.get('secret_like_fields', []))}`",

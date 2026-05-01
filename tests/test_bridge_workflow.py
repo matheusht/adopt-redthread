@@ -55,6 +55,8 @@ class BridgeWorkflowTests(unittest.TestCase):
         self.assertEqual(workflow_summary["coverage_summary"]["label"], "weak_fixture_or_dryrun_only")
         self.assertIn("tenant_user_boundary_unproven", workflow_summary["coverage_summary"]["coverage_gaps"])
         self.assertIn("top_targeted_probe", workflow_summary["attack_brief_summary"])
+        self.assertIn("targeted_missing_context_questions", workflow_summary["attack_brief_summary"])
+        self.assertIn("dryrun_rubric_rationale", workflow_summary)
         self.assertEqual(workflow_summary["app_context_summary"]["operation_count"], 4)
         self.assertEqual(workflow_summary["app_context_summary"]["auth_mode"], "api_key")
         self.assertEqual(workflow_summary["app_context_summary"]["action_class_counts"], {"write": 4})

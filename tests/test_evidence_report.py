@@ -53,6 +53,7 @@ class EvidenceReportTests(unittest.TestCase):
                     "attack_brief_summary": {
                         "risk_themes": ["tenant_user_boundary", "write_surface"],
                         "top_targeted_probe": "Verify user/tenant identifiers are server-side derived or ownership-checked, not trusted from the client.",
+                        "targeted_missing_context_questions": ["Can this actor access another actor's object with this identifier class?"],
                         "boundary_candidate_fields": ["user_id"],
                         "dispatch_candidate_fields": [],
                         "secret_like_fields": [],
@@ -116,6 +117,7 @@ class EvidenceReportTests(unittest.TestCase):
         self.assertIn("Coverage gaps: `auth_or_replay_blocked,tenant_user_boundary_unproven,workflow_blocked`", report)
         self.assertIn("## Attack brief for RedThread", report)
         self.assertIn("Top targeted probe/question: Verify user/tenant identifiers", report)
+        self.assertIn("Targeted missing-context questions: `Can this actor access another actor's object", report)
         self.assertIn("Dry-run rubric rationale: Selected because user/tenant/resource identifiers", report)
 
 

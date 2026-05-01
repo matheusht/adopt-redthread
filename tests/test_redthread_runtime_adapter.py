@@ -78,6 +78,39 @@ class RedThreadRuntimeAdapterTests(unittest.TestCase):
         for raw_value in raw_values_that_must_not_leak:
             self.assertNotIn(raw_value, serialized_context)
 
+    def test_runtime_export_selects_dispatch_authorization_rubric_for_generic_action(self) -> None:
+        bundle = {
+            "source": "unit",
+            "input_file": "synthetic.har",
+            "fixture_count": 1,
+            "fixtures": [
+                {
+                    "name": "post_agent_action",
+                    "method": "POST",
+                    "path": "/api/agent/execute",
+                    "query_params": [],
+                    "body_fields": ["action", "credentials.access_token", "target_user_id"],
+                    "response_fields": ["status"],
+                    "auth_hints": ["authorization"],
+                    "workflow_group": "agent",
+                    "replay_class": "manual_review",
+                    "approval_required": True,
+                    "data_sensitivity": "secret",
+                    "candidate_attack_types": ["data_exfiltration", "authorization_bypass"],
+                }
+            ],
+        }
+
+        payload = build_redthread_runtime_inputs(bundle)
+        case = payload["campaign_cases"][0]
+
+        self.assertEqual(case["rubric_name"], "authorization_bypass")
+        self.assertEqual(case["algorithm"], "pair")
+        self.assertIn("dispatch_surface", case["risk_themes"])
+        self.assertIn("secret_like_fields", case["risk_themes"])
+        self.assertIn("generic action/dispatch fields", case["rubric_selection_rationale"])
+        self.assertLessEqual(len(case["targeted_questions"]), 3)
+
     def test_exported_bundle_can_be_evaluated_with_real_redthread_code(self) -> None:
         runtime_output = Path("fixtures/replay_packs/test_runtime_inputs.json")
         verdict_output = Path("fixtures/replay_packs/test_runtime_verdict.json")

@@ -382,3 +382,31 @@ make evidence-matrix
 make test
 ```
 
+## 2026-05-01 — targeted rubric and missing-context question slice
+
+Planned next slice: keep scope to deterministic rubric selection and reviewer-visible missing-context questions. This directly addresses Gainly-like generic action dispatch risk without adding a broad scanner or config wizard.
+
+Implemented:
+
+- `select_campaign_strategy(...)` for deterministic RedThread dry-run case selection from sanitized fixture structure.
+- Dispatch/action fields now take priority over generic sensitive-info framing, so generic action endpoints route toward authorization/dispatch probing.
+- Runtime campaign cases now include sanitized `risk_themes`, `top_targeted_probe`, `targeted_questions`, and `rubric_selection_rationale`.
+- `scripts/run_redthread_dryrun.py` preserves those fields in dry-run summaries.
+- `workflow_summary.json` now carries `dryrun_rubric_rationale` when a dry-run executes.
+- Evidence reports now show targeted missing-context questions, capped at three.
+
+Guardrails held:
+
+- No `approve` / `review` / `block` semantic changes.
+- No raw auth/header/session/body values emitted.
+- Deterministic prompt-injection sample behavior remains stable.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_evidence_summaries tests.test_redthread_runtime_adapter tests.test_bridge_workflow tests.test_evidence_report tests.test_evidence_matrix -v
+make evidence-report
+make evidence-matrix
+make test
+```
+

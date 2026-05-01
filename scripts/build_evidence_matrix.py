@@ -183,6 +183,7 @@ def _engine_summary_cells(summary: dict[str, Any], gate: dict[str, Any], live_wo
         runtime_inputs.get("app_context", {}),
         app_context_summary,
         dryrun_rubric_name=summary.get("dryrun_rubric_name"),
+        dryrun_rubric_rationale=summary.get("dryrun_rubric_rationale"),
     )
     return {
         "decision_reason_category": decision_reason.get("category", "unknown"),

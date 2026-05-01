@@ -180,10 +180,12 @@ def run_bridge_workflow(
     if dryrun_summary is not None:
         summary["dryrun_case_id"] = dryrun_summary["case_id"]
         summary["dryrun_rubric_name"] = dryrun_summary["rubric_name"]
+        summary["dryrun_rubric_rationale"] = dryrun_summary.get("rubric_selection_rationale") or _campaign_case_rationale(runtime_inputs, dryrun_summary["case_id"])
     summary["attack_brief_summary"] = build_attack_brief_summary(
         runtime_inputs.get("app_context", {}),
         runtime_inputs.get("app_context_summary", {}),
         dryrun_rubric_name=summary.get("dryrun_rubric_name"),
+        dryrun_rubric_rationale=summary.get("dryrun_rubric_rationale"),
     )
     summary["decision_reason_summary"] = build_decision_reason_summary(
         gate_verdict,
@@ -200,6 +202,15 @@ def run_bridge_workflow(
     )
     write_json(paths["summary"], summary)
     return summary
+
+
+def _campaign_case_rationale(runtime_inputs: dict[str, Any], case_id: str) -> str | None:
+    for case in runtime_inputs.get("campaign_cases", []):
+        if isinstance(case, dict) and case.get("case_id") == case_id:
+            rationale = case.get("rubric_selection_rationale")
+            return str(rationale) if rationale else None
+    return None
+
 
 
 def _build_bundle(input_file: Path, ingestion: str) -> dict[str, Any]:

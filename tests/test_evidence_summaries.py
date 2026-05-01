@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_coverage_summary, build_decision_reason_summary
+from adapters.bridge.evidence_summaries import build_attack_brief_summary, build_coverage_summary, build_decision_reason_summary, select_campaign_strategy
 
 
 class EvidenceSummaryTests(unittest.TestCase):
@@ -63,6 +63,28 @@ class EvidenceSummaryTests(unittest.TestCase):
         self.assertIn("credentials.access_token", attack_brief["secret_like_fields"])
         self.assertIn("allowlisted", attack_brief["top_targeted_probe"])
         self.assertIn("generic action/dispatch fields", attack_brief["dryrun_rubric_rationale"])
+        self.assertLessEqual(len(attack_brief["targeted_missing_context_questions"]), 3)
+        self.assertIn("action/path dispatch allowlisted", attack_brief["targeted_missing_context_questions"][0])
+
+    def test_campaign_strategy_prioritizes_dispatch_over_generic_sensitive_info(self) -> None:
+        strategy = select_campaign_strategy(
+            {
+                "name": "post_agent_action",
+                "method": "POST",
+                "path": "/api/agent/execute",
+                "body_fields": ["action", "credentials.access_token", "target_user_id"],
+                "candidate_attack_types": ["data_exfiltration", "authorization_bypass"],
+                "replay_class": "manual_review",
+                "data_sensitivity": "secret",
+            }
+        )
+
+        self.assertEqual(strategy["rubric_name"], "authorization_bypass")
+        self.assertEqual(strategy["algorithm"], "pair")
+        self.assertIn("dispatch_surface", strategy["risk_themes"])
+        self.assertIn("secret_like_fields", strategy["risk_themes"])
+        self.assertIn("generic action/dispatch fields", strategy["rubric_selection_rationale"])
+        self.assertLessEqual(len(strategy["targeted_questions"]), 3)
 
     def test_venice_like_auth_block_is_not_reported_as_confirmed_vulnerability(self) -> None:
         summary = {

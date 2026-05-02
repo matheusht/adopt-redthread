@@ -24,6 +24,7 @@ class EvidenceReadinessTests(unittest.TestCase):
                 **paths,
                 output_dir=Path(tmp) / "out",
                 regenerate_freshness=False,
+                regenerate_external_review_returns=False,
                 fail_on_marker_hit=True,
             )
 
@@ -31,8 +32,11 @@ class EvidenceReadinessTests(unittest.TestCase):
             self.assertEqual(payload["readiness_status"], "waiting_for_external_validation")
             blocker_codes = {blocker["code"] for blocker in payload["blockers"]}
             self.assertIn("external_validation_not_ready", blocker_codes)
+            self.assertIn("external_review_returns_not_ready", blocker_codes)
             self.assertIn("boundary_context_not_ready", blocker_codes)
             self.assertIn("boundary_probe_not_executed", blocker_codes)
+            self.assertEqual(payload["components"]["external_review_returns"]["ledger_status"], "waiting_for_returns")
+            self.assertEqual(payload["components"]["external_review_returns"]["boundary_context_request_delivery_status"], "delivered_to_all_sessions")
             self.assertEqual(payload["components"]["boundary_probe_context"]["context_status"], "blocked_missing_context")
             self.assertEqual(payload["components"]["boundary_probe_context_request"]["request_status"], "ready_to_request_context")
             self.assertIn("does not change local bridge approve/review/block verdict semantics", " ".join(payload["non_claims"]))
@@ -50,6 +54,7 @@ class EvidenceReadinessTests(unittest.TestCase):
                 **paths,
                 output_dir=Path(tmp) / "out",
                 regenerate_freshness=False,
+                regenerate_external_review_returns=False,
                 fail_on_marker_hit=True,
             )
 
@@ -70,6 +75,7 @@ class EvidenceReadinessTests(unittest.TestCase):
                 **paths,
                 output_dir=Path(tmp) / "out",
                 regenerate_freshness=False,
+                regenerate_external_review_returns=False,
                 fail_on_marker_hit=True,
             )
 
@@ -88,6 +94,7 @@ class EvidenceReadinessTests(unittest.TestCase):
                 **paths,
                 output_dir=Path(tmp) / "out",
                 regenerate_freshness=False,
+                regenerate_external_review_returns=False,
                 regenerate_boundary_context_request=False,
                 fail_on_marker_hit=True,
             )
@@ -106,6 +113,7 @@ class EvidenceReadinessTests(unittest.TestCase):
                 **paths,
                 output_dir=Path(tmp) / "out",
                 regenerate_freshness=False,
+                regenerate_external_review_returns=False,
                 fail_on_marker_hit=False,
             )
 
@@ -129,6 +137,7 @@ class EvidenceReadinessTests(unittest.TestCase):
                 **paths,
                 output_dir=Path(tmp) / "out",
                 regenerate_freshness=False,
+                regenerate_external_review_returns=False,
                 regenerate_boundary_context_request=False,
                 fail_on_marker_hit=False,
             )
@@ -138,6 +147,7 @@ class EvidenceReadinessTests(unittest.TestCase):
                     **paths,
                     output_dir=Path(tmp) / "out2",
                     regenerate_freshness=False,
+                    regenerate_external_review_returns=False,
                     regenerate_boundary_context_request=False,
                     fail_on_marker_hit=True,
                 )
@@ -158,6 +168,7 @@ class EvidenceReadinessTests(unittest.TestCase):
                 **paths,
                 output_dir=Path(tmp) / "out",
                 regenerate_freshness=False,
+                regenerate_external_review_returns=False,
                 fail_on_marker_hit=False,
             )
             self.assertEqual(payload["readiness_status"], "privacy_blocked")
@@ -166,6 +177,7 @@ class EvidenceReadinessTests(unittest.TestCase):
                     **paths,
                     output_dir=Path(tmp) / "out2",
                     regenerate_freshness=False,
+                    regenerate_external_review_returns=False,
                     fail_on_marker_hit=True,
                 )
 
@@ -216,16 +228,38 @@ def _write_readiness_inputs(
         "output_marker_audit": PASS_AUDIT,
     })
     audit = {"marker_hit_count": 1, "passed": False, "hit_files": ["example"]} if marker_hit else PASS_AUDIT
+    ready_readout = readout_status == "ready_for_external_validation_readout"
     readout = _write_json(root / "external_validation_readout.json", {
         "schema_version": "adopt_redthread.external_validation_readout.v1",
         "readout_status": readout_status,
         "validation_claim": "not_external_validation_until_required_complete_sanitized_observation_summaries_exist",
         "target_review_count": 3,
         "rollup_summary": {
-            "complete_summary_count": 0 if readout_status != "ready_for_external_validation_readout" else 3,
-            "missing_or_invalid_file_count": 3 if readout_status != "ready_for_external_validation_readout" else 0,
+            "complete_summary_count": 3 if ready_readout else 0,
+            "missing_or_invalid_file_count": 0 if ready_readout else 3,
         },
         "sanitized_marker_audit": audit,
+    })
+    returns = _write_json(root / "external_review_return_ledger.json", {
+        "schema_version": "adopt_redthread.external_review_return_ledger.v1",
+        "ledger_status": "ready_for_external_validation_readout" if ready_readout else "waiting_for_returns",
+        "summary": {
+            "session_count": 3,
+            "complete_count": 3 if ready_readout else 0,
+            "missing_summary_count": 0 if ready_readout else 3,
+            "invalid_summary_count": 0,
+            "incomplete_summary_count": 0,
+            "decision_followup_count": 0,
+            "privacy_blocked_count": 0,
+        },
+        "review_input_coverage": {
+            "boundary_context_request_delivery_status": "delivered_to_all_sessions",
+            "delivered_session_count": 3,
+            "boundary_context_request_is_execution_proof": False,
+            "boundary_context_request_is_approved_context": False,
+        },
+        "input_marker_audit": PASS_AUDIT,
+        "output_marker_audit": PASS_AUDIT,
     })
     boundary_context = _write_json(root / "tenant_user_boundary_probe_context.template.json", {
         "schema_version": "adopt_redthread.boundary_probe_context.v1",
@@ -277,6 +311,7 @@ def _write_readiness_inputs(
         "handoff_manifest": handoff,
         "session_batch": batch,
         "validation_readout": readout,
+        "external_review_returns": returns,
         "boundary_context": boundary_context,
         "boundary_context_request": boundary_context_request,
         "boundary_result": boundary,

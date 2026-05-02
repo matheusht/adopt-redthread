@@ -261,6 +261,41 @@ make evidence-readiness
 make evidence-remediation-queue
 ```
 
+## Follow-up Slice — External review return ledger in readiness/remediation
+
+### Objective
+
+Make the external review return ledger first-class in readiness and remediation so operators can see per-review return state and boundary context request delivery coverage from the main local readiness surfaces, without creating validation claims.
+
+### Implemented artifacts
+
+- `scripts/build_evidence_readiness.py` now regenerates/indexes `external_review_return_ledger.json`
+- readiness component `external_review_returns` with ledger status, return counts, and boundary-context-request delivery status
+- readiness blocker `external_review_returns_not_ready`
+- `scripts/build_evidence_remediation_queue.py` maps return-ledger blockers into the existing external-review collection item
+- tests for readiness indexing and remediation deduplication
+- docs updates for readiness/remediation scope and non-claims
+
+### Acceptance criteria
+
+- Readiness records return-ledger status and bounded boundary-context-request delivery metadata.
+- Return-ledger waiting/incomplete state keeps readiness in `waiting_for_external_validation`; it is not a release verdict.
+- Remediation reuses `collect_external_reviewer_observations` rather than creating duplicate human-review items.
+- The context request remains a checklist/request artifact, not approved context, execution proof, validation evidence, or a confirmed finding.
+- No raw context values or filled observations are read, copied, or surfaced.
+- No probe is executed.
+- No bridge verdict semantics change.
+
+### Test/verification commands
+
+```bash
+python3 -m py_compile scripts/build_evidence_readiness.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_evidence_readiness tests.test_evidence_remediation_queue -v
+make evidence-external-review-returns
+make evidence-readiness
+make evidence-remediation-queue
+```
+
 ## Still blocked after follow-up slices
 
 External validation still requires real filled external reviewer observations and sanitized summaries. Boundary execution still requires approved non-production tenant/user context with safe actor scopes, selector bindings, operator approval, and a future executor that consumes only validated context.

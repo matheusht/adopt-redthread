@@ -14,6 +14,8 @@ from scripts.build_boundary_probe_context_request import DEFAULT_OUTPUT_DIR as D
 from scripts.build_boundary_probe_context_request import build_boundary_probe_context_request
 from scripts.build_evidence_freshness_manifest import DEFAULT_OUTPUT_DIR as DEFAULT_FRESHNESS_DIR
 from scripts.build_evidence_freshness_manifest import build_evidence_freshness_manifest
+from scripts.build_external_review_return_ledger import DEFAULT_OUTPUT_DIR as DEFAULT_RETURNS_DIR
+from scripts.build_external_review_return_ledger import build_external_review_return_ledger
 from scripts.build_reviewer_packet import audit_sanitized_markdown
 
 SCHEMA_VERSION = "adopt_redthread.evidence_readiness.v1"
@@ -23,6 +25,7 @@ DEFAULT_REVIEWER_PACKET = REPO_ROOT / "runs" / "reviewer_packet" / "reviewer_pac
 DEFAULT_HANDOFF_MANIFEST = REPO_ROOT / "runs" / "external_review_handoff" / "external_review_handoff_manifest.json"
 DEFAULT_SESSION_BATCH = REPO_ROOT / "runs" / "external_review_sessions" / "external_review_session_batch.json"
 DEFAULT_VALIDATION_READOUT = REPO_ROOT / "runs" / "external_validation_readout" / "external_validation_readout.json"
+DEFAULT_EXTERNAL_REVIEW_RETURNS = DEFAULT_RETURNS_DIR / "external_review_return_ledger.json"
 DEFAULT_BOUNDARY_CONTEXT = REPO_ROOT / "runs" / "boundary_probe_context" / "tenant_user_boundary_probe_context.template.json"
 DEFAULT_BOUNDARY_CONTEXT_REQUEST = DEFAULT_BOUNDARY_CONTEXT_REQUEST_DIR / "tenant_user_boundary_probe_context_request.json"
 DEFAULT_BOUNDARY_RESULT = REPO_ROOT / "runs" / "boundary_probe_result" / "tenant_user_boundary_probe_result.json"
@@ -34,6 +37,7 @@ REQUIRED_SCHEMAS = {
     "external_review_handoff": "adopt_redthread.external_review_handoff.v1",
     "external_review_session_batch": "adopt_redthread.external_review_session_batch.v1",
     "external_validation_readout": "adopt_redthread.external_validation_readout.v1",
+    "external_review_returns": "adopt_redthread.external_review_return_ledger.v1",
     "boundary_probe_context": "adopt_redthread.boundary_probe_context.v1",
     "boundary_probe_context_request": "adopt_redthread.boundary_probe_context_request.v1",
     "boundary_probe_result": "adopt_redthread.boundary_probe_result.v1",
@@ -48,12 +52,14 @@ def build_evidence_readiness(
     handoff_manifest: str | Path = DEFAULT_HANDOFF_MANIFEST,
     session_batch: str | Path = DEFAULT_SESSION_BATCH,
     validation_readout: str | Path = DEFAULT_VALIDATION_READOUT,
+    external_review_returns: str | Path = DEFAULT_EXTERNAL_REVIEW_RETURNS,
     boundary_context: str | Path = DEFAULT_BOUNDARY_CONTEXT,
     boundary_context_request: str | Path = DEFAULT_BOUNDARY_CONTEXT_REQUEST,
     boundary_result: str | Path = DEFAULT_BOUNDARY_RESULT,
     freshness_manifest: str | Path = DEFAULT_FRESHNESS_MANIFEST,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     regenerate_freshness: bool = True,
+    regenerate_external_review_returns: bool = True,
     regenerate_boundary_context_request: bool = True,
     fail_on_marker_hit: bool = True,
 ) -> dict[str, Any]:
@@ -71,6 +77,7 @@ def build_evidence_readiness(
     handoff_path = Path(handoff_manifest)
     batch_path = Path(session_batch)
     readout_path = Path(validation_readout)
+    returns_path = Path(external_review_returns)
     boundary_context_path = Path(boundary_context)
     boundary_context_request_path = Path(boundary_context_request)
     boundary_path = Path(boundary_result)
@@ -87,6 +94,15 @@ def build_evidence_readiness(
         freshness_path = freshness_path.parent / "evidence_freshness_manifest.json"
     else:
         freshness = _load_json(freshness_path)
+
+    if regenerate_external_review_returns:
+        returns = build_external_review_return_ledger(
+            output_dir=returns_path.parent,
+            fail_on_marker_hit=fail_on_marker_hit,
+        )
+        returns_path = returns_path.parent / "external_review_return_ledger.json"
+    else:
+        returns = _load_json(returns_path)
 
     if regenerate_boundary_context_request:
         request = build_boundary_probe_context_request(
@@ -106,8 +122,8 @@ def build_evidence_readiness(
     boundary_context_payload = _load_json(boundary_context_path)
     boundary = _load_json(boundary_path)
 
-    marker_audits = _collect_marker_audits(packet, handoff, batch, readout, boundary_context_payload, request, boundary, freshness)
-    generated_paths = [matrix_path, packet_path, handoff_path, batch_path, readout_path, boundary_context_path, boundary_context_request_path, boundary_path, freshness_path]
+    marker_audits = _collect_marker_audits(packet, handoff, batch, readout, returns, boundary_context_payload, request, boundary, freshness)
+    generated_paths = [matrix_path, packet_path, handoff_path, batch_path, readout_path, returns_path, boundary_context_path, boundary_context_request_path, boundary_path, freshness_path]
     local_audit = _safe_marker_audit(audit_sanitized_markdown([path for path in generated_paths if path.exists()]))
     marker_audits.append({"label": "readiness_input_files", **local_audit})
     if fail_on_marker_hit and any((not audit.get("passed", False)) or int(audit.get("marker_hit_count", 0) or 0) for audit in marker_audits):
@@ -121,6 +137,7 @@ def build_evidence_readiness(
         "external_review_handoff": _handoff_component(handoff_path, handoff),
         "external_review_sessions": _session_component(batch_path, batch),
         "external_validation_readout": _readout_component(readout_path, readout),
+        "external_review_returns": _returns_component(returns_path, returns),
         "boundary_probe_context": _boundary_context_component(boundary_context_path, boundary_context_payload),
         "boundary_probe_context_request": _boundary_context_request_component(boundary_context_request_path, request),
         "boundary_probe_result": _boundary_component(boundary_path, boundary),
@@ -197,6 +214,27 @@ def _readout_component(path: Path, readout: dict[str, Any]) -> dict[str, Any]:
         "complete_summary_count": rollup.get("complete_summary_count", 0),
         "target_review_count": readout.get("target_review_count"),
         "missing_or_invalid_summary_count": rollup.get("missing_or_invalid_file_count", 0),
+    })
+    return component
+
+
+def _returns_component(path: Path, returns: dict[str, Any]) -> dict[str, Any]:
+    summary = returns.get("summary", {}) if isinstance(returns.get("summary"), dict) else {}
+    coverage = returns.get("review_input_coverage", {}) if isinstance(returns.get("review_input_coverage"), dict) else {}
+    component = _schema_component(path, returns, "external_review_returns")
+    component.update({
+        "ledger_status": returns.get("ledger_status"),
+        "complete_count": summary.get("complete_count", 0),
+        "session_count": summary.get("session_count", 0),
+        "missing_summary_count": summary.get("missing_summary_count", 0),
+        "invalid_summary_count": summary.get("invalid_summary_count", 0),
+        "incomplete_summary_count": summary.get("incomplete_summary_count", 0),
+        "decision_followup_count": summary.get("decision_followup_count", 0),
+        "privacy_blocked_count": summary.get("privacy_blocked_count", 0),
+        "boundary_context_request_delivery_status": coverage.get("boundary_context_request_delivery_status"),
+        "boundary_context_request_delivered_session_count": coverage.get("delivered_session_count", 0),
+        "boundary_context_request_is_approved_context": bool(coverage.get("boundary_context_request_is_approved_context", False)),
+        "boundary_context_request_is_execution_proof": bool(coverage.get("boundary_context_request_is_execution_proof", False)),
     })
     return component
 
@@ -282,6 +320,9 @@ def _blockers(components: dict[str, dict[str, Any]], marker_audits: list[dict[st
     readout = components["external_validation_readout"]
     if readout.get("schema_valid") and readout.get("readout_status") != "ready_for_external_validation_readout":
         blockers.append({"code": "external_validation_not_ready", "component": "external_validation_readout", "detail": str(readout.get("readout_status"))})
+    returns = components["external_review_returns"]
+    if returns.get("schema_valid") and returns.get("ledger_status") != "ready_for_external_validation_readout":
+        blockers.append({"code": "external_review_returns_not_ready", "component": "external_review_returns", "detail": str(returns.get("ledger_status"))})
     boundary_context = components["boundary_probe_context"]
     if boundary_context.get("schema_valid") and boundary_context.get("context_status") != "ready_for_boundary_probe":
         blockers.append({"code": "boundary_context_not_ready", "component": "boundary_probe_context", "detail": str(boundary_context.get("context_status"))})
@@ -304,7 +345,7 @@ def _readiness_status(blockers: list[dict[str, str]]) -> str:
         return "missing_required_evidence"
     if "stale_or_missing_evidence_copies" in codes:
         return "stale_or_missing_evidence"
-    if "external_validation_not_ready" in codes:
+    if "external_validation_not_ready" in codes or "external_review_returns_not_ready" in codes:
         return "waiting_for_external_validation"
     if "boundary_context_not_ready" in codes or "boundary_context_request_not_ready" in codes:
         return "boundary_context_pending"
@@ -328,6 +369,9 @@ def _recommended_next_actions(blockers: list[dict[str, str]], components: dict[s
         remaining = components["external_validation_readout"].get("target_review_count") or 3
         complete = components["external_validation_readout"].get("complete_summary_count") or 0
         actions.append(f"Collect and summarize external reviewer observations until complete summaries reach {remaining}; current complete summaries: {complete}.")
+    elif "external_review_returns_not_ready" in codes:
+        returns = components.get("external_review_returns", {})
+        actions.append(f"Resolve external reviewer return ledger blockers before claiming external validation; current ledger status: {returns.get('ledger_status')}.")
     if "boundary_context_not_ready" in codes:
         status = components["boundary_probe_context"].get("context_status")
         request_status = components.get("boundary_probe_context_request", {}).get("request_status")
@@ -422,6 +466,8 @@ def _component_detail(label: str, component: dict[str, Any]) -> str:
         return f"rows:{component.get('row_count', 0)} decisions:{component.get('decision_counts', {})}"
     if label == "external_validation_readout":
         return f"status:{component.get('readout_status')} complete:{component.get('complete_summary_count')}/{component.get('target_review_count')}"
+    if label == "external_review_returns":
+        return f"status:{component.get('ledger_status')} complete:{component.get('complete_count')}/{component.get('session_count')} context_request:{component.get('boundary_context_request_delivery_status')}"
     if label == "boundary_probe_context":
         return f"status:{component.get('context_status')} authorized:{component.get('boundary_probe_execution_authorized')} blockers:{component.get('validation_blocker_count')}"
     if label == "boundary_probe_context_request":
@@ -451,12 +497,14 @@ def main() -> None:
     parser.add_argument("--handoff-manifest", default=str(DEFAULT_HANDOFF_MANIFEST))
     parser.add_argument("--session-batch", default=str(DEFAULT_SESSION_BATCH))
     parser.add_argument("--validation-readout", default=str(DEFAULT_VALIDATION_READOUT))
+    parser.add_argument("--external-review-returns", default=str(DEFAULT_EXTERNAL_REVIEW_RETURNS))
     parser.add_argument("--boundary-context", default=str(DEFAULT_BOUNDARY_CONTEXT))
     parser.add_argument("--boundary-context-request", default=str(DEFAULT_BOUNDARY_CONTEXT_REQUEST))
     parser.add_argument("--boundary-result", default=str(DEFAULT_BOUNDARY_RESULT))
     parser.add_argument("--freshness-manifest", default=str(DEFAULT_FRESHNESS_MANIFEST))
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--skip-regenerate-freshness", action="store_true")
+    parser.add_argument("--skip-regenerate-external-review-returns", action="store_true")
     parser.add_argument("--skip-regenerate-boundary-context-request", action="store_true")
     parser.add_argument("--fail-on-marker-hit", dest="fail_on_marker_hit", action="store_true", help="Exit non-zero if configured sensitive markers are present (default)")
     parser.add_argument("--allow-marker-hits", dest="fail_on_marker_hit", action="store_false", help="Write the ledger even when configured sensitive markers are present")
@@ -468,12 +516,14 @@ def main() -> None:
         handoff_manifest=args.handoff_manifest,
         session_batch=args.session_batch,
         validation_readout=args.validation_readout,
+        external_review_returns=args.external_review_returns,
         boundary_context=args.boundary_context,
         boundary_context_request=args.boundary_context_request,
         boundary_result=args.boundary_result,
         freshness_manifest=args.freshness_manifest,
         output_dir=args.output_dir,
         regenerate_freshness=not args.skip_regenerate_freshness,
+        regenerate_external_review_returns=not args.skip_regenerate_external_review_returns,
         regenerate_boundary_context_request=not args.skip_regenerate_boundary_context_request,
         fail_on_marker_hit=args.fail_on_marker_hit,
     )

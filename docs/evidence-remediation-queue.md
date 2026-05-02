@@ -26,7 +26,7 @@ Schema:
 adopt_redthread.evidence_remediation_queue.v1
 ```
 
-By default the command regenerates `runs/evidence_readiness/evidence_readiness.{md,json}` first, then reads the current external review distribution manifest if present.
+By default the command regenerates `runs/evidence_readiness/evidence_readiness.{md,json}` first. Readiness regeneration also refreshes the external review return ledger, freshness manifest, and boundary context request package. The queue then reads the current external review distribution manifest if present.
 
 ## Inputs
 
@@ -37,7 +37,7 @@ The queue reads sanitized generated metadata only:
 
 The queue command list also points operators through `make evidence-external-review-returns` after per-review summaries are generated, so missing/incomplete/follow-up state is visible before the external validation readout is interpreted.
 
-The readiness ledger already indexes matrix, packet, handoff, sessions, validation readout, boundary context, boundary context request, boundary result, and freshness. The queue does not reopen raw app artifacts.
+The readiness ledger already indexes matrix, packet, handoff, sessions, validation readout, external review returns, boundary context, boundary context request, boundary result, and freshness. The queue does not reopen raw app artifacts.
 
 ## What it never includes
 
@@ -69,7 +69,7 @@ The current queue should normally contain:
 2. `validate_approved_boundary_context`
 3. `wait_for_approved_boundary_context`
 
-If the request artifact itself is missing, invalid, or privacy-blocked, the queue may first add `regenerate_boundary_context_request`.
+If the request artifact itself is missing, invalid, or privacy-blocked, the queue may first add `regenerate_boundary_context_request`. If the return ledger is waiting/incomplete, the queue keeps the existing `collect_external_reviewer_observations` item and includes return-ledger verification.
 
 That is the correct honest state: external validation is still waiting on humans, boundary context intake is not ready, and boundary execution is still blocked on approved non-production context.
 
@@ -117,6 +117,7 @@ The remediation queue does not prove:
 - external human validation
 - buyer demand
 - production readiness
+- approved boundary context
 - boundary execution
 - whole-app safety
 

@@ -126,22 +126,25 @@ def _queue_items(readiness: dict[str, Any], distribution: dict[str, Any]) -> lis
 
 def _item_for_readiness_blocker(blocker: dict[str, Any], readiness: dict[str, Any], distribution: dict[str, Any]) -> dict[str, Any] | None:
     code = str(blocker.get("code"))
-    if code == "external_validation_not_ready":
-        readout = readiness.get("components", {}).get("external_validation_readout", {}) if isinstance(readiness.get("components"), dict) else {}
-        target = readout.get("target_review_count") or 3
-        complete = readout.get("complete_summary_count") or 0
+    if code in {"external_validation_not_ready", "external_review_returns_not_ready"}:
+        components = readiness.get("components", {}) if isinstance(readiness.get("components"), dict) else {}
+        readout = components.get("external_validation_readout", {}) if isinstance(components.get("external_validation_readout"), dict) else {}
+        returns = components.get("external_review_returns", {}) if isinstance(components.get("external_review_returns"), dict) else {}
+        target = readout.get("target_review_count") or returns.get("session_count") or 3
+        complete = readout.get("complete_summary_count") or returns.get("complete_count") or 0
         return {
             "id": "collect_external_reviewer_observations",
             "priority": 10,
             "owner": "ExternalValidationCoordinator",
             "status": "blocked_on_human_reviewers",
-            "source": "evidence_readiness.external_validation_not_ready",
-            "blocked_by": ["filled external reviewer observations", "sanitized observation summaries"],
-            "action": f"Collect and summarize external reviewer observations until complete summaries reach {target}; current complete summaries: {complete}.",
+            "source": f"evidence_readiness.{code}",
+            "blocked_by": ["filled external reviewer observations", "sanitized observation summaries", "complete external review return ledger"],
+            "action": f"Collect and summarize external reviewer observations until complete summaries reach {target}; current complete summaries: {complete}; return ledger status: {returns.get('ledger_status', 'unknown')}.",
             "verification_commands": _external_summary_commands(distribution),
             "acceptance_criteria": [
                 f"complete sanitized summary count reaches {target}",
                 "each summary is complete and marker-audit clean",
+                "make evidence-external-review-returns reports ready_for_external_validation_readout",
                 "make evidence-external-validation-readout reports ready_for_external_validation_readout",
             ],
             "non_claim": "Missing external reviews mean waiting state, not validation failure or release approval.",

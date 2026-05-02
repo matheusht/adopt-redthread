@@ -26,7 +26,7 @@ Schema:
 adopt_redthread.evidence_readiness.v1
 ```
 
-The command regenerates `runs/evidence_freshness/evidence_freshness_manifest.{md,json}` and the sanitized boundary context request package first, then builds the readiness ledger from sanitized metadata.
+The command regenerates `runs/evidence_freshness/evidence_freshness_manifest.{md,json}`, `runs/external_review_returns/external_review_return_ledger.{md,json}`, and the sanitized boundary context request package first, then builds the readiness ledger from sanitized metadata.
 
 ## Inputs
 
@@ -37,6 +37,7 @@ The ledger reads these generated JSON artifacts:
 - `runs/external_review_handoff/external_review_handoff_manifest.json`
 - `runs/external_review_sessions/external_review_session_batch.json`
 - `runs/external_validation_readout/external_validation_readout.json`
+- `runs/external_review_returns/external_review_return_ledger.json`
 - `runs/boundary_probe_context/tenant_user_boundary_probe_context.template.json`
 - `runs/boundary_probe_context_request/tenant_user_boundary_probe_context_request.json`
 - `runs/boundary_probe_result/tenant_user_boundary_probe_result.json`
@@ -77,6 +78,7 @@ That is a correct non-claim, not a failure.
 The ledger records blocker labels such as:
 
 - `external_validation_not_ready`
+- `external_review_returns_not_ready`
 - `boundary_context_not_ready`
 - `boundary_context_request_not_ready`
 - `boundary_probe_not_executed`
@@ -90,7 +92,7 @@ These labels are readiness blockers for reviewer evidence packaging. They do not
 
 The ledger emits next actions from the blockers. Examples:
 
-- collect and summarize external reviewer observations
+- collect and summarize external reviewer observations, with per-review return status visible in the return ledger
 - regenerate stale handoff/session copies
 - regenerate the sanitized boundary context request package when the request artifact is missing, invalid, or privacy-blocked
 - generate the sanitized boundary context request package when approved context metadata is missing
@@ -99,7 +101,7 @@ The ledger emits next actions from the blockers. Examples:
 - keep `boundary_probe_not_executed` open even when context is `ready_for_boundary_probe`, because ready context is not execution proof
 - remove/regenerate artifacts that hit configured sensitive-marker checks
 
-For per-review external return status after distribution, run:
+Readiness indexes the return ledger status and bounded boundary-context-request delivery coverage. For per-review external return status after distribution, run:
 
 ```bash
 make evidence-external-review-returns
@@ -132,6 +134,7 @@ The readiness ledger does not prove:
 - production readiness
 - whole-app safety
 - external validation before filled observations are summarized
+- approved boundary context
 - boundary execution proof
 
 It is an index for the current sanitized evidence loop, not a new gate owner.

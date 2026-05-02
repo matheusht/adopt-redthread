@@ -1758,3 +1758,39 @@ make evidence-external-review-returns
 make evidence-readiness
 make evidence-remediation-queue
 ```
+
+## 2026-05-02 — external review return ledger in readiness/remediation
+
+### Slice — first-class return state without validation inflation
+
+Implemented:
+
+- `scripts/build_evidence_readiness.py` now regenerates and indexes `runs/external_review_returns/external_review_return_ledger.json`
+- readiness component `external_review_returns` records ledger status, return counts, and boundary context request delivery status
+- readiness blocker `external_review_returns_not_ready` keeps waiting/incomplete returns visible
+- `scripts/build_evidence_remediation_queue.py` maps return-ledger blockers into the existing external-review collection work item
+- tests for readiness indexing and remediation deduplication
+- docs updates for readiness/remediation scope and privacy boundaries
+
+What it does:
+
+- makes per-review return status visible from the main readiness ledger
+- carries bounded boundary-context-request delivery metadata into readiness
+- keeps the remediation queue focused on one external-review collection item instead of duplicate tasks
+
+What it does not do:
+
+- does not approve context, execute probes, send traffic, or claim a boundary finding
+- does not read filled observations, approved context files, or raw actor/tenant/resource/selector/request/response values
+- does not make return-ledger readiness external validation or release approval
+- does not change bridge verdict semantics
+
+Verification:
+
+```bash
+python3 -m py_compile scripts/build_evidence_readiness.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_evidence_readiness tests.test_evidence_remediation_queue -v
+make evidence-external-review-returns
+make evidence-readiness
+make evidence-remediation-queue
+```

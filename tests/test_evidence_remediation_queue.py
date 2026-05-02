@@ -56,6 +56,33 @@ class EvidenceRemediationQueueTests(unittest.TestCase):
         self.assertEqual(payload["queue_status"], "privacy_blocked")
         self.assertEqual(payload["items"][0]["id"], "resolve_privacy_marker_hits")
 
+    def test_external_review_returns_not_ready_reuses_external_review_item(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            readiness = _write_readiness(root / "readiness.json", marker_hit=False)
+            payload = json.loads(readiness.read_text(encoding="utf-8"))
+            payload["components"]["external_review_returns"] = {
+                "ledger_status": "waiting_for_returns",
+                "complete_count": 0,
+                "session_count": 3,
+            }
+            payload["blockers"].append({"code": "external_review_returns_not_ready", "component": "external_review_returns", "detail": "waiting_for_returns"})
+            readiness.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            distribution = _write_distribution(root / "distribution.json", status="ready_to_distribute")
+
+            payload = build_evidence_remediation_queue(
+                readiness_ledger=readiness,
+                distribution_manifest=distribution,
+                output_dir=root / "out",
+                regenerate_readiness=False,
+                fail_on_marker_hit=True,
+            )
+
+        external_items = [item for item in payload["items"] if item["id"] == "collect_external_reviewer_observations"]
+        self.assertEqual(len(external_items), 1)
+        self.assertIn("return ledger status", external_items[0]["action"])
+        self.assertIn("make evidence-external-review-returns", external_items[0]["verification_commands"])
+
     def test_boundary_context_request_not_ready_adds_request_item(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -103,6 +130,11 @@ def _write_readiness(path: Path, *, marker_hit: bool) -> Path:
                 "readout_status": "waiting_for_filled_external_observations",
                 "complete_summary_count": 0,
                 "target_review_count": 3,
+            },
+            "external_review_returns": {
+                "ledger_status": "waiting_for_returns",
+                "complete_count": 0,
+                "session_count": 3,
             },
             "boundary_probe_context": {
                 "context_status": "blocked_missing_context",

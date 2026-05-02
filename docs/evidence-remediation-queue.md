@@ -98,9 +98,11 @@ make evidence-observation-summary OBSERVATION=runs/external_review_sessions/revi
 make evidence-external-review-returns
 make evidence-external-validation-readout
 make evidence-readiness
+make evidence-boundary-probe-context
+make evidence-boundary-probe-result
 ```
 
-Boundary-related commands remain blocked until approved non-production tenant/user context exists. Regenerating the default boundary result is allowed; treating it as execution proof is not.
+Boundary-related commands remain blocked until approved non-production tenant/user context exists. Regenerating the default boundary context/result artifacts is allowed; treating them as execution proof is not.
 
 ## Non-claims
 

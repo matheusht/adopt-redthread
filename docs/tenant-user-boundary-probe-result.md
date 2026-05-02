@@ -1,6 +1,6 @@
 # Tenant/User Boundary Probe Result Artifact
 
-This document describes the local boundary result artifact added after the boundary probe plan and execution design.
+This document describes the local boundary result artifact added after the boundary probe plan, execution design, and context intake validator.
 
 ## Purpose
 
@@ -17,6 +17,7 @@ It answers:
 ## Command
 
 ```bash
+make evidence-boundary-probe-context
 make evidence-boundary-probe-result
 ```
 

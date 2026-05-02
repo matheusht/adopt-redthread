@@ -20,6 +20,8 @@ This design may contain selector names, classes, locations, operation IDs, path 
 
 ## Approved context contract
 
+`make evidence-boundary-probe-context` now writes the sanitized context template/intake validation artifact for this contract. It validates metadata only; it does not execute probes or resolve raw values.
+
 - Schema: `adopt_redthread.boundary_probe_context.v1`
 - Storage policy: `local_ignored_file_only_never_checked_in`
 - Required top-level fields: `schema_version,target_environment,execution_mode,actor_scopes,selector_bindings,operator_approval`

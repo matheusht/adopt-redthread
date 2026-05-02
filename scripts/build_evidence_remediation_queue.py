@@ -154,8 +154,8 @@ def _item_for_readiness_blocker(blocker: dict[str, Any], readiness: dict[str, An
             "status": "blocked_on_approved_non_production_context",
             "source": "evidence_readiness.boundary_probe_not_executed",
             "blocked_by": ["approved non-production tenant/user context", "safe actor scopes", "operator approval"],
-            "action": "Keep boundary execution blocked until approved non-production tenant/user context exists; do not treat blocked_missing_context as a confirmed vulnerability.",
-            "verification_commands": ["make evidence-boundary-probe-result", "make evidence-readiness"],
+            "action": "Keep boundary execution blocked until approved non-production tenant/user context exists; validate sanitized context metadata before any future execution; do not treat blocked_missing_context as a confirmed vulnerability.",
+            "verification_commands": ["make evidence-boundary-probe-context", "make evidence-boundary-probe-result", "make evidence-readiness"],
             "acceptance_criteria": [
                 "boundary result is produced from approved non-production context only",
                 "raw actor, tenant, resource, credential, request, and response values remain absent",

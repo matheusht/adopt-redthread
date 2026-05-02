@@ -88,6 +88,7 @@ The ledger emits next actions from the blockers. Examples:
 
 - collect and summarize external reviewer observations
 - regenerate stale handoff/session copies
+- validate sanitized boundary context metadata before any future boundary execution
 - keep boundary execution blocked until approved non-production tenant/user context exists
 - remove/regenerate artifacts that hit configured sensitive-marker checks
 
@@ -95,6 +96,12 @@ For per-review external return status after distribution, run:
 
 ```bash
 make evidence-external-review-returns
+```
+
+For boundary context intake status without executing probes, run:
+
+```bash
+make evidence-boundary-probe-context
 ```
 
 For an ordered work queue with owner labels, priorities, verification commands, and acceptance criteria, run:

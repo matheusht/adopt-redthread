@@ -1500,3 +1500,46 @@ python3 -m py_compile scripts/build_external_review_return_ledger.py scripts/bui
 python3 -m unittest tests.test_external_review_return_ledger tests.test_evidence_remediation_queue -v
 make evidence-external-review-returns
 ```
+
+## 2026-05-02 — boundary context intake validator
+
+### Slice — sanitized approved-context template and validator
+
+Implemented:
+
+- `scripts/build_boundary_probe_context.py`
+- `make evidence-boundary-probe-context`
+- `tests/test_boundary_probe_context.py`
+- `docs/tenant-user-boundary-probe-context.md`
+
+What it does:
+
+- writes `runs/boundary_probe_context/tenant_user_boundary_probe_context.template.{md,json}`
+- validates optional sanitized `adopt_redthread.boundary_probe_context.v1` metadata
+- requires non-production target classification, explicit boundary-probe approval, actor separation, tenant/user scope class, selector bindings, operator approval, expiration, and safe execution constraints
+- reports `blocked_missing_context`, `blocked_invalid_context`, `privacy_blocked`, or `ready_for_boundary_probe`
+- fails closed on configured sensitive-marker hits and forbidden raw-field keys
+- records that no boundary probe was executed and no confirmed security finding exists
+
+Current expected local state before approved context exists:
+
+- `context_status: blocked_missing_context`
+- `boundary_probe_execution_authorized: false`
+- `boundary_probe_executed: false`
+
+What it does not do:
+
+- does not execute probes or send traffic
+- does not resolve actor, tenant, resource, credential, session, auth-header, request, response, or write-context values
+- does not authorize production writes
+- does not approve release or change bridge verdict semantics
+- does not make `blocked_missing_context` a confirmed vulnerability
+
+Verification:
+
+```bash
+python3 -m py_compile scripts/build_boundary_probe_context.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_boundary_probe_context tests.test_evidence_remediation_queue -v
+make evidence-boundary-probe-context
+make evidence-remediation-queue
+```

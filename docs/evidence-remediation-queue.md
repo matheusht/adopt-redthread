@@ -37,7 +37,7 @@ The queue reads sanitized generated metadata only:
 
 The queue command list also points operators through `make evidence-external-review-returns` after per-review summaries are generated, so missing/incomplete/follow-up state is visible before the external validation readout is interpreted.
 
-The readiness ledger already indexes matrix, packet, handoff, sessions, validation readout, boundary result, and freshness. The queue does not reopen raw app artifacts.
+The readiness ledger already indexes matrix, packet, handoff, sessions, validation readout, boundary context, boundary result, and freshness. The queue does not reopen raw app artifacts.
 
 ## What it never includes
 
@@ -66,9 +66,10 @@ open_items
 The current queue should normally contain:
 
 1. `collect_external_reviewer_observations`
-2. `wait_for_approved_boundary_context`
+2. `validate_approved_boundary_context`
+3. `wait_for_approved_boundary_context`
 
-That is the correct honest state: external validation is still waiting on humans, and boundary execution is still blocked on approved non-production context.
+That is the correct honest state: external validation is still waiting on humans, boundary context intake is not ready, and boundary execution is still blocked on approved non-production context.
 
 ## Work item fields
 
@@ -102,7 +103,7 @@ make evidence-boundary-probe-context
 make evidence-boundary-probe-result
 ```
 
-Boundary-related commands remain blocked until approved non-production tenant/user context exists. Regenerating the default boundary context/result artifacts is allowed; treating them as execution proof is not.
+Boundary-related commands remain blocked until approved non-production tenant/user context exists. Regenerating the default boundary context/result artifacts is allowed; treating `ready_for_boundary_probe` context or default result templates as execution proof is not.
 
 ## Non-claims
 

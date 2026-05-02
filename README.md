@@ -204,10 +204,10 @@ Generated outputs:
 - `runs/external_review_sessions/` — generated isolated per-review folders for the external handoff; run with `make evidence-external-review-sessions`; these are not validation evidence until filled observations are summarized
 - `runs/external_validation_readout/` — generated external validation state/readout from sanitized session summaries; run with `make evidence-external-validation-readout`; missing summaries report waiting state, not validation
 - `runs/evidence_freshness/` — generated hash/freshness manifest for sanitized reviewer-facing copies; run with `make evidence-freshness`; stale copies mean regenerate packets, not a security finding
-- `runs/evidence_readiness/` — generated one-page sanitized readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary result, and freshness; run with `make evidence-readiness`; current no-reviewer state is waiting, not validation
+- `runs/evidence_readiness/` — generated one-page sanitized readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary context, boundary result, and freshness; run with `make evidence-readiness`; current no-reviewer state is waiting, not validation
 - `runs/external_review_distribution/` — generated distribution manifest for exact per-review send lists, freshness state, expected summary paths, and summary commands; run with `make evidence-external-review-distribution`; ready to distribute is not validation
 - `runs/external_review_returns/` — generated per-review return/follow-up ledger from sanitized reviewer-observation summaries; run with `make evidence-external-review-returns`; missing summaries remain waiting state, not validation
-- `runs/evidence_remediation/` — generated ordered remediation queue from sanitized readiness and distribution blockers; run with `make evidence-remediation-queue`; current open items are external reviewer observations and approved boundary context
+- `runs/evidence_remediation/` — generated ordered remediation queue from sanitized readiness and distribution blockers; run with `make evidence-remediation-queue`; current open items are external reviewer observations, boundary context intake, and approved boundary execution context
 - `runs/boundary_probe_plan/` — generated sanitized tenant/user boundary next-probe plan from existing reviewed-write evidence; run with `make evidence-boundary-probe-plan`; this is planning evidence, not execution evidence
 - `runs/boundary_execution_design/` — generated copy of the tenant/user boundary execution design and result contract; run with `make evidence-boundary-execution-design`; checked-in source is `docs/tenant-user-boundary-execution-design.md`
 - `runs/boundary_probe_context/` — generated sanitized boundary context template/intake validator; run with `make evidence-boundary-probe-context`; current default is `blocked_missing_context`, not execution proof
@@ -229,7 +229,7 @@ Generated outputs:
 - `docs/external-review-session-batch.md` — isolated per-review session folders and summary command path for external cold reviews
 - `docs/external-validation-readout.md` — external validation readout statuses, non-claims, and privacy boundary
 - `docs/evidence-freshness-manifest.md` — sanitized hash/freshness checks for reviewer packet, external handoff, and per-review session copies
-- `docs/evidence-readiness-ledger.md` — one-page local readiness state across sanitized evidence artifacts, freshness, external validation, and boundary-result blockers
+- `docs/evidence-readiness-ledger.md` — one-page local readiness state across sanitized evidence artifacts, freshness, external validation, boundary-context blockers, and boundary-result blockers
 - `docs/external-review-distribution-manifest.md` — distribution manifest for exact external reviewer session send lists, freshness checks, and expected summary paths
 - `docs/external-review-return-ledger.md` — per-review return/follow-up ledger for missing, incomplete, privacy-blocked, decision-follow-up, and complete sanitized summaries
 - `docs/evidence-remediation-queue.md` — ordered local remediation queue from sanitized readiness/distribution blockers

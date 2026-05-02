@@ -18,7 +18,7 @@ Current scripts:
 - `build_external_review_session_batch.py` — create isolated per-review session folders from the sanitized external handoff, with allowed artifacts, blank observation files, and summary commands; not validation by itself
 - `build_external_validation_readout.py` — read the external session batch plus sanitized reviewer-observation summaries and report waiting/needs-more/ready/privacy-blocked validation state without raw reviewer text
 - `build_evidence_freshness_manifest.py` — compare hashes for sanitized reviewer packet, external handoff, and per-review session copies so stale reviewer-facing evidence is visible before sharing
-- `build_evidence_readiness.py` — build a one-page sanitized readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary result, and freshness metadata
+- `build_evidence_readiness.py` — build a one-page sanitized readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary context, boundary result, and freshness metadata
 - `build_external_review_distribution_manifest.py` — build a sanitized per-review distribution send list from external sessions plus freshness metadata; ready to distribute is not validation
 - `build_evidence_remediation_queue.py` — build an ordered remediation queue from sanitized readiness/distribution blockers without raw artifacts or verdict-semantic changes
 - `build_boundary_probe_plan.py` — build a sanitized tenant/user boundary probe plan from app-context and coverage evidence; plan-only, no raw values, no execution, and fails on configured sensitive marker hits
@@ -64,10 +64,10 @@ Handy commands:
 - `make evidence-external-review-sessions` — build `runs/external_review_sessions/` with isolated per-review folders and expected summary commands for external cold reviews
 - `make evidence-external-validation-readout` — build `runs/external_validation_readout/` from the external session batch and sanitized reviewer-observation summaries; missing summaries remain waiting state, not validation
 - `make evidence-freshness` — build `runs/evidence_freshness/evidence_freshness_manifest.{md,json}` reporting stale/missing sanitized copies and failing on configured marker hits
-- `make evidence-readiness` — build `runs/evidence_readiness/evidence_readiness.{md,json}` from sanitized evidence metadata; current no-reviewer state remains waiting, not validation
+- `make evidence-readiness` — build `runs/evidence_readiness/evidence_readiness.{md,json}` from sanitized evidence metadata, including boundary context intake state; current no-reviewer state remains waiting, not validation
 - `make evidence-external-review-distribution` — build `runs/external_review_distribution/external_review_distribution_manifest.{md,json}` with exact reviewer-session delivery records and expected summary paths
 - `make evidence-external-review-returns` — build `runs/external_review_returns/external_review_return_ledger.{md,json}` with per-review missing/incomplete/privacy/follow-up/complete status from sanitized summaries
-- `make evidence-remediation-queue` — build `runs/evidence_remediation/evidence_remediation_queue.{md,json}` from sanitized readiness/distribution blockers; current open items remain external reviews and approved boundary context
+- `make evidence-remediation-queue` — build `runs/evidence_remediation/evidence_remediation_queue.{md,json}` from sanitized readiness/distribution blockers; current open items remain external reviews, boundary context intake, and approved boundary execution context
 - `make evidence-boundary-probe-plan` — build `runs/boundary_probe_plan/tenant_user_boundary_probe_plan.{md,json}` from existing reviewed-write evidence; this is a sanitized next-probe plan, not execution evidence
 - `make evidence-boundary-execution-design` — write `docs/tenant-user-boundary-execution-design.md` plus generated `runs/boundary_execution_design/` copies of the approved-context and boundary-result contract; this is design-only, not execution
 - `make evidence-boundary-probe-context` — write `runs/boundary_probe_context/tenant_user_boundary_probe_context.template.{md,json}` from the plan/design, or validate an explicit sanitized context file; this is context intake only, not execution proof

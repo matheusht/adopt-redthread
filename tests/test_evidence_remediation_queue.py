@@ -31,6 +31,7 @@ class EvidenceRemediationQueueTests(unittest.TestCase):
         self.assertEqual(payload["queue_status"], "open_items")
         item_ids = [item["id"] for item in payload["items"]]
         self.assertIn("collect_external_reviewer_observations", item_ids)
+        self.assertIn("validate_approved_boundary_context", item_ids)
         self.assertIn("wait_for_approved_boundary_context", item_ids)
         self.assertIn("make evidence-external-validation-readout", payload["commands"])
         self.assertIn("does not change local bridge approve/review/block verdict semantics", " ".join(payload["non_claims"]))
@@ -81,6 +82,10 @@ def _write_readiness(path: Path, *, marker_hit: bool) -> Path:
                 "complete_summary_count": 0,
                 "target_review_count": 3,
             },
+            "boundary_probe_context": {
+                "context_status": "blocked_missing_context",
+                "boundary_probe_execution_authorized": False,
+            },
             "boundary_probe_result": {
                 "result_status": "blocked_missing_context",
                 "boundary_probe_executed": False,
@@ -88,6 +93,7 @@ def _write_readiness(path: Path, *, marker_hit: bool) -> Path:
         },
         "blockers": [
             {"code": "external_validation_not_ready", "component": "external_validation_readout", "detail": "waiting_for_filled_external_observations"},
+            {"code": "boundary_context_not_ready", "component": "boundary_probe_context", "detail": "blocked_missing_context"},
             {"code": "boundary_probe_not_executed", "component": "boundary_probe_result", "detail": "blocked_missing_context"},
         ],
         "marker_audits": [{"label": "test", **audit}],

@@ -106,7 +106,7 @@ These remain non-execution, non-validation-by-default slices. Real validation st
 The local evidence-loop slices are tracked in [`docs/next-two-slices-plan.md`](next-two-slices-plan.md). Recent completed pairs include:
 
 - sanitized evidence freshness manifest for reviewer packet, external handoff, and per-review session copies
-- sanitized evidence readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary result, and freshness metadata
+- sanitized evidence readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary context, boundary result, and freshness metadata
 - external review distribution manifest for exact per-review send lists
 - external review return ledger for missing/incomplete/privacy/follow-up/complete sanitized summaries
 - evidence remediation queue for ordered next actions from readiness/distribution blockers

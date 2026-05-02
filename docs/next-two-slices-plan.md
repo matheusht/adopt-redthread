@@ -57,12 +57,14 @@ make evidence-remediation-queue
 
 Make readiness and remediation report boundary context intake state explicitly, without treating a ready context as execution proof.
 
-### Planned artifacts
+### Implemented artifacts
 
 - `scripts/build_evidence_readiness.py` boundary context component support
-- `tests/test_evidence_readiness.py` coverage for missing/invalid/ready boundary context states
+- `tests/test_evidence_readiness.py` coverage for missing and ready boundary context states
+- `scripts/build_evidence_remediation_queue.py` `boundary_context_not_ready` work item support
+- `tests/test_evidence_remediation_queue.py` coverage for the explicit context-intake remediation item
 - `docs/evidence-readiness-ledger.md` update
-- `docs/evidence-remediation-queue.md` update if new blocker/action detail is needed
+- `docs/evidence-remediation-queue.md` update
 
 ### Acceptance criteria
 
@@ -74,6 +76,24 @@ Make readiness and remediation report boundary context intake state explicitly, 
 - No probe is executed.
 - No bridge verdict semantics change.
 
-## Still blocked after Slice 1
+### Current local result
+
+Readiness now shows `boundary_probe_context` separately from `boundary_probe_result`. The expected local no-context state includes:
+
+- `boundary_context_not_ready` on `boundary_probe_context`
+- `boundary_probe_not_executed` on `boundary_probe_result`
+
+If a future sanitized context reports `ready_for_boundary_probe`, readiness must still keep `boundary_probe_not_executed` open until a real approved non-production probe writes a sanitized result.
+
+### Test/verification commands
+
+```bash
+python3 -m py_compile scripts/build_evidence_readiness.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_evidence_readiness tests.test_evidence_remediation_queue -v
+make evidence-readiness
+make evidence-remediation-queue
+```
+
+## Still blocked after Slice 2
 
 External validation still requires real filled external reviewer observations and sanitized summaries. Boundary execution still requires approved non-production tenant/user context with safe actor scopes, selector bindings, operator approval, and a future executor that consumes only validated context.

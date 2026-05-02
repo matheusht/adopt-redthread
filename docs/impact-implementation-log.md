@@ -1543,3 +1543,40 @@ python3 -m unittest tests.test_boundary_probe_context tests.test_evidence_remedi
 make evidence-boundary-probe-context
 make evidence-remediation-queue
 ```
+
+## 2026-05-02 — boundary context surfaced in readiness/remediation
+
+### Slice — explicit context-intake blocker rollup
+
+Implemented:
+
+- `scripts/build_evidence_readiness.py` boundary context component support
+- `scripts/build_evidence_remediation_queue.py` `boundary_context_not_ready` remediation support
+- `tests/test_evidence_readiness.py` missing/ready boundary context coverage
+- `tests/test_evidence_remediation_queue.py` explicit context-intake queue coverage
+- `docs/evidence-readiness-ledger.md` update
+- `docs/evidence-remediation-queue.md` update
+
+What it does:
+
+- reads `runs/boundary_probe_context/tenant_user_boundary_probe_context.template.json` as a first-class readiness component
+- reports `boundary_context_not_ready` separately from `boundary_probe_not_executed`
+- keeps `boundary_probe_not_executed` open when context is `ready_for_boundary_probe`
+- adds a `validate_approved_boundary_context` remediation item before any future execution can be considered
+- carries boundary context marker-audit metadata through the existing fail-closed readiness path
+
+What it does not do:
+
+- does not execute probes or send traffic
+- does not treat ready context as execution proof
+- does not copy or surface raw boundary actor, tenant, resource, credential, request, or response values
+- does not approve release or change bridge verdict semantics
+
+Verification:
+
+```bash
+python3 -m py_compile scripts/build_evidence_readiness.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_evidence_readiness tests.test_evidence_remediation_queue -v
+make evidence-readiness
+make evidence-remediation-queue
+```

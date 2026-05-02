@@ -35,6 +35,7 @@ class ReviewerPacketTests(unittest.TestCase):
                 evidence_report=report,
                 evidence_matrix=matrix,
                 boundary_probe_result=None,
+                boundary_context_request=None,
                 output_dir=output,
                 fail_on_marker_hit=True,
                 fail_on_incomplete_handoff=True,
@@ -57,16 +58,17 @@ class ReviewerPacketTests(unittest.TestCase):
         self.assertIn("Observation summary passes the configured sensitive-marker audit", packet_md)
         self.assertIn("reviewer_observation_template.md", packet_md)
         self.assertIn("Boundary probe result: `absent", packet_md)
+        self.assertIn("Boundary context request: `absent", packet_md)
         self.assertIn("Based on this evidence, would you ship, change, or block the release?", packet_md)
         self.assertIn("Did the evidence distinguish confirmed issue vs auth/replay failure vs insufficient evidence?", packet_md)
-        self.assertIn("Give the report, matrix, and boundary result if present to the reviewer first", packet_md)
+        self.assertIn("Give the report, matrix, boundary result if present, and boundary context request if present to the reviewer first", packet_md)
         self.assertIn("make evidence-observation-summary", packet_md)
         self.assertIn("incomplete_not_reviewer_evidence", packet_md)
         self.assertIn("ship` to `approve`, `change` to `review`, and `block` to `block`", packet_md)
         self.assertIn("Raw HAR/session/cookie/header/body/run values stay ignored", packet_md)
         self.assertEqual(len(packet["artifact_manifest"]["evidence_report"]["sha256"]), 64)
         self.assertEqual(packet["artifact_manifest"]["evidence_report"]["line_count"], 7)
-        self.assertEqual(packet["cold_review_protocol"]["allowed_artifacts"], ["evidence_report", "evidence_matrix", "reviewer_packet", "boundary_probe_result_if_present"])
+        self.assertEqual(packet["cold_review_protocol"]["allowed_artifacts"], ["evidence_report", "evidence_matrix", "reviewer_packet", "boundary_probe_result_if_present", "boundary_context_request_if_present"])
         self.assertIn("raw HAR files", packet["cold_review_protocol"]["forbidden_inputs"])
         self.assertEqual(packet["observation_template"]["schema_version"], "adopt_redthread.reviewer_observation_template.v1")
         self.assertIn("# Reviewer Observation Template", observation_md)
@@ -80,6 +82,7 @@ class ReviewerPacketTests(unittest.TestCase):
             report = root / "evidence_report.md"
             matrix = root / "evidence_matrix.md"
             boundary = root / "tenant_user_boundary_probe_result.md"
+            context_request = root / "tenant_user_boundary_probe_context_request.md"
             output = root / "packet"
             report.write_text(
                 "# Evidence Report\n"
@@ -96,11 +99,13 @@ class ReviewerPacketTests(unittest.TestCase):
                 encoding="utf-8",
             )
             boundary.write_text("# Tenant/User Boundary Probe Result\nResult status: `blocked_missing_context`\n", encoding="utf-8")
+            context_request.write_text("# Tenant/User Boundary Probe Context Request\nRequest status: `ready_to_request_context`\n", encoding="utf-8")
 
             packet = build_reviewer_packet_from_artifacts(
                 evidence_report=report,
                 evidence_matrix=matrix,
                 boundary_probe_result=boundary,
+                boundary_context_request=context_request,
                 output_dir=output,
                 fail_on_marker_hit=True,
                 fail_on_incomplete_handoff=True,
@@ -108,9 +113,12 @@ class ReviewerPacketTests(unittest.TestCase):
             packet_md = (output / "reviewer_packet.md").read_text(encoding="utf-8")
 
         self.assertIn("boundary_probe_result", packet["artifacts"])
+        self.assertIn("boundary_context_request", packet["artifacts"])
         self.assertIn("boundary_probe_result", packet["artifact_manifest"])
+        self.assertIn("boundary_context_request", packet["artifact_manifest"])
         self.assertIn("Boundary probe result:", packet_md)
         self.assertIn("tenant_user_boundary_probe_result.md", packet_md)
+        self.assertIn("tenant_user_boundary_probe_context_request.md", packet_md)
         self.assertTrue(packet["sanitized_marker_audit"]["passed"])
 
     def test_handoff_completeness_audit_flags_missing_sections(self) -> None:

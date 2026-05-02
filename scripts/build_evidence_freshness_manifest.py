@@ -25,6 +25,7 @@ DEFAULT_SOURCE_ARTIFACTS = {
     "reviewer_packet": REPO_ROOT / "runs" / "reviewer_packet" / "reviewer_packet.md",
     "reviewer_observation_template": REPO_ROOT / "runs" / "reviewer_packet" / "reviewer_observation_template.md",
     "boundary_probe_result": REPO_ROOT / "runs" / "boundary_probe_result" / "tenant_user_boundary_probe_result.md",
+    "boundary_context_request": REPO_ROOT / "runs" / "boundary_probe_context_request" / "tenant_user_boundary_probe_context_request.md",
 }
 
 
@@ -100,6 +101,8 @@ def _packet_checks(packet: dict[str, Any], sources: dict[str, dict[str, Any]]) -
     for label, entry in manifest.items():
         if label == "boundary_probe_result":
             source_label = "boundary_probe_result"
+        elif label == "boundary_context_request":
+            source_label = "boundary_context_request"
         else:
             source_label = str(label)
         if source_label not in sources:
@@ -118,7 +121,12 @@ def _handoff_checks(handoff: dict[str, Any], sources: dict[str, dict[str, Any]])
     artifacts = handoff.get("artifacts", {}) if isinstance(handoff.get("artifacts"), dict) else {}
     checks = []
     for label, entry in artifacts.items():
-        source_label = "boundary_probe_result" if label == "boundary_probe_result" else str(label)
+        if label == "boundary_probe_result":
+            source_label = "boundary_probe_result"
+        elif label == "boundary_context_request":
+            source_label = "boundary_context_request"
+        else:
+            source_label = str(label)
         if source_label not in sources:
             continue
         checks.append(_check_copy(

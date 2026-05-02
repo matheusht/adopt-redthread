@@ -50,6 +50,7 @@ The distribution manifest must not read or include:
 - source files
 - staging or production write-context values
 - raw boundary actor, tenant, resource, selector, credential, request, or response values
+- approved context files or filled local context values
 - prior reviewer answers
 
 ## Statuses
@@ -80,7 +81,7 @@ Each delivery entry records:
 - `expected_summary_path`
 - exact `make evidence-observation-summary ...` command for that reviewer
 
-The operator rule is strict: send exactly one `review_N` folder to exactly one reviewer. Do not mix folders, do not include repo access, and do not include prior reviewer answers.
+The operator rule is strict: send exactly one `review_N` folder to exactly one reviewer. Do not mix folders, do not include repo access, and do not include prior reviewer answers. If the folder includes `tenant_user_boundary_probe_context_request.md`, treat it as a sanitized checklist/request only; do not attach approved context or raw tenant/user values.
 
 After reviewers return filled observations and their sanitized summaries are generated, run:
 

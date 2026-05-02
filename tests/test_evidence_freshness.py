@@ -43,6 +43,8 @@ class EvidenceFreshnessTests(unittest.TestCase):
             self.assertEqual(payload["summary"]["problem_count"], 0)
             self.assertTrue(payload["sanitized_marker_audit"]["passed"])
             self.assertTrue((root / "out" / "evidence_freshness_manifest.md").exists())
+            labels = {check["artifact_label"] for check in payload["copy_checks"]}
+            self.assertIn("boundary_context_request", labels)
 
     def test_detects_stale_session_copy(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -79,6 +81,7 @@ def _write_fixture_tree(root: Path) -> dict[str, object]:
         "reviewer_packet": source_dir / "reviewer_packet.md",
         "reviewer_observation_template": source_dir / "reviewer_observation_template.md",
         "boundary_probe_result": source_dir / "tenant_user_boundary_probe_result.md",
+        "boundary_context_request": source_dir / "tenant_user_boundary_probe_context_request.md",
     }
     for label, path in source_files.items():
         path.write_text(f"# {label}\n\nSanitized reviewer-facing artifact.\n", encoding="utf-8")
@@ -90,12 +93,15 @@ def _write_fixture_tree(root: Path) -> dict[str, object]:
             "evidence_report": _record(source_files["evidence_report"]),
             "evidence_matrix": _record(source_files["evidence_matrix"]),
             "boundary_probe_result": _record(source_files["boundary_probe_result"]),
+            "boundary_context_request": _record(source_files["boundary_context_request"]),
         },
     }), encoding="utf-8")
 
     handoff_artifacts: dict[str, dict[str, object]] = {}
     for label, source in source_files.items():
         filename = "tenant_user_boundary_probe_result.md" if label == "boundary_probe_result" else f"{label}.md"
+        if label == "boundary_context_request":
+            filename = "tenant_user_boundary_probe_context_request.md"
         if label == "reviewer_observation_template":
             filename = "reviewer_observation_template.md"
         destination = handoff_dir / filename

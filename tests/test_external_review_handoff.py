@@ -39,6 +39,7 @@ class ExternalReviewHandoffTests(unittest.TestCase):
                 reviewer_packet=packet,
                 observation_template=template,
                 boundary_probe_result=None,
+                boundary_context_request=None,
                 output_dir=output,
                 fail_on_marker_hit=True,
                 fail_on_incomplete_handoff=True,
@@ -69,6 +70,7 @@ class ExternalReviewHandoffTests(unittest.TestCase):
             packet = root / "reviewer_packet.md"
             template = root / "reviewer_observation_template.md"
             boundary = root / "tenant_user_boundary_probe_result.md"
+            context_request = root / "tenant_user_boundary_probe_context_request.md"
             output = root / "handoff"
             report.write_text(
                 "# Evidence Report\n"
@@ -87,6 +89,7 @@ class ExternalReviewHandoffTests(unittest.TestCase):
             packet.write_text("# Reviewer Evidence Packet\nAllowed artifacts only.\n", encoding="utf-8")
             template.write_text("# Reviewer Observation Template\nAnswer:\n", encoding="utf-8")
             boundary.write_text("# Tenant/User Boundary Probe Result\nResult status: `blocked_missing_context`\n", encoding="utf-8")
+            context_request.write_text("# Tenant/User Boundary Probe Context Request\nRequest status: `ready_to_request_context`\n", encoding="utf-8")
 
             payload = build_external_review_handoff(
                 evidence_report=report,
@@ -94,18 +97,24 @@ class ExternalReviewHandoffTests(unittest.TestCase):
                 reviewer_packet=packet,
                 observation_template=template,
                 boundary_probe_result=boundary,
+                boundary_context_request=context_request,
                 output_dir=output,
                 fail_on_marker_hit=True,
                 fail_on_incomplete_handoff=True,
             )
             instructions = (output / "external_reviewer_instructions.md").read_text(encoding="utf-8")
             boundary_copy_exists = (output / "tenant_user_boundary_probe_result.md").exists()
+            context_request_copy_exists = (output / "tenant_user_boundary_probe_context_request.md").exists()
 
         self.assertIn("boundary_probe_result", payload["artifacts"])
+        self.assertIn("boundary_context_request", payload["artifacts"])
         self.assertTrue(boundary_copy_exists)
+        self.assertTrue(context_request_copy_exists)
         self.assertIn("tenant_user_boundary_probe_result.md", instructions)
+        self.assertIn("tenant_user_boundary_probe_context_request.md", instructions)
         self.assertIn("tenant_user_boundary_probe_result.md", payload["protocol"]["allowed_artifacts"])
-        self.assertEqual(len(payload["artifacts"]), 6)
+        self.assertIn("tenant_user_boundary_probe_context_request.md", payload["protocol"]["allowed_artifacts"])
+        self.assertEqual(len(payload["artifacts"]), 7)
         self.assertTrue(payload["output_marker_audit"]["passed"])
 
     def test_marker_hit_fails_closed(self) -> None:
@@ -139,6 +148,7 @@ class ExternalReviewHandoffTests(unittest.TestCase):
                     reviewer_packet=packet,
                     observation_template=template,
                     boundary_probe_result=None,
+                    boundary_context_request=None,
                     output_dir=root / "handoff",
                     fail_on_marker_hit=True,
                 )

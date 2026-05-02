@@ -13,6 +13,8 @@ Regenerate the sanitized handoff first:
 ```bash
 make evidence-boundary-probe-plan
 make evidence-boundary-execution-design
+make evidence-boundary-probe-context
+make evidence-boundary-context-request
 make evidence-boundary-probe-result
 make evidence-report
 make evidence-matrix
@@ -41,6 +43,7 @@ runs/external_review_sessions/
 │   │   ├── reviewer_packet.md
 │   │   ├── reviewer_observation_template.md
 │   │   ├── tenant_user_boundary_probe_result.md  # only when present in handoff
+│   │   ├── tenant_user_boundary_probe_context_request.md  # only when present in handoff
 │   │   └── external_reviewer_instructions.md
 │   ├── filled_reviewer_observation.md
 │   └── reviewer_session_instructions.md
@@ -54,7 +57,7 @@ runs/external_review_sessions/
 
 Each session folder contains only:
 
-- sanitized markdown copied from `runs/external_review_handoff/`
+- sanitized markdown copied from `runs/external_review_handoff/`, including the boundary context request when present
 - a blank observation file for that reviewer
 - session-specific instructions
 - command paths for summarization
@@ -116,4 +119,4 @@ Important fields:
 
 ## Safety boundary
 
-This command does not execute probes, does not run live requests, does not summarize raw reviewer text, and does not change bridge verdict semantics. It only packages sanitized review inputs into isolated session folders.
+This command does not execute probes, does not run live requests, does not summarize raw reviewer text, and does not change bridge verdict semantics. A copied boundary context request remains a checklist/request artifact, not approved context or execution proof. The command only packages sanitized review inputs into isolated session folders.

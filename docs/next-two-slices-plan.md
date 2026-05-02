@@ -160,6 +160,44 @@ make evidence-readiness
 make evidence-remediation-queue
 ```
 
+## Follow-up Slice — Boundary context request in external review package
+
+### Objective
+
+Make the sanitized boundary context request visible anywhere an external reviewer-facing package is assembled, without treating the request as approved context, execution proof, or validation.
+
+### Implemented artifacts
+
+- `scripts/build_reviewer_packet.py` optional boundary context request indexing, hashes, marker audit, and packet wording
+- `scripts/build_external_review_handoff.py` optional boundary context request copy and allowed-artifact listing
+- `scripts/build_evidence_freshness_manifest.py` freshness checks for reviewer packet, handoff, and session copies of the context request
+- `tests/test_reviewer_packet.py`, `tests/test_external_review_handoff.py`, and `tests/test_evidence_freshness.py` coverage for packaged context-request artifacts
+- docs updates for external handoff/session/freshness boundaries
+
+### Acceptance criteria
+
+- Reviewer packet and external handoff include `tenant_user_boundary_probe_context_request.md` when the sanitized generated request exists.
+- Session folders inherit the request through the existing sanitized handoff manifest path.
+- Freshness detects stale/missing context-request copies before distribution.
+- The request remains a checklist/request artifact, not approved context, execution proof, or a confirmed finding.
+- No raw context values are read, copied, or surfaced.
+- No probe is executed.
+- No bridge verdict semantics change.
+
+### Test/verification commands
+
+```bash
+python3 -m py_compile scripts/build_reviewer_packet.py scripts/build_external_review_handoff.py scripts/build_evidence_freshness_manifest.py
+python3 -m unittest tests.test_reviewer_packet tests.test_external_review_handoff tests.test_evidence_freshness tests.test_external_review_session_batch -v
+make evidence-packet
+make evidence-external-review-handoff
+make evidence-external-review-sessions
+make evidence-freshness
+make evidence-external-review-distribution
+make evidence-readiness
+make evidence-remediation-queue
+```
+
 ## Still blocked after follow-up slices
 
 External validation still requires real filled external reviewer observations and sanitized summaries. Boundary execution still requires approved non-production tenant/user context with safe actor scopes, selector bindings, operator approval, and a future executor that consumes only validated context.

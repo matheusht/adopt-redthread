@@ -8,18 +8,20 @@ This is not validation by itself. It becomes validation evidence only after fill
 
 ## Build the handoff
 
-Regenerate the base evidence first. If the boundary result artifact should be visible in the packet, build it before rebuilding report/matrix/packet:
+Regenerate the base evidence first. If the boundary result artifact and boundary context request should be visible in the packet, build them before rebuilding report/matrix/packet:
 
 ```bash
 make evidence-boundary-probe-plan
 make evidence-boundary-execution-design
+make evidence-boundary-probe-context
+make evidence-boundary-context-request
 make evidence-boundary-probe-result
 make evidence-report
 make evidence-matrix
 make evidence-packet
 ```
 
-If no boundary result artifact exists, the packet/handoff preserves the existing absent/`tenant_user_boundary_unproven` wording.
+If no boundary result artifact exists, the packet/handoff preserves the existing absent/`tenant_user_boundary_unproven` wording. If no boundary context request exists, the packet/handoff omits it. The context request is an operator checklist, not approved context or execution proof.
 
 Then build the external handoff directory and isolated reviewer sessions:
 
@@ -33,7 +35,7 @@ make evidence-external-review-returns
 make evidence-remediation-queue
 ```
 
-The handoff directory is the source package. The session batch copies only those sanitized files into `runs/external_review_sessions/review_*` folders with one blank observation per reviewer. The freshness/readiness commands verify copied artifact hashes and report the current non-validation/waiting state before distribution. The distribution manifest is the exact per-review send list; the return ledger tracks missing/incomplete/privacy/follow-up/complete sanitized summaries after distribution; the remediation queue records the remaining external-review and boundary-context work.
+The handoff directory is the source package. The session batch copies only those sanitized files into `runs/external_review_sessions/review_*` folders with one blank observation per reviewer, including the boundary context request when present. The freshness/readiness commands verify copied artifact hashes and report the current non-validation/waiting state before distribution. The distribution manifest is the exact per-review send list; the return ledger tracks missing/incomplete/privacy/follow-up/complete sanitized summaries after distribution; the remediation queue records the remaining external-review and boundary-context work.
 
 Generated local handoff output:
 
@@ -44,6 +46,7 @@ runs/external_review_handoff/
 ├── reviewer_packet.md
 ├── reviewer_observation_template.md
 ├── tenant_user_boundary_probe_result.md  # only when present
+├── tenant_user_boundary_probe_context_request.md  # only when present; checklist, not proof
 ├── external_reviewer_instructions.md
 └── external_review_handoff_manifest.json
 ```
@@ -59,6 +62,7 @@ Give the reviewer only these files:
 - `reviewer_packet.md`
 - `reviewer_observation_template.md`
 - `tenant_user_boundary_probe_result.md` when present; current default is `blocked_missing_context`, not execution proof
+- `tenant_user_boundary_probe_context_request.md` when present; checklist/request only, not approved context or execution proof
 - `external_reviewer_instructions.md`
 
 Do not give repo access, terminal access, raw captures, source code, walkthrough explanations, or prior reviewer answers before they answer the silent-review questions.

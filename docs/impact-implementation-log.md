@@ -1652,3 +1652,42 @@ python3 -m unittest tests.test_evidence_readiness tests.test_evidence_remediatio
 make evidence-readiness
 make evidence-remediation-queue
 ```
+
+## 2026-05-02 — boundary context request in external review package
+
+### Slice — context request travels with sanitized reviewer-facing artifacts
+
+Implemented:
+
+- `scripts/build_reviewer_packet.py` includes the generated boundary context request when present and records it in packet hashes/marker audit
+- `scripts/build_external_review_handoff.py` copies the generated boundary context request into the handoff and allowed-artifact list when present
+- `scripts/build_evidence_freshness_manifest.py` checks packet, handoff, and session copies for the boundary context request
+- tests for reviewer packet, external handoff, and freshness coverage
+- docs updates for handoff/session/freshness/distribution boundaries
+
+What it does:
+
+- makes the sanitized context request visible to external reviewers alongside the boundary result
+- lets session folders inherit the request through the existing handoff manifest path
+- detects stale/missing context-request copies before distribution
+
+What it does not do:
+
+- does not approve context, execute probes, send traffic, or claim a boundary finding
+- does not expose raw actor, tenant, resource, selector, credential, request, response, auth, session, or write-context values
+- does not make external handoff/session/distribution artifacts validation evidence
+- does not approve release or change bridge verdict semantics
+
+Verification:
+
+```bash
+python3 -m py_compile scripts/build_reviewer_packet.py scripts/build_external_review_handoff.py scripts/build_evidence_freshness_manifest.py
+python3 -m unittest tests.test_reviewer_packet tests.test_external_review_handoff tests.test_evidence_freshness tests.test_external_review_session_batch -v
+make evidence-packet
+make evidence-external-review-handoff
+make evidence-external-review-sessions
+make evidence-freshness
+make evidence-external-review-distribution
+make evidence-readiness
+make evidence-remediation-queue
+```

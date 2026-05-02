@@ -35,6 +35,7 @@ Only known sanitized reviewer-facing artifacts and manifests:
 - `runs/reviewer_packet/reviewer_packet.md`
 - `runs/reviewer_packet/reviewer_observation_template.md`
 - `runs/boundary_probe_result/tenant_user_boundary_probe_result.md`
+- `runs/boundary_probe_context_request/tenant_user_boundary_probe_context_request.md`
 - `runs/reviewer_packet/reviewer_packet.json`
 - `runs/external_review_handoff/external_review_handoff_manifest.json`
 - `runs/external_review_sessions/external_review_session_batch.json`
@@ -50,7 +51,7 @@ It must not read or copy:
 - request or response bodies
 - source files
 - production or staging write-context values
-- boundary actor, tenant, resource, credential, or selector values
+- boundary actor, tenant, resource, credential, selector, request, or response values
 
 ## Statuses
 
@@ -80,7 +81,7 @@ For each copy, the JSON records:
 
 ## Failure semantics
 
-A stale or missing copy means the evidence packet should be regenerated before review or distribution. It does not mean the underlying bridge run is unsafe; it means the reviewer-facing package cannot be trusted as current. `make evidence-external-review-distribution` consumes this status and blocks the send list when freshness is not `fresh`.
+A stale or missing copy means the evidence packet should be regenerated before review or distribution. It does not mean the underlying bridge run is unsafe; it means the reviewer-facing package cannot be trusted as current. For the boundary context request, freshness only proves the copied checklist matches the generated sanitized request; it does not prove context approval or boundary execution. `make evidence-external-review-distribution` consumes this status and blocks the send list when freshness is not `fresh`.
 
 A marker hit fails closed by default. Marker checks are bounded privacy tripwires, not complete secret scanning.
 

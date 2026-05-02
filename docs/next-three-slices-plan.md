@@ -100,3 +100,14 @@ The following local external-review mechanics are now tracked in [`docs/next-two
 - external validation readout state from sanitized reviewer-observation summaries
 
 These remain non-execution, non-validation-by-default slices. Real validation still requires filled external reviewer observations summarized through the existing observation-summary flow.
+
+## Follow-up implemented after external validation slices
+
+The local evidence-loop slices are tracked in [`docs/next-two-slices-plan.md`](next-two-slices-plan.md). Recent completed pairs include:
+
+- sanitized evidence freshness manifest for reviewer packet, external handoff, and per-review session copies
+- sanitized evidence readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary result, and freshness metadata
+- external review distribution manifest for exact per-review send lists
+- evidence remediation queue for ordered next actions from readiness/distribution blockers
+
+These slices make stale generated evidence, distribution readiness, and current remediation blockers explicit. They remain non-execution, non-validation-by-default, and do not change bridge verdict semantics.

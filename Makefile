@@ -5,7 +5,7 @@ OBSERVATION ?= runs/reviewer_packet/reviewer_observation_template.md
 OBSERVATION_OUTPUT ?= runs/reviewer_packet
 SUMMARIES ?= runs/reviewer_packet/reviewer_observation_summary.json
 
-.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix evidence-packet evidence-external-review-handoff evidence-external-review-sessions evidence-external-validation-readout evidence-boundary-probe-plan evidence-boundary-execution-design evidence-boundary-probe-result evidence-observation-summary evidence-validation-rollup redthread-contract-proposal demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
+.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix evidence-packet evidence-external-review-handoff evidence-external-review-sessions evidence-external-validation-readout evidence-freshness evidence-readiness evidence-external-review-distribution evidence-remediation-queue evidence-boundary-probe-plan evidence-boundary-execution-design evidence-boundary-probe-result evidence-observation-summary evidence-validation-rollup redthread-contract-proposal demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
 
 test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
@@ -47,6 +47,18 @@ evidence-external-review-sessions:
 
 evidence-external-validation-readout:
 	$(PYTHON) scripts/build_external_validation_readout.py --fail-on-marker-hit
+
+evidence-freshness:
+	$(PYTHON) scripts/build_evidence_freshness_manifest.py --fail-on-marker-hit
+
+evidence-readiness:
+	$(PYTHON) scripts/build_evidence_readiness.py --fail-on-marker-hit
+
+evidence-external-review-distribution:
+	$(PYTHON) scripts/build_external_review_distribution_manifest.py --fail-on-marker-hit
+
+evidence-remediation-queue:
+	$(PYTHON) scripts/build_evidence_remediation_queue.py --fail-on-marker-hit
 
 evidence-boundary-probe-plan:
 	$(PYTHON) scripts/build_boundary_probe_plan.py --run-dir runs/reviewed_write_reference --output-dir runs/boundary_probe_plan --fail-on-marker-hit

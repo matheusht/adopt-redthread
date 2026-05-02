@@ -4,60 +4,77 @@ Date: 2026-05-01
 
 ## Scope
 
-Implement only local, privacy-preserving external-review mechanics. Do not build a live boundary executor, do not run production or staging probes, do not add a new integration, and do not change `approve` / `review` / `block` semantics.
+Implement only local, privacy-preserving evidence-loop mechanics. Do not build a live boundary executor, do not run production or staging probes, do not add a new integration, and do not change `approve` / `review` / `block` semantics.
 
-These slices follow the completed boundary result artifact and reviewer-surface integration work.
+These slices follow the completed evidence freshness manifest and evidence readiness ledger work.
 
-## Slice 1 — External review session batch
+## Slice 1 — External review distribution manifest
 
 ### Objective
 
-Turn the sanitized external handoff into isolated per-review folders so three human reviewers can be run without sharing prior answers, repo context, or raw artifacts.
+Turn the generated external review session batch into a precise send list for operators. The manifest should say which isolated `review_N` folders may be distributed, whether the copies are fresh, and which sanitized observation summary path is expected back from each reviewer.
 
 ### Implemented artifacts
 
-- `scripts/build_external_review_session_batch.py`
-- `make evidence-external-review-sessions`
-- `runs/external_review_sessions/external_review_session_batch.{md,json}` generated locally
-- `runs/external_review_sessions/review_*/` generated locally
-- `tests/test_external_review_session_batch.py`
-- `docs/external-review-session-batch.md`
+- `scripts/build_external_review_distribution_manifest.py`
+- `make evidence-external-review-distribution`
+- `runs/external_review_distribution/external_review_distribution_manifest.{md,json}` generated locally
+- `tests/test_external_review_distribution.py`
+- `docs/external-review-distribution-manifest.md`
 
 ### Acceptance criteria
 
-- Reads only `runs/external_review_handoff/external_review_handoff_manifest.json` and the handoff's allowed markdown artifacts.
-- Copies only sanitized allowed artifacts into per-review folders.
-- Creates one blank filled-observation file per reviewer and records the exact summary command for that reviewer.
-- Records the rollup command for the expected summaries.
+- Reads only the sanitized external handoff manifest, external session batch, freshness manifest, copied sanitized session artifacts, and blank observation templates.
+- Reports `ready_to_distribute`, `privacy_blocked`, `missing_required_evidence`, `stale_or_missing_evidence`, or `not_ready_to_distribute`.
+- Blocks distribution when freshness is stale/missing or required schemas are absent/invalid.
+- Emits one delivery entry per reviewer session with allowed file count, filled observation path, expected summary path, and exact summary command.
 - Fails closed on configured sensitive-marker hits.
-- States clearly that session folders are not validation evidence until filled observations are summarized and rolled up.
-- Does not include raw HAR/session/cookie/header/body/request/response data, source files, repo context, or write-context values.
+- States clearly that distribution is not external validation, not buyer-demand proof, not production-readiness proof, not boundary execution proof, and not a verdict-semantics change.
+- Does not read or copy raw HAR/session/cookie/auth/header/body/request/response data, source files, write-context values, raw boundary values, or prior reviewer answers.
 
-## Slice 2 — External validation readout
+### Current local result
+
+- `distribution_status: ready_to_distribute`
+- `delivery_count: 3`
+- `blocker_count: 0`
+
+This means the isolated session folders are ready to send. It does not mean the reviewers have validated anything yet.
+
+## Slice 2 — Evidence remediation queue
 
 ### Objective
 
-Make the external validation state machine explicit: waiting for filled observations, needing more complete reviews, privacy blocked, or ready for external validation readout.
+Convert the sanitized readiness/distribution state into an ordered action queue. The queue should make the next work explicit without changing gate semantics or pretending blocked external/boundary work is complete.
 
 ### Implemented artifacts
 
-- `scripts/build_external_validation_readout.py`
-- `make evidence-external-validation-readout`
-- `runs/external_validation_readout/external_validation_readout.{md,json}` generated locally
-- `runs/external_validation_readout/reviewer_validation_rollup.{md,json}` generated locally via existing rollup logic
-- `tests/test_external_validation_readout.py`
-- `docs/external-validation-readout.md`
+- `scripts/build_evidence_remediation_queue.py`
+- `make evidence-remediation-queue`
+- `runs/evidence_remediation/evidence_remediation_queue.{md,json}` generated locally
+- `tests/test_evidence_remediation_queue.py`
+- `docs/evidence-remediation-queue.md`
 
 ### Acceptance criteria
 
-- Reads only the external session batch manifest and sanitized `reviewer_observation_summary.json` files.
-- With missing summaries, reports `waiting_for_filled_external_observations` rather than claiming validation.
-- With fewer than three complete summaries, reports `needs_more_complete_external_reviews`.
-- With three complete consistent sanitized summaries, reports `ready_for_external_validation_readout`.
-- With configured marker hits, fails closed by default and can report `privacy_blocked` only when explicitly allowed.
-- Does not copy raw reviewer answer text into the readout.
-- Does not claim buyer demand, production readiness, whole-app safety, or RedThread ownership of the final bridge gate.
+- Reads only sanitized readiness and distribution metadata.
+- Regenerates the readiness ledger by default before building the queue.
+- Converts readiness blockers into concrete items with owner label, priority, status, blocked-by list, action, verification commands, acceptance criteria, and non-claim.
+- Preserves current no-reviewer state as `open_items`, not validation failure or release approval.
+- Preserves boundary non-execution as blocked on approved non-production context, not a confirmed vulnerability.
+- Fails closed on configured sensitive-marker hits, including embedded source audit metadata.
+- Does not include raw reviewer free-form answers or raw app/run artifacts.
+- Does not claim buyer demand, production readiness, whole-app safety, boundary execution, or RedThread ownership of the final bridge gate.
+
+### Current local result
+
+- `queue_status: open_items`
+- `item_count: 2`
+- open items:
+  - `collect_external_reviewer_observations`
+  - `wait_for_approved_boundary_context`
+
+This is the correct local state. The evidence package can be distributed, but external validation and boundary execution remain incomplete.
 
 ## Still blocked after these slices
 
-Actual external validation is still blocked until real external reviewers fill the session observations and those observations are summarized. Boundary execution remains blocked until approved non-production context exists with safe actor scopes, selector bindings, and operator approval.
+Actual external validation is still blocked until real external reviewers fill the session observations and those observations are summarized. Boundary execution remains blocked until approved non-production context exists with safe actor scopes, selector bindings, and operator approval. These slices make distribution and remediation state explicit; they do not execute probes, contact reviewers, or approve release.

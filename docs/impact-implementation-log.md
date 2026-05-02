@@ -781,7 +781,7 @@ Implemented:
 
 - Added a bounded generated-markdown marker audit to `scripts/build_reviewer_packet.py`.
 - The audit checks only the sanitized evidence report and matrix, not raw run artifacts.
-- Checked marker strings currently include `value_preview`, `set-cookie`, `authorization:`, `cookie:`, `bearer `, and `acct-123`.
+- Checked marker strings are maintained in `scripts/build_reviewer_packet.py`; this log intentionally avoids copying the literal marker set into reviewer-facing docs.
 - `make evidence-packet` uses `--fail-on-marker-hit` so handoff fails if configured markers are present.
 - Added focused test coverage for both passing and failing marker-audit behavior.
 
@@ -1340,3 +1340,121 @@ What it does not do:
 - does not copy free-form reviewer answers into the readout
 - does not alter bridge `approve` / `review` / `block` verdict semantics
 - does not remove the boundary execution blocker
+
+## 2026-05-01 — evidence freshness and readiness ledger
+
+### Slice 1 — sanitized evidence freshness manifest
+
+Implemented:
+
+- `scripts/build_evidence_freshness_manifest.py`
+- `make evidence-freshness`
+- `tests/test_evidence_freshness.py`
+- `docs/evidence-freshness-manifest.md`
+
+What it does:
+
+- compares reviewer packet manifest hashes against sanitized source artifacts
+- compares external handoff copies against sanitized source artifacts
+- compares external review session copies against external handoff hashes
+- writes `runs/evidence_freshness/evidence_freshness_manifest.{md,json}`
+- reports `fresh`, `stale_or_missing`, or `privacy_blocked`
+- fails closed on configured sensitive-marker hits by default
+
+What it does not do:
+
+- does not read raw HAR/session/cookie/auth/header/body/request/response data
+- does not read source files, write-context values, or raw boundary actor/tenant/resource values
+- does not claim external validation, production readiness, buyer demand, whole-app safety, or release approval
+- does not alter bridge `approve` / `review` / `block` verdict semantics
+
+### Slice 2 — sanitized evidence readiness ledger
+
+Implemented:
+
+- `scripts/build_evidence_readiness.py`
+- `make evidence-readiness`
+- `tests/test_evidence_readiness.py`
+- `docs/evidence-readiness-ledger.md`
+
+What it does:
+
+- regenerates the freshness manifest by default
+- reads matrix, reviewer packet, external handoff, external session batch, external validation readout, boundary result, and freshness JSON metadata
+- writes `runs/evidence_readiness/evidence_readiness.{md,json}`
+- reports readiness states including `privacy_blocked`, `missing_required_evidence`, `stale_or_missing_evidence`, `waiting_for_external_validation`, `boundary_context_pending`, `needs_decision_example_coverage`, and `ready_for_sanitized_readout`
+- derives next actions from readiness blockers
+
+What it does not do:
+
+- does not approve release
+- does not summarize raw reviewer answers
+- does not execute boundary probes
+- does not treat missing boundary context as a confirmed vulnerability
+- does not change local bridge `approve` / `review` / `block` verdict semantics
+
+## 2026-05-01 — external distribution and remediation queue
+
+### Slice 1 — external review distribution manifest
+
+Implemented:
+
+- `scripts/build_external_review_distribution_manifest.py`
+- `make evidence-external-review-distribution`
+- `tests/test_external_review_distribution.py`
+- `docs/external-review-distribution-manifest.md`
+
+What it does:
+
+- reads the sanitized external handoff manifest, external review session batch, freshness manifest, and copied sanitized session artifacts
+- writes `runs/external_review_distribution/external_review_distribution_manifest.{md,json}`
+- reports `ready_to_distribute`, `privacy_blocked`, `missing_required_evidence`, `stale_or_missing_evidence`, or `not_ready_to_distribute`
+- records one delivery entry per reviewer session with allowed file count, filled observation path, expected summary path, and exact summary command
+- fails closed on configured sensitive-marker hits
+
+Current generated state:
+
+- `distribution_status: ready_to_distribute`
+- `delivery_count: 3`
+- `blocker_count: 0`
+
+What it does not do:
+
+- does not claim external validation
+- does not contact reviewers or summarize reviewer answers
+- does not read raw HAR/session/cookie/auth/header/body/request/response data, source files, write-context values, raw boundary values, or prior reviewer answers
+- does not change local bridge `approve` / `review` / `block` verdict semantics
+
+### Slice 2 — evidence remediation queue
+
+Implemented:
+
+- `scripts/build_evidence_remediation_queue.py`
+- `make evidence-remediation-queue`
+- `tests/test_evidence_remediation_queue.py`
+- `docs/evidence-remediation-queue.md`
+
+What it does:
+
+- regenerates the readiness ledger by default
+- reads sanitized readiness and distribution metadata
+- writes `runs/evidence_remediation/evidence_remediation_queue.{md,json}`
+- converts blockers into ordered work items with owner labels, priority, status, blocked-by list, action, verification commands, acceptance criteria, and non-claims
+- fails closed on configured sensitive-marker hits, including embedded audit metadata
+
+Current generated state:
+
+- `queue_status: open_items`
+- `item_count: 2`
+- open items:
+  - `collect_external_reviewer_observations`
+  - `wait_for_approved_boundary_context`
+
+What it does not do:
+
+- does not approve release
+- does not create external validation
+- does not execute boundary probes
+- does not treat missing boundary context as a confirmed vulnerability
+- does not include raw reviewer free-form answers or raw app/run artifacts
+- does not change local bridge `approve` / `review` / `block` verdict semantics

@@ -26,9 +26,13 @@ Then build the external handoff directory and isolated reviewer sessions:
 ```bash
 make evidence-external-review-handoff
 make evidence-external-review-sessions
+make evidence-freshness
+make evidence-readiness
+make evidence-external-review-distribution
+make evidence-remediation-queue
 ```
 
-The handoff directory is the source package. The session batch copies only those sanitized files into `runs/external_review_sessions/review_*` folders with one blank observation per reviewer.
+The handoff directory is the source package. The session batch copies only those sanitized files into `runs/external_review_sessions/review_*` folders with one blank observation per reviewer. The freshness/readiness commands verify copied artifact hashes and report the current non-validation/waiting state before distribution. The distribution manifest is the exact per-review send list; the remediation queue records the remaining external-review and boundary-context work.
 
 Generated local handoff output:
 

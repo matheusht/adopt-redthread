@@ -20,10 +20,12 @@ make evidence-packet
 make evidence-external-review-handoff
 ```
 
-Then create the reviewer sessions:
+Then create the reviewer sessions and distribution manifest:
 
 ```bash
 make evidence-external-review-sessions
+make evidence-freshness
+make evidence-external-review-distribution
 ```
 
 Generated local output:
@@ -109,6 +111,8 @@ Important fields:
 - `sessions`: per-review folders, allowed artifacts, expected summary paths, and summary commands
 - `rollup_command`: command to aggregate the expected summaries
 - `input_marker_audit` / `output_marker_audit`: configured sensitive-marker tripwires
+
+`make evidence-external-review-distribution` reads this batch plus freshness metadata and writes the exact per-review send list under `runs/external_review_distribution/`.
 
 ## Safety boundary
 

@@ -155,6 +155,10 @@ make evidence-packet
 make evidence-external-review-handoff
 make evidence-external-review-sessions
 make evidence-external-validation-readout
+make evidence-freshness
+make evidence-readiness
+make evidence-external-review-distribution
+make evidence-remediation-queue
 make evidence-boundary-probe-plan
 make evidence-boundary-execution-design
 make evidence-boundary-probe-result
@@ -197,6 +201,10 @@ Generated outputs:
 - `runs/external_review_handoff/` — generated external human cold-review handoff directory with only sanitized artifacts, instructions, hashes, and marker audit; run with `make evidence-external-review-handoff`; this is not validation until filled observations are summarized
 - `runs/external_review_sessions/` — generated isolated per-review folders for the external handoff; run with `make evidence-external-review-sessions`; these are not validation evidence until filled observations are summarized
 - `runs/external_validation_readout/` — generated external validation state/readout from sanitized session summaries; run with `make evidence-external-validation-readout`; missing summaries report waiting state, not validation
+- `runs/evidence_freshness/` — generated hash/freshness manifest for sanitized reviewer-facing copies; run with `make evidence-freshness`; stale copies mean regenerate packets, not a security finding
+- `runs/evidence_readiness/` — generated one-page sanitized readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary result, and freshness; run with `make evidence-readiness`; current no-reviewer state is waiting, not validation
+- `runs/external_review_distribution/` — generated distribution manifest for exact per-review send lists, freshness state, expected summary paths, and summary commands; run with `make evidence-external-review-distribution`; ready to distribute is not validation
+- `runs/evidence_remediation/` — generated ordered remediation queue from sanitized readiness and distribution blockers; run with `make evidence-remediation-queue`; current open items are external reviewer observations and approved boundary context
 - `runs/boundary_probe_plan/` — generated sanitized tenant/user boundary next-probe plan from existing reviewed-write evidence; run with `make evidence-boundary-probe-plan`; this is planning evidence, not execution evidence
 - `runs/boundary_execution_design/` — generated copy of the tenant/user boundary execution design and result contract; run with `make evidence-boundary-execution-design`; checked-in source is `docs/tenant-user-boundary-execution-design.md`
 - `runs/boundary_probe_result/` — generated sanitized tenant/user boundary result artifact; run with `make evidence-boundary-probe-result`; current default is `blocked_missing_context`, not execution proof
@@ -216,9 +224,13 @@ Generated outputs:
 - `docs/external-human-cold-review-handoff.md` — exact external human reviewer handoff protocol and count rules
 - `docs/external-review-session-batch.md` — isolated per-review session folders and summary command path for external cold reviews
 - `docs/external-validation-readout.md` — external validation readout statuses, non-claims, and privacy boundary
+- `docs/evidence-freshness-manifest.md` — sanitized hash/freshness checks for reviewer packet, external handoff, and per-review session copies
+- `docs/evidence-readiness-ledger.md` — one-page local readiness state across sanitized evidence artifacts, freshness, external validation, and boundary-result blockers
+- `docs/external-review-distribution-manifest.md` — distribution manifest for exact external reviewer session send lists, freshness checks, and expected summary paths
+- `docs/evidence-remediation-queue.md` — ordered local remediation queue from sanitized readiness/distribution blockers
 - `docs/ai-cold-review-validation-readout.md` — no-tools AI cold-review validation result, parser fixes found by validation, and limits of the evidence
 - `docs/next-three-slices-plan.md` — implementation plan and acceptance criteria for the external handoff plus boundary execution design slices
-- `docs/next-two-slices-plan.md` — implementation plan and acceptance criteria for the boundary result artifact plus report/matrix/packet integration slices
+- `docs/next-two-slices-plan.md` — current implemented next-two-slices plan and acceptance criteria for local privacy-preserving evidence-loop work
 - `docs/tenant-user-boundary-execution-design.md` — design-only approved-context and sanitized-result contract for future tenant/user boundary probe execution
 - `docs/tenant-user-boundary-probe-result.md` — sanitized boundary result artifact schema, command, privacy rules, and decision semantics
 - `docs/hero-flow-binding-truth.md` — demo-grade proof artifact guide for planned/applied binding evidence

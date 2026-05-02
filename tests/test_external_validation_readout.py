@@ -33,15 +33,19 @@ class ExternalValidationReadoutTests(unittest.TestCase):
                 _write_summary(path, decision="review")
                 summary_paths.append(path)
             batch = root / "external_review_session_batch.json"
-            _write_batch(batch, summary_paths)
+            _write_batch(batch, summary_paths, include_boundary_context_request=True)
 
             readout = build_external_validation_readout(batch_manifest=batch, output_dir=root / "readout")
             readout_json = (root / "readout" / "external_validation_readout.json").read_text(encoding="utf-8")
+            readout_md = (root / "readout" / "external_validation_readout.md").read_text(encoding="utf-8")
 
         self.assertEqual(readout["readout_status"], "ready_for_external_validation_readout")
         self.assertEqual(readout["validation_claim"], "external_human_validation_readout_ready_but_not_buyer_demand_or_production_readiness_proof")
         self.assertEqual(readout["rollup_summary"]["complete_summary_count"], 3)
         self.assertEqual(readout["rollup_summary"]["decision_counts"]["review"], 3)
+        self.assertEqual(readout["review_input_coverage"]["boundary_context_request_delivery_status"], "delivered_to_all_sessions")
+        self.assertFalse(readout["review_input_coverage"]["boundary_context_request_is_execution_proof"])
+        self.assertIn("Boundary context request is execution proof: `False`", readout_md)
         self.assertNotIn("authorization:", readout_json)
 
     def test_marker_hit_fails_closed(self) -> None:
@@ -57,17 +61,27 @@ class ExternalValidationReadoutTests(unittest.TestCase):
                 build_external_validation_readout(batch_manifest=batch, output_dir=root / "readout")
 
 
-def _write_batch(path: Path, summary_paths: list[Path]) -> None:
+def _write_batch(path: Path, summary_paths: list[Path], *, include_boundary_context_request: bool = False) -> None:
+    sessions = []
+    for index, summary_path in enumerate(summary_paths):
+        session = {
+            "session_id": f"review_{index + 1}",
+            "expected_summary_path": str(summary_path),
+        }
+        if include_boundary_context_request:
+            session["allowed_artifacts"] = {
+                "tenant_user_boundary_probe_context_request.md": {
+                    "path": str(summary_path.parent / "artifacts" / "tenant_user_boundary_probe_context_request.md"),
+                    "sha256": "test-sha",
+                    "byte_count": 10,
+                    "line_count": 1,
+                }
+            }
+        sessions.append(session)
     payload = {
         "schema_version": "adopt_redthread.external_review_session_batch.v1",
         "target_review_count": 3,
-        "sessions": [
-            {
-                "session_id": f"review_{index + 1}",
-                "expected_summary_path": str(summary_path),
-            }
-            for index, summary_path in enumerate(summary_paths)
-        ],
+        "sessions": sessions,
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 

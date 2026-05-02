@@ -198,6 +198,37 @@ make evidence-readiness
 make evidence-remediation-queue
 ```
 
+## Follow-up Slice — Boundary context request coverage in external validation readout
+
+### Objective
+
+Show whether external reviewers received the sanitized boundary context request checklist, without changing validation status or treating the checklist as approved context/execution proof.
+
+### Implemented artifacts
+
+- `scripts/build_external_validation_readout.py` bounded `review_input_coverage` metadata
+- `tests/test_external_validation_readout.py` coverage for all-session context-request delivery
+- docs updates for readout privacy and non-claim boundaries
+
+### Acceptance criteria
+
+- Readout records `tenant_user_boundary_probe_context_request.md` delivery coverage from the session batch allowed-artifact metadata.
+- Coverage is reported separately from summary completeness and does not change readout status or validation claim.
+- The context request remains a checklist/request artifact, not approved context, execution proof, or a confirmed finding.
+- No raw context values or filled observations are read, copied, or surfaced.
+- No probe is executed.
+- No bridge verdict semantics change.
+
+### Test/verification commands
+
+```bash
+python3 -m py_compile scripts/build_external_validation_readout.py
+python3 -m unittest tests.test_external_validation_readout -v
+make evidence-external-validation-readout
+make evidence-readiness
+make evidence-remediation-queue
+```
+
 ## Still blocked after follow-up slices
 
 External validation still requires real filled external reviewer observations and sanitized summaries. Boundary execution still requires approved non-production tenant/user context with safe actor scopes, selector bindings, operator approval, and a future executor that consumes only validated context.

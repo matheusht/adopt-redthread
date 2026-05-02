@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The external validation readout summarizes whether the external review session batch has enough complete sanitized reviewer summaries to discuss validation results.
+The external validation readout summarizes whether the external review session batch has enough complete sanitized reviewer summaries to discuss validation results. It also records bounded reviewer-input coverage, including whether the sanitized boundary context request was present in each session, without treating that request as approved context or execution proof.
 
 It does not read raw observations. It consumes only:
 
@@ -74,6 +74,7 @@ The readout does not copy raw reviewer answer text. It includes only bounded cou
 - repeat-review request count
 - bounded theme counts
 - configured sensitive-marker audit result
+- bounded reviewer-input coverage for `tenant_user_boundary_probe_context_request.md`
 - recommended next actions
 
 Forbidden inputs remain forbidden:
@@ -83,11 +84,12 @@ Forbidden inputs remain forbidden:
 - request bodies or response bodies
 - production or staging write-context values
 - source files or repo context
+- approved boundary context files or filled local context values
 - prior reviewer answers before silent review
 
 ## Relationship to freshness, readiness, distribution, returns, and remediation
 
-After the readout is built, `make evidence-freshness` checks that copied reviewer-facing artifacts still match their sanitized source hashes. `make evidence-readiness` then indexes the matrix, packet, handoff, sessions, validation readout, boundary context, boundary result, and freshness manifest into one sanitized readiness state. `make evidence-external-review-distribution` records the exact reviewer folders and expected summary paths. `make evidence-external-review-returns` reports per-review return status without reading filled observation markdown or copying free-form reviewer answers. `make evidence-remediation-queue` converts the remaining readiness/distribution blockers into concrete next actions. With no filled external observations, the readiness ledger should remain `waiting_for_external_validation`, the return ledger should remain `waiting_for_returns`, and the remediation queue should keep `collect_external_reviewer_observations` open.
+After the readout is built, `make evidence-freshness` checks that copied reviewer-facing artifacts still match their sanitized source hashes. `make evidence-readiness` then indexes the matrix, packet, handoff, sessions, validation readout, boundary context, boundary context request, boundary result, and freshness manifest into one sanitized readiness state. `make evidence-external-review-distribution` records the exact reviewer folders and expected summary paths. `make evidence-external-review-returns` reports per-review return status without reading filled observation markdown or copying free-form reviewer answers. `make evidence-remediation-queue` converts the remaining readiness/distribution blockers into concrete next actions. With no filled external observations, the readiness ledger should remain `waiting_for_external_validation`, the return ledger should remain `waiting_for_returns`, and the remediation queue should keep `collect_external_reviewer_observations` open.
 
 ## Relationship to existing rollup
 
@@ -97,4 +99,4 @@ After the readout is built, `make evidence-freshness` checks that copied reviewe
 
 ## Safety boundary
 
-This command does not execute live probes, does not authorize write context, does not alter `approve` / `review` / `block` semantics, and does not remove `tenant_user_boundary_unproven` from evidence. It only reports whether the external reviewer evidence loop has enough complete sanitized summaries to discuss.
+This command does not execute live probes, does not authorize write context, does not approve boundary context, does not alter `approve` / `review` / `block` semantics, and does not remove `tenant_user_boundary_unproven` from evidence. It only reports whether the external reviewer evidence loop has enough complete sanitized summaries to discuss and whether the sanitized context-request checklist was included in reviewer inputs.

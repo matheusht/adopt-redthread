@@ -52,6 +52,7 @@ def build_external_validation_readout(
         "batch_schema_valid": batch.get("schema_version") == BATCH_SCHEMA,
         "target_review_count": batch.get("target_review_count", rollup.get("minimum_complete_review_count", 3)),
         "summary_paths": [_display_path(path) for path in summaries],
+        "review_input_coverage": _review_input_coverage(batch),
         "rollup_path": _display_path(output_root / "reviewer_validation_rollup.json"),
         "rollup_summary": rollup.get("rollup_summary", {}),
         "theme_summary": rollup.get("theme_summary", {}),
@@ -100,6 +101,39 @@ def _summary_paths_from_batch(batch: dict[str, Any]) -> list[Path]:
         return paths
     target_count = int(batch.get("target_review_count", 3) or 3)
     return [REPO_ROOT / "runs" / "external_review_sessions" / f"review_{index}" / "reviewer_observation_summary.json" for index in range(1, target_count + 1)]
+
+
+def _review_input_coverage(batch: dict[str, Any]) -> dict[str, Any]:
+    sessions = [session for session in batch.get("sessions", []) if isinstance(session, dict)] if isinstance(batch.get("sessions"), list) else []
+    filename = "tenant_user_boundary_probe_context_request.md"
+    delivered_session_ids: list[str] = []
+    missing_session_ids: list[str] = []
+    for index, session in enumerate(sessions, start=1):
+        session_id = str(session.get("session_id") or f"review_{index}")
+        allowed = session.get("allowed_artifacts", {}) if isinstance(session.get("allowed_artifacts"), dict) else {}
+        if filename in {str(name) for name in allowed}:
+            delivered_session_ids.append(session_id)
+        else:
+            missing_session_ids.append(session_id)
+    if not sessions:
+        status = "not_in_session_batch"
+    elif len(delivered_session_ids) == len(sessions):
+        status = "delivered_to_all_sessions"
+    elif delivered_session_ids:
+        status = "partially_delivered"
+    else:
+        status = "not_in_session_batch"
+    return {
+        "boundary_context_request_filename": filename,
+        "boundary_context_request_delivery_status": status,
+        "session_count": len(sessions),
+        "delivered_session_count": len(delivered_session_ids),
+        "missing_session_count": len(missing_session_ids),
+        "delivered_session_ids": delivered_session_ids,
+        "missing_session_ids": missing_session_ids,
+        "boundary_context_request_is_execution_proof": False,
+        "boundary_context_request_is_approved_context": False,
+    }
 
 
 def _readout_status(batch: dict[str, Any], rollup: dict[str, Any]) -> str:
@@ -166,6 +200,7 @@ def _markdown(payload: dict[str, Any]) -> str:
         f"- Rollup validation status: `{payload['rollup_validation_status']}`",
         f"- Complete summaries: `{summary.get('complete_summary_count', 0)}/{payload['target_review_count']}`",
         f"- Missing/invalid summaries: `{summary.get('missing_or_invalid_file_count', 0)}`",
+        f"- Boundary context request delivery: `{payload['review_input_coverage']['boundary_context_request_delivery_status']}` (`{payload['review_input_coverage']['delivered_session_count']}/{payload['review_input_coverage']['session_count']}` sessions)",
         f"- Marker audit passed: `{audit.get('passed', False)}`",
         f"- Marker hits: `{audit.get('marker_hit_count', 0)}`",
         "",
@@ -174,6 +209,15 @@ def _markdown(payload: dict[str, Any]) -> str:
     ]
     lines.extend(f"- `{path}`" for path in payload["summary_paths"])
     lines.extend([
+        "",
+        "## Reviewer input coverage",
+        "",
+        f"- Boundary context request file: `{payload['review_input_coverage']['boundary_context_request_filename']}`",
+        f"- Delivery status: `{payload['review_input_coverage']['boundary_context_request_delivery_status']}`",
+        f"- Delivered sessions: `{','.join(payload['review_input_coverage']['delivered_session_ids']) if payload['review_input_coverage']['delivered_session_ids'] else 'none'}`",
+        f"- Missing sessions: `{','.join(payload['review_input_coverage']['missing_session_ids']) if payload['review_input_coverage']['missing_session_ids'] else 'none'}`",
+        "- Boundary context request is approved context: `False`",
+        "- Boundary context request is execution proof: `False`",
         "",
         "## Decision counts",
         "",

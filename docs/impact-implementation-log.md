@@ -1691,3 +1691,36 @@ make evidence-external-review-distribution
 make evidence-readiness
 make evidence-remediation-queue
 ```
+
+## 2026-05-02 — boundary context request coverage in external validation readout
+
+### Slice — reviewer-input coverage without validation inflation
+
+Implemented:
+
+- `scripts/build_external_validation_readout.py` now reports bounded `review_input_coverage` for `tenant_user_boundary_probe_context_request.md`
+- `tests/test_external_validation_readout.py` coverage for all-session context-request delivery
+- docs updates for readout scope and privacy boundaries
+
+What it does:
+
+- records whether the sanitized boundary context request checklist was present in each external review session
+- reports delivery status separately from summary completeness and validation claim
+- keeps missing reviewer summaries in waiting state, not validation
+
+What it does not do:
+
+- does not approve context, execute probes, send traffic, or claim a boundary finding
+- does not read filled observations, approved context files, or raw actor/tenant/resource/selector/request/response values
+- does not make context-request delivery external validation
+- does not approve release or change bridge verdict semantics
+
+Verification:
+
+```bash
+python3 -m py_compile scripts/build_external_validation_readout.py
+python3 -m unittest tests.test_external_validation_readout -v
+make evidence-external-validation-readout
+make evidence-readiness
+make evidence-remediation-queue
+```

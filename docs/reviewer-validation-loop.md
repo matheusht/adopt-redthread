@@ -56,10 +56,11 @@ Forbidden evidence:
    make evidence-freshness
    make evidence-readiness
    make evidence-external-review-distribution
+   make evidence-external-review-returns
    make evidence-remediation-queue
    ```
 
-   The handoff is documented in [`docs/external-human-cold-review-handoff.md`](external-human-cold-review-handoff.md). The isolated session folders are documented in [`docs/external-review-session-batch.md`](external-review-session-batch.md). Freshness/readiness are documented in [`docs/evidence-freshness-manifest.md`](evidence-freshness-manifest.md) and [`docs/evidence-readiness-ledger.md`](evidence-readiness-ledger.md). The distribution manifest is documented in [`docs/external-review-distribution-manifest.md`](external-review-distribution-manifest.md), and the remediation queue is documented in [`docs/evidence-remediation-queue.md`](evidence-remediation-queue.md). These are packaging/state checks only, not validation by themselves.
+   The handoff is documented in [`docs/external-human-cold-review-handoff.md`](external-human-cold-review-handoff.md). The isolated session folders are documented in [`docs/external-review-session-batch.md`](external-review-session-batch.md). Freshness/readiness are documented in [`docs/evidence-freshness-manifest.md`](evidence-freshness-manifest.md) and [`docs/evidence-readiness-ledger.md`](evidence-readiness-ledger.md). The distribution manifest is documented in [`docs/external-review-distribution-manifest.md`](external-review-distribution-manifest.md), the return ledger is documented in [`docs/external-review-return-ledger.md`](external-review-return-ledger.md), and the remediation queue is documented in [`docs/evidence-remediation-queue.md`](evidence-remediation-queue.md). These are packaging/state checks only, not validation by themselves.
 
 3. Give each reviewer only one generated session folder's sanitized artifacts and blank observation file.
 
@@ -143,6 +144,7 @@ runs/reviewer_validation/reviewer_validation_rollup.json
 For the generated external session batch, you can also run:
 
 ```bash
+make evidence-external-review-returns
 make evidence-external-validation-readout
 make evidence-freshness
 make evidence-readiness
@@ -156,7 +158,7 @@ runs/external_validation_readout/external_validation_readout.md
 runs/external_validation_readout/external_validation_readout.json
 ```
 
-The rollup and readout intentionally read `reviewer_observation_summary.json` files, not raw observations or raw run artifacts. The readiness ledger remains `waiting_for_external_validation` until enough complete sanitized summaries exist.
+The return ledger, rollup, and readout intentionally read `reviewer_observation_summary.json` files, not raw observations or raw run artifacts. The readiness ledger remains `waiting_for_external_validation` until enough complete sanitized summaries exist.
 
 ## Rollup status values
 

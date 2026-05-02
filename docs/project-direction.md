@@ -93,6 +93,7 @@ Run these because they are deterministic, local, read-only, or explicitly bounde
 - `make evidence-freshness` (hash/freshness checks for sanitized reviewer-facing copies only; stale copies mean regenerate, not a security finding)
 - `make evidence-readiness` (one-page sanitized readiness ledger; current no-reviewer state remains waiting, not validation)
 - `make evidence-external-review-distribution` (sanitized per-review send list and expected summary paths; ready to distribute is not validation)
+- `make evidence-external-review-returns` (sanitized per-review return/follow-up ledger; does not read filled observation markdown or copy free-form reviewer answers)
 - `make evidence-remediation-queue` (ordered local work queue from sanitized readiness/distribution blockers; does not execute probes or contact reviewers)
 - `make evidence-boundary-probe-plan` (plan-only artifact; no live execution)
 - `make evidence-boundary-execution-design` (design-only contract; no live execution)

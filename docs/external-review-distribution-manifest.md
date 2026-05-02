@@ -82,6 +82,14 @@ Each delivery entry records:
 
 The operator rule is strict: send exactly one `review_N` folder to exactly one reviewer. Do not mix folders, do not include repo access, and do not include prior reviewer answers.
 
+After reviewers return filled observations and their sanitized summaries are generated, run:
+
+```bash
+make evidence-external-review-returns
+```
+
+That return ledger reports which expected summaries are still missing, incomplete, privacy-blocked, decision-follow-up-needed, or complete.
+
 ## Non-claims
 
 The distribution manifest does not prove:

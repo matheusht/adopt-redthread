@@ -112,7 +112,7 @@ Important fields:
 - `rollup_command`: command to aggregate the expected summaries
 - `input_marker_audit` / `output_marker_audit`: configured sensitive-marker tripwires
 
-`make evidence-external-review-distribution` reads this batch plus freshness metadata and writes the exact per-review send list under `runs/external_review_distribution/`.
+`make evidence-external-review-distribution` reads this batch plus freshness metadata and writes the exact per-review send list under `runs/external_review_distribution/`. After summaries are generated, `make evidence-external-review-returns` reports per-review missing/incomplete/privacy/follow-up/complete status without reading filled observation markdown.
 
 ## Safety boundary
 

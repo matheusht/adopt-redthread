@@ -1458,3 +1458,45 @@ What it does not do:
 - does not treat missing boundary context as a confirmed vulnerability
 - does not include raw reviewer free-form answers or raw app/run artifacts
 - does not change local bridge `approve` / `review` / `block` verdict semantics
+
+## 2026-05-02 — external review return ledger
+
+### Slice — sanitized per-review return/follow-up ledger
+
+Implemented:
+
+- `scripts/build_external_review_return_ledger.py`
+- `make evidence-external-review-returns`
+- `tests/test_external_review_return_ledger.py`
+- `docs/external-review-return-ledger.md`
+
+What it does:
+
+- reads the external review distribution manifest and expected sanitized `reviewer_observation_summary.json` files
+- writes `runs/external_review_returns/external_review_return_ledger.{md,json}`
+- reports `waiting_for_returns`, `needs_followup`, `ready_for_external_validation_readout`, `privacy_blocked`, or `missing_required_evidence`
+- reports each reviewer slot as `missing_summary`, `invalid_summary`, `privacy_blocked`, `incomplete_summary`, `needs_decision_followup`, or `complete`
+- emits exact follow-up commands from the distribution manifest
+- fails closed on configured sensitive-marker hits, including embedded summary audit metadata
+
+Current expected local state before real external reviewer returns:
+
+- `ledger_status: waiting_for_returns`
+- `complete_count: 0/3`
+- missing summaries remain operational waiting state, not external validation
+
+What it does not do:
+
+- does not read filled observation markdown directly
+- does not copy raw reviewer free-form answers
+- does not contact reviewers, execute probes, or approve release
+- does not read raw HAR/session/cookie/auth/header/body/request/response data, source files, write-context values, or raw boundary values
+- does not change local bridge `approve` / `review` / `block` verdict semantics
+
+Verification:
+
+```bash
+python3 -m py_compile scripts/build_external_review_return_ledger.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_external_review_return_ledger tests.test_evidence_remediation_queue -v
+make evidence-external-review-returns
+```

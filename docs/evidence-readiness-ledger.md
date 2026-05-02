@@ -91,6 +91,12 @@ The ledger emits next actions from the blockers. Examples:
 - keep boundary execution blocked until approved non-production tenant/user context exists
 - remove/regenerate artifacts that hit configured sensitive-marker checks
 
+For per-review external return status after distribution, run:
+
+```bash
+make evidence-external-review-returns
+```
+
 For an ordered work queue with owner labels, priorities, verification commands, and acceptance criteria, run:
 
 ```bash

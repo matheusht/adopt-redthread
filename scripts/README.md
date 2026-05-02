@@ -65,6 +65,7 @@ Handy commands:
 - `make evidence-freshness` — build `runs/evidence_freshness/evidence_freshness_manifest.{md,json}` reporting stale/missing sanitized copies and failing on configured marker hits
 - `make evidence-readiness` — build `runs/evidence_readiness/evidence_readiness.{md,json}` from sanitized evidence metadata; current no-reviewer state remains waiting, not validation
 - `make evidence-external-review-distribution` — build `runs/external_review_distribution/external_review_distribution_manifest.{md,json}` with exact reviewer-session delivery records and expected summary paths
+- `make evidence-external-review-returns` — build `runs/external_review_returns/external_review_return_ledger.{md,json}` with per-review missing/incomplete/privacy/follow-up/complete status from sanitized summaries
 - `make evidence-remediation-queue` — build `runs/evidence_remediation/evidence_remediation_queue.{md,json}` from sanitized readiness/distribution blockers; current open items remain external reviews and approved boundary context
 - `make evidence-boundary-probe-plan` — build `runs/boundary_probe_plan/tenant_user_boundary_probe_plan.{md,json}` from existing reviewed-write evidence; this is a sanitized next-probe plan, not execution evidence
 - `make evidence-boundary-execution-design` — write `docs/tenant-user-boundary-execution-design.md` plus generated `runs/boundary_execution_design/` copies of the approved-context and boundary-result contract; this is design-only, not execution

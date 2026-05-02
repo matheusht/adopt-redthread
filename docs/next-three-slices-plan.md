@@ -108,6 +108,7 @@ The local evidence-loop slices are tracked in [`docs/next-two-slices-plan.md`](n
 - sanitized evidence freshness manifest for reviewer packet, external handoff, and per-review session copies
 - sanitized evidence readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary result, and freshness metadata
 - external review distribution manifest for exact per-review send lists
+- external review return ledger for missing/incomplete/privacy/follow-up/complete sanitized summaries
 - evidence remediation queue for ordered next actions from readiness/distribution blockers
 
-These slices make stale generated evidence, distribution readiness, and current remediation blockers explicit. They remain non-execution, non-validation-by-default, and do not change bridge verdict semantics.
+These slices make stale generated evidence, distribution readiness, return status, and current remediation blockers explicit. They remain non-execution, non-validation-by-default, and do not change bridge verdict semantics.

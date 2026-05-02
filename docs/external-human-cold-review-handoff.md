@@ -29,10 +29,11 @@ make evidence-external-review-sessions
 make evidence-freshness
 make evidence-readiness
 make evidence-external-review-distribution
+make evidence-external-review-returns
 make evidence-remediation-queue
 ```
 
-The handoff directory is the source package. The session batch copies only those sanitized files into `runs/external_review_sessions/review_*` folders with one blank observation per reviewer. The freshness/readiness commands verify copied artifact hashes and report the current non-validation/waiting state before distribution. The distribution manifest is the exact per-review send list; the remediation queue records the remaining external-review and boundary-context work.
+The handoff directory is the source package. The session batch copies only those sanitized files into `runs/external_review_sessions/review_*` folders with one blank observation per reviewer. The freshness/readiness commands verify copied artifact hashes and report the current non-validation/waiting state before distribution. The distribution manifest is the exact per-review send list; the return ledger tracks missing/incomplete/privacy/follow-up/complete sanitized summaries after distribution; the remediation queue records the remaining external-review and boundary-context work.
 
 Generated local handoff output:
 
@@ -105,9 +106,10 @@ make evidence-validation-rollup \
   SUMMARIES="runs/reviewer_validation/review_1/reviewer_observation_summary.json runs/reviewer_validation/review_2/reviewer_observation_summary.json runs/reviewer_validation/review_3/reviewer_observation_summary.json"
 ```
 
-Or build the external-specific readout from the session batch's expected summary paths:
+Or build the external-specific return ledger and readout from the session batch's expected summary paths:
 
 ```bash
+make evidence-external-review-returns
 make evidence-external-validation-readout
 ```
 

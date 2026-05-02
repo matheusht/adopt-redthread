@@ -35,6 +35,8 @@ The queue reads sanitized generated metadata only:
 - `runs/evidence_readiness/evidence_readiness.json`
 - `runs/external_review_distribution/external_review_distribution_manifest.json`
 
+The queue command list also points operators through `make evidence-external-review-returns` after per-review summaries are generated, so missing/incomplete/follow-up state is visible before the external validation readout is interpreted.
+
 The readiness ledger already indexes matrix, packet, handoff, sessions, validation readout, boundary result, and freshness. The queue does not reopen raw app artifacts.
 
 ## What it never includes
@@ -93,6 +95,7 @@ In the current no-reviewer state, the generated queue points to the per-review c
 make evidence-observation-summary OBSERVATION=runs/external_review_sessions/review_1/filled_reviewer_observation.md OBSERVATION_OUTPUT=runs/external_review_sessions/review_1
 make evidence-observation-summary OBSERVATION=runs/external_review_sessions/review_2/filled_reviewer_observation.md OBSERVATION_OUTPUT=runs/external_review_sessions/review_2
 make evidence-observation-summary OBSERVATION=runs/external_review_sessions/review_3/filled_reviewer_observation.md OBSERVATION_OUTPUT=runs/external_review_sessions/review_3
+make evidence-external-review-returns
 make evidence-external-validation-readout
 make evidence-readiness
 ```

@@ -24,6 +24,7 @@ Before distribution, build the freshness/readiness/distribution surfaces. After 
 make evidence-freshness
 make evidence-readiness
 make evidence-external-review-distribution
+make evidence-external-review-returns
 make evidence-external-validation-readout
 make evidence-readiness
 make evidence-remediation-queue
@@ -84,9 +85,9 @@ Forbidden inputs remain forbidden:
 - source files or repo context
 - prior reviewer answers before silent review
 
-## Relationship to freshness, readiness, distribution, and remediation
+## Relationship to freshness, readiness, distribution, returns, and remediation
 
-After the readout is built, `make evidence-freshness` checks that copied reviewer-facing artifacts still match their sanitized source hashes. `make evidence-readiness` then indexes the matrix, packet, handoff, sessions, validation readout, boundary result, and freshness manifest into one sanitized readiness state. `make evidence-external-review-distribution` records the exact reviewer folders and expected summary paths. `make evidence-remediation-queue` converts the remaining readiness/distribution blockers into concrete next actions. With no filled external observations, the readiness ledger should remain `waiting_for_external_validation` and the remediation queue should keep `collect_external_reviewer_observations` open.
+After the readout is built, `make evidence-freshness` checks that copied reviewer-facing artifacts still match their sanitized source hashes. `make evidence-readiness` then indexes the matrix, packet, handoff, sessions, validation readout, boundary result, and freshness manifest into one sanitized readiness state. `make evidence-external-review-distribution` records the exact reviewer folders and expected summary paths. `make evidence-external-review-returns` reports per-review return status without reading filled observation markdown or copying free-form reviewer answers. `make evidence-remediation-queue` converts the remaining readiness/distribution blockers into concrete next actions. With no filled external observations, the readiness ledger should remain `waiting_for_external_validation`, the return ledger should remain `waiting_for_returns`, and the remediation queue should keep `collect_external_reviewer_observations` open.
 
 ## Relationship to existing rollup
 

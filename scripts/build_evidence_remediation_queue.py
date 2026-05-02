@@ -240,6 +240,7 @@ def _privacy_item(marker_hit_count: int) -> dict[str, Any]:
 def _external_summary_commands(distribution: dict[str, Any]) -> list[str]:
     deliveries = distribution.get("deliveries", []) if isinstance(distribution.get("deliveries"), list) else []
     commands = [str(delivery.get("summary_command")) for delivery in deliveries if isinstance(delivery, dict) and delivery.get("summary_command")]
+    commands.append("make evidence-external-review-returns")
     commands.append("make evidence-external-validation-readout")
     commands.append("make evidence-readiness")
     return commands

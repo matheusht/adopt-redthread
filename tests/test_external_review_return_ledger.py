@@ -35,7 +35,7 @@ class ExternalReviewReturnLedgerTests(unittest.TestCase):
     def test_ready_when_all_expected_summaries_are_complete(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            distribution = _write_distribution(root / "distribution.json", review_count=2)
+            distribution = _write_distribution(root / "distribution.json", review_count=2, include_boundary_context_request=True)
             for index in (1, 2):
                 _write_summary(root / f"review_{index}" / "reviewer_observation_summary.json", complete=True)
 
@@ -47,8 +47,30 @@ class ExternalReviewReturnLedgerTests(unittest.TestCase):
 
         self.assertEqual(payload["ledger_status"], "ready_for_external_validation_readout")
         self.assertEqual(payload["summary"]["complete_count"], 2)
+        self.assertEqual(payload["review_input_coverage"]["boundary_context_request_delivery_status"], "delivered_to_all_sessions")
+        self.assertEqual(payload["review_input_coverage"]["delivered_session_count"], 2)
+        self.assertFalse(payload["review_input_coverage"]["boundary_context_request_changes_return_status"])
+        self.assertTrue(all(session["boundary_context_request_delivered"] for session in payload["sessions"]))
         self.assertEqual(payload["blockers"], [])
         self.assertIn("make evidence-external-validation-readout", payload["commands"])
+
+    def test_missing_context_request_delivery_is_reported_without_changing_waiting_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            distribution = _write_distribution(root / "distribution.json", review_count=2, include_boundary_context_request=False)
+
+            payload = build_external_review_return_ledger(
+                distribution_manifest=distribution,
+                output_dir=root / "out",
+                fail_on_marker_hit=True,
+            )
+            markdown = (root / "out" / "external_review_return_ledger.md").read_text(encoding="utf-8")
+
+        self.assertEqual(payload["ledger_status"], "waiting_for_returns")
+        self.assertEqual(payload["review_input_coverage"]["boundary_context_request_delivery_status"], "not_in_distribution_manifest")
+        self.assertEqual(payload["review_input_coverage"]["missing_session_count"], 2)
+        self.assertFalse(payload["review_input_coverage"]["boundary_context_request_is_approved_context"])
+        self.assertIn("Boundary context request changes return status: `False`", markdown)
 
     def test_incomplete_and_inconsistent_summaries_need_followup(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -101,16 +123,27 @@ class ExternalReviewReturnLedgerTests(unittest.TestCase):
         self.assertIn("invalid_distribution_schema", {blocker["code"] for blocker in payload["blockers"]})
 
 
-def _write_distribution(path: Path, *, review_count: int) -> Path:
+def _write_distribution(path: Path, *, review_count: int, include_boundary_context_request: bool = False) -> Path:
     deliveries = []
     for index in range(1, review_count + 1):
         session_dir = path.parent / f"review_{index}"
-        deliveries.append({
+        delivery = {
             "session_id": f"review_{index}",
             "session_dir": str(session_dir),
             "expected_summary_path": str(session_dir / "reviewer_observation_summary.json"),
             "summary_command": f"make evidence-observation-summary OBSERVATION={session_dir / 'filled_reviewer_observation.md'} OBSERVATION_OUTPUT={session_dir}",
-        })
+        }
+        if include_boundary_context_request:
+            delivery["allowed_files"] = [
+                {
+                    "name": "tenant_user_boundary_probe_context_request.md",
+                    "path": str(session_dir / "artifacts" / "tenant_user_boundary_probe_context_request.md"),
+                    "sha256": "test-sha",
+                    "byte_count": 10,
+                    "line_count": 1,
+                }
+            ]
+        deliveries.append(delivery)
     return _write_json(path, {
         "schema_version": "adopt_redthread.external_review_distribution_manifest.v1",
         "distribution_status": "ready_to_distribute",

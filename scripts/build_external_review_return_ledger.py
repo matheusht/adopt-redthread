@@ -17,6 +17,7 @@ DISTRIBUTION_SCHEMA = "adopt_redthread.external_review_distribution_manifest.v1"
 SUMMARY_SCHEMA = "adopt_redthread.reviewer_observation_summary.v1"
 DEFAULT_DISTRIBUTION = REPO_ROOT / "runs" / "external_review_distribution" / "external_review_distribution_manifest.json"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "runs" / "external_review_returns"
+BOUNDARY_CONTEXT_REQUEST_FILENAME = "tenant_user_boundary_probe_context_request.md"
 
 
 def build_external_review_return_ledger(
@@ -60,6 +61,7 @@ def build_external_review_return_ledger(
         "distribution_status": distribution.get("distribution_status"),
         "target_review_count": distribution.get("target_review_count") or len(deliveries),
         "summary": _summary(sessions),
+        "review_input_coverage": _review_input_coverage(deliveries),
         "sessions": sessions,
         "blockers": blockers,
         "input_marker_audit": input_audit,
@@ -124,6 +126,7 @@ def _session_return(delivery: dict[str, Any]) -> dict[str, Any]:
         "decision_consistency": decision_consistency,
         "summary_marker_audit_passed": marker_passed,
         "summary_marker_hit_count": marker_hit_count,
+        "boundary_context_request_delivered": _delivery_has_allowed_file(delivery, BOUNDARY_CONTEXT_REQUEST_FILENAME),
         "summary_command": delivery.get("summary_command"),
         "follow_up": _follow_up(return_status, delivery),
     }
@@ -220,6 +223,42 @@ def _summary(sessions: list[dict[str, Any]]) -> dict[str, Any]:
         "privacy_blocked_count": counts.get("privacy_blocked", 0),
         "return_status_counts": counts,
     }
+
+
+def _review_input_coverage(deliveries: list[dict[str, Any]]) -> dict[str, Any]:
+    delivered_session_ids: list[str] = []
+    missing_session_ids: list[str] = []
+    for index, delivery in enumerate(deliveries, start=1):
+        session_id = str(delivery.get("session_id") or f"review_{index}")
+        if _delivery_has_allowed_file(delivery, BOUNDARY_CONTEXT_REQUEST_FILENAME):
+            delivered_session_ids.append(session_id)
+        else:
+            missing_session_ids.append(session_id)
+    if not deliveries:
+        status = "not_in_distribution_manifest"
+    elif len(delivered_session_ids) == len(deliveries):
+        status = "delivered_to_all_sessions"
+    elif delivered_session_ids:
+        status = "partially_delivered"
+    else:
+        status = "not_in_distribution_manifest"
+    return {
+        "boundary_context_request_filename": BOUNDARY_CONTEXT_REQUEST_FILENAME,
+        "boundary_context_request_delivery_status": status,
+        "session_count": len(deliveries),
+        "delivered_session_count": len(delivered_session_ids),
+        "missing_session_count": len(missing_session_ids),
+        "delivered_session_ids": delivered_session_ids,
+        "missing_session_ids": missing_session_ids,
+        "boundary_context_request_is_execution_proof": False,
+        "boundary_context_request_is_approved_context": False,
+        "boundary_context_request_changes_return_status": False,
+    }
+
+
+def _delivery_has_allowed_file(delivery: dict[str, Any], filename: str) -> bool:
+    files = delivery.get("allowed_files", []) if isinstance(delivery.get("allowed_files"), list) else []
+    return any(isinstance(file_entry, dict) and str(file_entry.get("name")) == filename for file_entry in files)
 
 
 def _commands(sessions: list[dict[str, Any]]) -> list[str]:
@@ -332,15 +371,26 @@ def _markdown(payload: dict[str, Any]) -> str:
         f"- Incomplete summaries: `{summary['incomplete_summary_count']}`",
         f"- Decision follow-up needed: `{summary['decision_followup_count']}`",
         f"- Privacy-blocked summaries: `{summary['privacy_blocked_count']}`",
+        f"- Boundary context request delivery: `{payload['review_input_coverage']['boundary_context_request_delivery_status']}` (`{payload['review_input_coverage']['delivered_session_count']}/{payload['review_input_coverage']['session_count']}` sessions)",
+        "",
+        "## Reviewer input coverage",
+        "",
+        f"- Boundary context request file: `{payload['review_input_coverage']['boundary_context_request_filename']}`",
+        f"- Delivery status: `{payload['review_input_coverage']['boundary_context_request_delivery_status']}`",
+        f"- Delivered sessions: `{','.join(payload['review_input_coverage']['delivered_session_ids']) if payload['review_input_coverage']['delivered_session_ids'] else 'none'}`",
+        f"- Missing sessions: `{','.join(payload['review_input_coverage']['missing_session_ids']) if payload['review_input_coverage']['missing_session_ids'] else 'none'}`",
+        "- Boundary context request is approved context: `False`",
+        "- Boundary context request is execution proof: `False`",
+        "- Boundary context request changes return status: `False`",
         "",
         "## Per-reviewer returns",
         "",
-        "| Reviewer slot | Return status | Summary exists | Complete | Decision | Follow-up |",
-        "|---|---|---:|---:|---|---|",
+        "| Reviewer slot | Return status | Summary exists | Complete | Decision | Context request delivered | Follow-up |",
+        "|---|---|---:|---:|---|---:|---|",
     ]
     for session in payload["sessions"]:
         lines.append(
-            f"| `{session['session_id']}` | `{session['return_status']}` | `{session['summary_exists']}` | `{session['complete']}` | `{session['release_decision']}` | {session['follow_up']} |"
+            f"| `{session['session_id']}` | `{session['return_status']}` | `{session['summary_exists']}` | `{session['complete']}` | `{session['release_decision']}` | `{session['boundary_context_request_delivered']}` | {session['follow_up']} |"
         )
     lines.extend(["", "## Blockers", ""])
     if payload["blockers"]:

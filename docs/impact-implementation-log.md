@@ -1724,3 +1724,37 @@ make evidence-external-validation-readout
 make evidence-readiness
 make evidence-remediation-queue
 ```
+
+## 2026-05-02 — boundary context request coverage in external review return ledger
+
+### Slice — return tracking input coverage without status inflation
+
+Implemented:
+
+- `scripts/build_external_review_return_ledger.py` now reports bounded `review_input_coverage` for `tenant_user_boundary_probe_context_request.md`
+- each return-ledger session now includes `boundary_context_request_delivered`
+- `tests/test_external_review_return_ledger.py` covers all-session delivery and missing-delivery waiting state
+- docs updates for return-ledger scope and privacy boundaries
+
+What it does:
+
+- records whether the sanitized boundary context request checklist was present in each distributed reviewer session
+- reports checklist delivery separately from summary completeness and return status
+- keeps missing reviewer summaries in waiting state, not validation
+
+What it does not do:
+
+- does not approve context, execute probes, send traffic, or claim a boundary finding
+- does not read filled observations, approved context files, or raw actor/tenant/resource/selector/request/response values
+- does not make context-request delivery external validation or release approval
+- does not change bridge verdict semantics
+
+Verification:
+
+```bash
+python3 -m py_compile scripts/build_external_review_return_ledger.py
+python3 -m unittest tests.test_external_review_return_ledger -v
+make evidence-external-review-returns
+make evidence-readiness
+make evidence-remediation-queue
+```

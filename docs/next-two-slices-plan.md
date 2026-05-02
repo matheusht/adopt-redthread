@@ -229,6 +229,38 @@ make evidence-readiness
 make evidence-remediation-queue
 ```
 
+## Follow-up Slice — Boundary context request coverage in external review return ledger
+
+### Objective
+
+Show whether returned/missing external reviewer slots were distributed with the sanitized boundary context request checklist, without changing return status or treating the checklist as approved context/execution proof.
+
+### Implemented artifacts
+
+- `scripts/build_external_review_return_ledger.py` bounded `review_input_coverage` metadata
+- per-session `boundary_context_request_delivered` field in the sanitized return ledger
+- `tests/test_external_review_return_ledger.py` coverage for all-session delivery and missing-delivery waiting state
+- docs updates for return-ledger privacy and non-claim boundaries
+
+### Acceptance criteria
+
+- Return ledger records `tenant_user_boundary_probe_context_request.md` delivery coverage from distribution manifest allowed-file metadata.
+- Coverage is reported separately from summary completeness and does not change `ledger_status`.
+- The context request remains a checklist/request artifact, not approved context, execution proof, validation evidence, or a confirmed finding.
+- No raw context values or filled observations are read, copied, or surfaced.
+- No probe is executed.
+- No bridge verdict semantics change.
+
+### Test/verification commands
+
+```bash
+python3 -m py_compile scripts/build_external_review_return_ledger.py
+python3 -m unittest tests.test_external_review_return_ledger -v
+make evidence-external-review-returns
+make evidence-readiness
+make evidence-remediation-queue
+```
+
 ## Still blocked after follow-up slices
 
 External validation still requires real filled external reviewer observations and sanitized summaries. Boundary execution still requires approved non-production tenant/user context with safe actor scopes, selector bindings, operator approval, and a future executor that consumes only validated context.

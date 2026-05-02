@@ -206,7 +206,7 @@ Generated outputs:
 - `runs/evidence_freshness/` — generated hash/freshness manifest for sanitized reviewer-facing copies, including the boundary context request when present; run with `make evidence-freshness`; stale copies mean regenerate packets, not a security finding or context approval
 - `runs/evidence_readiness/` — generated one-page sanitized readiness ledger across matrix, packet, handoff, sessions, validation readout, boundary context, boundary context request, boundary result, and freshness; run with `make evidence-readiness`; current no-reviewer state is waiting, not validation
 - `runs/external_review_distribution/` — generated distribution manifest for exact per-review send lists, freshness state, expected summary paths, and summary commands; run with `make evidence-external-review-distribution`; ready to distribute is not validation
-- `runs/external_review_returns/` — generated per-review return/follow-up ledger from sanitized reviewer-observation summaries; run with `make evidence-external-review-returns`; missing summaries remain waiting state, not validation
+- `runs/external_review_returns/` — generated per-review return/follow-up ledger from sanitized reviewer-observation summaries plus bounded boundary-context-request input coverage; run with `make evidence-external-review-returns`; missing summaries remain waiting state, not validation
 - `runs/evidence_remediation/` — generated ordered remediation queue from sanitized readiness and distribution blockers; run with `make evidence-remediation-queue`; current open items are external reviewer observations, boundary context intake, and approved boundary execution context
 - `runs/boundary_probe_plan/` — generated sanitized tenant/user boundary next-probe plan from existing reviewed-write evidence; run with `make evidence-boundary-probe-plan`; this is planning evidence, not execution evidence
 - `runs/boundary_execution_design/` — generated copy of the tenant/user boundary execution design and result contract; run with `make evidence-boundary-execution-design`; checked-in source is `docs/tenant-user-boundary-execution-design.md`
@@ -232,7 +232,7 @@ Generated outputs:
 - `docs/evidence-freshness-manifest.md` — sanitized hash/freshness checks for reviewer packet, external handoff, and per-review session copies
 - `docs/evidence-readiness-ledger.md` — one-page local readiness state across sanitized evidence artifacts, freshness, external validation, boundary-context/request blockers, and boundary-result blockers
 - `docs/external-review-distribution-manifest.md` — distribution manifest for exact external reviewer session send lists, freshness checks, and expected summary paths
-- `docs/external-review-return-ledger.md` — per-review return/follow-up ledger for missing, incomplete, privacy-blocked, decision-follow-up, and complete sanitized summaries
+- `docs/external-review-return-ledger.md` — per-review return/follow-up ledger for missing, incomplete, privacy-blocked, decision-follow-up, complete sanitized summaries, and boundary-context-request input coverage
 - `docs/evidence-remediation-queue.md` — ordered local remediation queue from sanitized readiness/distribution blockers
 - `docs/ai-cold-review-validation-readout.md` — no-tools AI cold-review validation result, parser fixes found by validation, and limits of the evidence
 - `docs/next-three-slices-plan.md` — implementation plan and acceptance criteria for the external handoff plus boundary execution design slices

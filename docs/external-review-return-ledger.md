@@ -2,11 +2,11 @@
 
 ## Purpose
 
-The external review return ledger tracks what came back from each external reviewer slot after distribution.
+The external review return ledger tracks what came back from each external reviewer slot after distribution. It also records bounded reviewer-input coverage, including whether the sanitized boundary context request checklist was present in distributed reviewer sessions, without treating that request as approved context or execution proof.
 
 It answers one operational question:
 
-> Which reviewer summaries are missing, incomplete, privacy-blocked, decision-follow-up-needed, or complete?
+> Which reviewer summaries are missing, incomplete, privacy-blocked, decision-follow-up-needed, or complete, and did reviewer sessions include the sanitized boundary context request checklist?
 
 It is operational tracking only. It is not external validation until complete sanitized observation summaries are rolled into the external validation readout.
 
@@ -37,7 +37,7 @@ The ledger reads sanitized/generated metadata only:
 - `runs/external_review_distribution/external_review_distribution_manifest.json`
 - expected `reviewer_observation_summary.json` paths listed by the distribution manifest
 
-It does **not** read filled reviewer observation markdown directly. The only acceptable path from raw reviewer answers into this flow is:
+It uses only distribution metadata to determine whether `tenant_user_boundary_probe_context_request.md` was included in each reviewer session. It does **not** read filled reviewer observation markdown directly. The only acceptable path from raw reviewer answers into this flow is:
 
 ```bash
 make evidence-observation-summary OBSERVATION=... OBSERVATION_OUTPUT=...
@@ -54,6 +54,7 @@ The ledger must not include:
 - source files
 - staging or production write-context values
 - raw boundary actor, tenant, resource, selector, credential, request, or response values
+- approved boundary context files or filled local context values
 
 ## Statuses
 
@@ -64,6 +65,8 @@ Ledger statuses:
 - `waiting_for_returns` — at least one expected sanitized summary is missing.
 - `needs_followup` — summaries exist but at least one is invalid, incomplete, or needs decision-language follow-up.
 - `ready_for_external_validation_readout` — every expected reviewer slot has a complete, marker-clean sanitized summary with usable decision language.
+
+Boundary context request delivery is reported separately from these statuses. Missing or present context-request delivery does not change `ledger_status`, does not approve boundary context, and does not count as external validation.
 
 Per-review return statuses:
 
@@ -82,7 +85,7 @@ Before real external reviewers return filled observations, the expected status i
 waiting_for_returns
 ```
 
-That is the correct honest state. It means the distribution package may be ready, but external validation has not happened.
+That is the correct honest state. It means the distribution package may be ready, and the boundary context request checklist may have been delivered, but external validation has not happened.
 
 ## Return flow
 
@@ -116,6 +119,7 @@ The return ledger does not prove:
 - external human validation
 - buyer demand
 - production readiness
+- approved boundary context
 - boundary execution
 - whole-app safety
 - release approval

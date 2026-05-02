@@ -146,6 +146,24 @@ def _item_for_readiness_blocker(blocker: dict[str, Any], readiness: dict[str, An
             ],
             "non_claim": "Missing external reviews mean waiting state, not validation failure or release approval.",
         }
+    if code == "boundary_context_request_not_ready":
+        request = readiness.get("components", {}).get("boundary_probe_context_request", {}) if isinstance(readiness.get("components"), dict) else {}
+        return {
+            "id": "regenerate_boundary_context_request",
+            "priority": 17,
+            "owner": "BoundaryEvidenceOwner",
+            "status": "open",
+            "source": "evidence_readiness.boundary_context_request_not_ready",
+            "blocked_by": ["valid sanitized boundary context intake metadata", "marker-clean context request artifact"],
+            "action": f"Regenerate the sanitized boundary context request package before asking an operator for context; current request status: {request.get('request_status')}.",
+            "verification_commands": ["make evidence-boundary-context-request", "make evidence-readiness"],
+            "acceptance_criteria": [
+                "boundary context request status is ready_to_request_context or context_ready",
+                "request package contains only sanitized missing-condition labels and commands",
+                "raw actor, tenant, resource, credential, request, and response values remain absent",
+            ],
+            "non_claim": "A context request package is an operator checklist, not boundary execution proof.",
+        }
     if code == "boundary_context_not_ready":
         return {
             "id": "validate_approved_boundary_context",

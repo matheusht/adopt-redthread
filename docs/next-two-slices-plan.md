@@ -128,6 +128,38 @@ make evidence-boundary-context-request
 make evidence-remediation-queue
 ```
 
-## Still blocked after follow-up slice
+## Follow-up Slice — Boundary context request surfacing in readiness/remediation
+
+### Objective
+
+Make the sanitized context request package a first-class readiness/remediation component without making it execution proof.
+
+### Implemented artifacts
+
+- `scripts/build_evidence_readiness.py` boundary context request component support
+- `tests/test_evidence_readiness.py` coverage for request component, missing request artifact, and failed embedded request audit
+- `scripts/build_evidence_remediation_queue.py` `boundary_context_request_not_ready` work item support
+- `tests/test_evidence_remediation_queue.py` coverage for the explicit request-regeneration item
+- docs updates for readiness/remediation indexing
+
+### Acceptance criteria
+
+- Readiness shows boundary context request status separately from boundary context intake and boundary probe result.
+- Missing/invalid/privacy-blocked request artifacts fail closed through the existing readiness/remediation path.
+- `ready_to_request_context` and `context_ready` request states are not treated as execution proof.
+- No raw context values are read, copied, or surfaced.
+- No probe is executed.
+- No bridge verdict semantics change.
+
+### Test/verification commands
+
+```bash
+python3 -m py_compile scripts/build_evidence_readiness.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_evidence_readiness tests.test_evidence_remediation_queue -v
+make evidence-readiness
+make evidence-remediation-queue
+```
+
+## Still blocked after follow-up slices
 
 External validation still requires real filled external reviewer observations and sanitized summaries. Boundary execution still requires approved non-production tenant/user context with safe actor scopes, selector bindings, operator approval, and a future executor that consumes only validated context.

@@ -1617,3 +1617,38 @@ python3 -m unittest tests.test_boundary_probe_context_request tests.test_evidenc
 make evidence-boundary-context-request
 make evidence-remediation-queue
 ```
+
+## 2026-05-02 — boundary context request readiness surfacing
+
+### Slice — first-class context request component in readiness/remediation
+
+Implemented:
+
+- `scripts/build_evidence_readiness.py` now indexes `runs/boundary_probe_context_request/tenant_user_boundary_probe_context_request.json`
+- `tests/test_evidence_readiness.py` coverage for request status surfacing, missing request artifacts, and failed embedded request audits
+- `scripts/build_evidence_remediation_queue.py` support for `boundary_context_request_not_ready`
+- `tests/test_evidence_remediation_queue.py` coverage for the request-regeneration work item
+- docs updates for readiness/remediation scope
+
+What it does:
+
+- shows boundary context request status separately from context intake and probe result status
+- regenerates the sanitized request package during readiness generation from sanitized context intake metadata
+- fails closed when the request artifact or embedded request audit is invalid/privacy-blocked
+- converts request-artifact problems into an explicit remediation item
+
+What it does not do:
+
+- does not execute probes or send traffic
+- does not resolve or surface raw actor, tenant, resource, credential, session, auth-header, request, response, or write-context values
+- does not treat request readiness or context readiness as execution proof
+- does not approve release or change bridge verdict semantics
+
+Verification:
+
+```bash
+python3 -m py_compile scripts/build_evidence_readiness.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_evidence_readiness tests.test_evidence_remediation_queue -v
+make evidence-readiness
+make evidence-remediation-queue
+```

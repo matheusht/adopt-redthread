@@ -56,6 +56,26 @@ class EvidenceRemediationQueueTests(unittest.TestCase):
         self.assertEqual(payload["queue_status"], "privacy_blocked")
         self.assertEqual(payload["items"][0]["id"], "resolve_privacy_marker_hits")
 
+    def test_boundary_context_request_not_ready_adds_request_item(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            readiness = _write_readiness(root / "readiness.json", marker_hit=False)
+            payload = json.loads(readiness.read_text(encoding="utf-8"))
+            payload["components"]["boundary_probe_context_request"] = {"request_status": "missing_required_evidence"}
+            payload["blockers"].append({"code": "boundary_context_request_not_ready", "component": "boundary_probe_context_request", "detail": "missing_required_evidence"})
+            readiness.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            distribution = _write_distribution(root / "distribution.json", status="ready_to_distribute")
+
+            payload = build_evidence_remediation_queue(
+                readiness_ledger=readiness,
+                distribution_manifest=distribution,
+                output_dir=root / "out",
+                regenerate_readiness=False,
+                fail_on_marker_hit=True,
+            )
+
+        self.assertIn("regenerate_boundary_context_request", {item["id"] for item in payload["items"]})
+
     def test_distribution_not_ready_adds_packaging_item(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

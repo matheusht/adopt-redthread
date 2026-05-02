@@ -26,7 +26,7 @@ Schema:
 adopt_redthread.evidence_readiness.v1
 ```
 
-The command regenerates `runs/evidence_freshness/evidence_freshness_manifest.{md,json}` first, then builds the readiness ledger from sanitized metadata.
+The command regenerates `runs/evidence_freshness/evidence_freshness_manifest.{md,json}` and the sanitized boundary context request package first, then builds the readiness ledger from sanitized metadata.
 
 ## Inputs
 
@@ -38,6 +38,7 @@ The ledger reads these generated JSON artifacts:
 - `runs/external_review_sessions/external_review_session_batch.json`
 - `runs/external_validation_readout/external_validation_readout.json`
 - `runs/boundary_probe_context/tenant_user_boundary_probe_context.template.json`
+- `runs/boundary_probe_context_request/tenant_user_boundary_probe_context_request.json`
 - `runs/boundary_probe_result/tenant_user_boundary_probe_result.json`
 - `runs/evidence_freshness/evidence_freshness_manifest.json`
 
@@ -77,6 +78,7 @@ The ledger records blocker labels such as:
 
 - `external_validation_not_ready`
 - `boundary_context_not_ready`
+- `boundary_context_request_not_ready`
 - `boundary_probe_not_executed`
 - `stale_or_missing_evidence_copies`
 - `privacy_marker_audit_failed`
@@ -90,6 +92,7 @@ The ledger emits next actions from the blockers. Examples:
 
 - collect and summarize external reviewer observations
 - regenerate stale handoff/session copies
+- regenerate the sanitized boundary context request package when the request artifact is missing, invalid, or privacy-blocked
 - generate the sanitized boundary context request package when approved context metadata is missing
 - validate sanitized boundary context metadata before any future boundary execution
 - keep boundary execution blocked until approved non-production tenant/user context exists

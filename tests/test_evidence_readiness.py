@@ -34,6 +34,7 @@ class EvidenceReadinessTests(unittest.TestCase):
             self.assertIn("boundary_context_not_ready", blocker_codes)
             self.assertIn("boundary_probe_not_executed", blocker_codes)
             self.assertEqual(payload["components"]["boundary_probe_context"]["context_status"], "blocked_missing_context")
+            self.assertEqual(payload["components"]["boundary_probe_context_request"]["request_status"], "ready_to_request_context")
             self.assertIn("does not change local bridge approve/review/block verdict semantics", " ".join(payload["non_claims"]))
 
     def test_boundary_context_ready_does_not_clear_probe_not_executed(self) -> None:
@@ -57,6 +58,7 @@ class EvidenceReadinessTests(unittest.TestCase):
             self.assertNotIn("boundary_context_not_ready", blocker_codes)
             self.assertIn("boundary_probe_not_executed", blocker_codes)
             self.assertTrue(payload["components"]["boundary_probe_context"]["boundary_probe_execution_authorized"])
+            self.assertEqual(payload["components"]["boundary_probe_context_request"]["request_status"], "context_ready")
             self.assertIn("ready context as execution proof", " ".join(payload["recommended_next_actions"]))
 
     def test_missing_boundary_context_is_required_evidence(self) -> None:
@@ -77,6 +79,25 @@ class EvidenceReadinessTests(unittest.TestCase):
                 payload["blockers"],
             )
 
+    def test_missing_boundary_context_request_is_required_evidence_when_not_regenerated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = _write_readiness_inputs(Path(tmp), readout_status="ready_for_external_validation_readout")
+            paths["boundary_context_request"] = Path(tmp) / "missing_boundary_context_request.json"
+
+            payload = build_evidence_readiness(
+                **paths,
+                output_dir=Path(tmp) / "out",
+                regenerate_freshness=False,
+                regenerate_boundary_context_request=False,
+                fail_on_marker_hit=True,
+            )
+
+            self.assertEqual(payload["readiness_status"], "missing_required_evidence")
+            self.assertIn(
+                {"code": "missing_required_evidence", "component": "boundary_probe_context_request", "detail": "artifact is missing"},
+                payload["blockers"],
+            )
+
     def test_privacy_blocked_when_marker_audit_failed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             paths = _write_readiness_inputs(Path(tmp), readout_status="ready_for_external_validation_readout", marker_hit=True)
@@ -91,6 +112,35 @@ class EvidenceReadinessTests(unittest.TestCase):
             self.assertEqual(payload["readiness_status"], "privacy_blocked")
             blocker_codes = {blocker["code"] for blocker in payload["blockers"]}
             self.assertIn("privacy_marker_audit_failed", blocker_codes)
+
+    def test_boundary_context_request_failed_audit_fails_closed_without_literal_hits(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = _write_readiness_inputs(Path(tmp), readout_status="ready_for_external_validation_readout")
+            request_payload = json.loads(paths["boundary_context_request"].read_text(encoding="utf-8"))
+            request_payload["output_marker_audit"] = {
+                "marker_hit_count": 0,
+                "raw_field_hit_count": 1,
+                "passed": False,
+                "hit_files": [],
+            }
+            paths["boundary_context_request"].write_text(json.dumps(request_payload), encoding="utf-8")
+
+            payload = build_evidence_readiness(
+                **paths,
+                output_dir=Path(tmp) / "out",
+                regenerate_freshness=False,
+                regenerate_boundary_context_request=False,
+                fail_on_marker_hit=False,
+            )
+            self.assertEqual(payload["readiness_status"], "privacy_blocked")
+            with self.assertRaises(RuntimeError):
+                build_evidence_readiness(
+                    **paths,
+                    output_dir=Path(tmp) / "out2",
+                    regenerate_freshness=False,
+                    regenerate_boundary_context_request=False,
+                    fail_on_marker_hit=True,
+                )
 
     def test_boundary_context_failed_audit_fails_closed_without_literal_hits(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -193,6 +243,19 @@ def _write_readiness_inputs(
         "input_marker_audit": PASS_AUDIT,
         "output_marker_audit": PASS_AUDIT,
     })
+    boundary_context_request = _write_json(root / "tenant_user_boundary_probe_context_request.json", {
+        "schema_version": "adopt_redthread.boundary_probe_context_request.v1",
+        "request_status": "context_ready" if boundary_context_status == "ready_for_boundary_probe" else "ready_to_request_context",
+        "source_context_status": boundary_context_status,
+        "boundary_probe_execution_authorized": False,
+        "boundary_probe_executed": False,
+        "confirmed_security_finding": False,
+        "verdict_semantics_changed": False,
+        "missing_conditions": [] if boundary_context_valid else ["approved_non_production_target"],
+        "validation_blockers": [] if boundary_context_valid else [{"code": "missing_context", "detail": "No sanitized boundary probe context was supplied."}],
+        "input_marker_audit": PASS_AUDIT,
+        "output_marker_audit": PASS_AUDIT,
+    })
     boundary = _write_json(root / "tenant_user_boundary_probe_result.json", {
         "schema_version": "adopt_redthread.boundary_probe_result.v1",
         "result_status": "blocked_missing_context",
@@ -215,6 +278,7 @@ def _write_readiness_inputs(
         "session_batch": batch,
         "validation_readout": readout,
         "boundary_context": boundary_context,
+        "boundary_context_request": boundary_context_request,
         "boundary_result": boundary,
         "freshness_manifest": freshness,
     }

@@ -34,6 +34,8 @@ class EvidenceRemediationQueueTests(unittest.TestCase):
         self.assertIn("validate_approved_boundary_context", item_ids)
         self.assertIn("wait_for_approved_boundary_context", item_ids)
         self.assertIn("make evidence-external-validation-readout", payload["commands"])
+        self.assertIn("make evidence-boundary-context-request", payload["commands"])
+        self.assertIn("make evidence-boundary-probe-context BOUNDARY_CONTEXT=path/to/sanitized_context.json", payload["commands"])
         self.assertIn("does not change local bridge approve/review/block verdict semantics", " ".join(payload["non_claims"]))
         self.assertIn("collect_external_reviewer_observations", markdown)
 

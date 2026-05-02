@@ -155,7 +155,7 @@ def _item_for_readiness_blocker(blocker: dict[str, Any], readiness: dict[str, An
             "source": "evidence_readiness.boundary_context_not_ready",
             "blocked_by": ["approved non-production tenant/user context", "safe actor scopes", "operator approval", "sanitized selector value references"],
             "action": "Generate or repair the sanitized boundary probe context until it reports ready_for_boundary_probe; do not execute probes or include raw actor, tenant, resource, credential, request, or response values.",
-            "verification_commands": ["make evidence-boundary-probe-context", "make evidence-readiness"],
+            "verification_commands": ["make evidence-boundary-context-request", "make evidence-boundary-probe-context BOUNDARY_CONTEXT=path/to/sanitized_context.json", "make evidence-readiness"],
             "acceptance_criteria": [
                 "boundary context status is ready_for_boundary_probe before future execution is considered",
                 "raw actor, tenant, resource, credential, request, and response values remain absent",
@@ -174,7 +174,7 @@ def _item_for_readiness_blocker(blocker: dict[str, Any], readiness: dict[str, An
             "source": "evidence_readiness.boundary_probe_not_executed",
             "blocked_by": ["approved non-production tenant/user context", "safe actor scopes", "operator approval"] if not context_ready else ["future boundary executor", "approved non-production execution window", "sanitized boundary result"],
             "action": "Keep boundary execution blocked until approved non-production tenant/user context exists; validate sanitized context metadata before any future execution; do not treat blocked_missing_context as a confirmed vulnerability." if not context_ready else "Boundary context is ready, but no boundary probe has executed; do not treat ready context as execution proof or release approval.",
-            "verification_commands": ["make evidence-boundary-probe-context", "make evidence-boundary-probe-result", "make evidence-readiness"],
+            "verification_commands": ["make evidence-boundary-context-request", "make evidence-boundary-probe-context", "make evidence-boundary-probe-result", "make evidence-readiness"],
             "acceptance_criteria": [
                 "boundary result is produced from approved non-production context only",
                 "raw actor, tenant, resource, credential, request, and response values remain absent",
@@ -218,6 +218,7 @@ def _item_for_readiness_blocker(blocker: dict[str, Any], readiness: dict[str, An
                 "make evidence-external-review-sessions",
                 "make evidence-external-validation-readout",
                 "make evidence-boundary-probe-context",
+                "make evidence-boundary-context-request",
                 "make evidence-boundary-probe-result",
                 "make evidence-readiness",
             ],

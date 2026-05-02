@@ -90,6 +90,7 @@ The ledger emits next actions from the blockers. Examples:
 
 - collect and summarize external reviewer observations
 - regenerate stale handoff/session copies
+- generate the sanitized boundary context request package when approved context metadata is missing
 - validate sanitized boundary context metadata before any future boundary execution
 - keep boundary execution blocked until approved non-production tenant/user context exists
 - keep `boundary_probe_not_executed` open even when context is `ready_for_boundary_probe`, because ready context is not execution proof
@@ -105,6 +106,12 @@ For boundary context intake status without executing probes, run:
 
 ```bash
 make evidence-boundary-probe-context
+```
+
+For the sanitized missing-context request/checklist, run:
+
+```bash
+make evidence-boundary-context-request
 ```
 
 For an ordered work queue with owner labels, priorities, verification commands, and acceptance criteria, run:

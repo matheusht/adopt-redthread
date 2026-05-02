@@ -98,6 +98,7 @@ Run these because they are deterministic, local, read-only, or explicitly bounde
 - `make evidence-boundary-probe-plan` (plan-only artifact; no live execution)
 - `make evidence-boundary-execution-design` (design-only contract; no live execution)
 - `make evidence-boundary-probe-context` (sanitized approved-context template/intake validator; no live execution; current default is `blocked_missing_context`)
+- `make evidence-boundary-context-request` (sanitized missing-context request/checklist; no live execution and no raw context values)
 - `make evidence-boundary-probe-result` (sanitized result template/validator; no live execution; current default is `blocked_missing_context`)
 - `make check-zapi-reference` when the local ignored HAR/run artifacts are present
 - `make test`

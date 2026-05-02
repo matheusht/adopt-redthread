@@ -1580,3 +1580,40 @@ python3 -m unittest tests.test_evidence_readiness tests.test_evidence_remediatio
 make evidence-readiness
 make evidence-remediation-queue
 ```
+
+## 2026-05-02 — boundary context request package
+
+### Slice — sanitized approved-context request checklist
+
+Implemented:
+
+- `scripts/build_boundary_probe_context_request.py`
+- `make evidence-boundary-context-request`
+- `tests/test_boundary_probe_context_request.py`
+- `docs/tenant-user-boundary-probe-context-request.md`
+- `BOUNDARY_CONTEXT=...` support for `make evidence-boundary-probe-context`
+- remediation queue command updates for the context request/validation path
+
+What it does:
+
+- reads the sanitized boundary context intake artifact
+- writes `runs/boundary_probe_context_request/tenant_user_boundary_probe_context_request.{md,json}`
+- reports `missing_required_evidence`, `ready_to_request_context`, `context_ready`, or `privacy_blocked`
+- lists missing context condition labels, validation blocker labels, required sanitized context sections, forbidden inputs, and operator validation commands
+- fails closed on configured sensitive-marker hits and forbidden raw-field-key hits
+
+What it does not do:
+
+- does not execute probes or send traffic
+- does not resolve actor, tenant, resource, credential, session, auth-header, request, response, or write-context values
+- does not treat `context_ready` as execution proof
+- does not approve release or change bridge verdict semantics
+
+Verification:
+
+```bash
+python3 -m py_compile scripts/build_boundary_probe_context_request.py scripts/build_boundary_probe_context.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_boundary_probe_context_request tests.test_evidence_remediation_queue -v
+make evidence-boundary-context-request
+make evidence-remediation-queue
+```

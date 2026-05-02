@@ -94,6 +94,40 @@ make evidence-readiness
 make evidence-remediation-queue
 ```
 
-## Still blocked after Slice 2
+## Follow-up Slice — Boundary context request package
+
+### Objective
+
+Make the approved-context ask concrete for an operator without collecting or exposing raw boundary values.
+
+### Implemented artifacts
+
+- `scripts/build_boundary_probe_context_request.py`
+- `make evidence-boundary-context-request`
+- `runs/boundary_probe_context_request/tenant_user_boundary_probe_context_request.{md,json}` generated locally
+- `tests/test_boundary_probe_context_request.py`
+- `docs/tenant-user-boundary-probe-context-request.md`
+- `BOUNDARY_CONTEXT=...` support on `make evidence-boundary-probe-context`
+
+### Acceptance criteria
+
+- Request package reads only sanitized boundary context intake metadata.
+- Missing/invalid context is reported as a context request state, not as a confirmed vulnerability.
+- `context_ready` is not treated as execution proof.
+- The package lists forbidden inputs and validation commands without raw actor, tenant, resource, credential, request, response, session, cookie, auth-header, or write-context values.
+- Marker and forbidden raw-field-key hits fail closed when requested.
+- No probe is executed.
+- No bridge verdict semantics change.
+
+### Test/verification commands
+
+```bash
+python3 -m py_compile scripts/build_boundary_probe_context_request.py scripts/build_boundary_probe_context.py scripts/build_evidence_remediation_queue.py
+python3 -m unittest tests.test_boundary_probe_context_request tests.test_evidence_remediation_queue -v
+make evidence-boundary-context-request
+make evidence-remediation-queue
+```
+
+## Still blocked after follow-up slice
 
 External validation still requires real filled external reviewer observations and sanitized summaries. Boundary execution still requires approved non-production tenant/user context with safe actor scopes, selector bindings, operator approval, and a future executor that consumes only validated context.

@@ -99,11 +99,13 @@ make evidence-observation-summary OBSERVATION=runs/external_review_sessions/revi
 make evidence-external-review-returns
 make evidence-external-validation-readout
 make evidence-readiness
+make evidence-boundary-context-request
+make evidence-boundary-probe-context BOUNDARY_CONTEXT=path/to/sanitized_context.json
 make evidence-boundary-probe-context
 make evidence-boundary-probe-result
 ```
 
-Boundary-related commands remain blocked until approved non-production tenant/user context exists. Regenerating the default boundary context/result artifacts is allowed; treating `ready_for_boundary_probe` context or default result templates as execution proof is not.
+Boundary-related commands remain blocked until approved non-production tenant/user context exists. Regenerating the default boundary context/request/result artifacts is allowed; validating a local ignored sanitized context with `BOUNDARY_CONTEXT=...` is allowed when approved metadata exists. Treating `ready_for_boundary_probe` context or default result templates as execution proof is not.
 
 ## Non-claims
 

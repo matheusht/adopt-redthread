@@ -137,6 +137,23 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertFalse(validation["passed"])
             self.assertIn("promotion_semantics.forbidden_true.release_gate_override", validation["errors"])
 
+    def test_llm_prompt_prepare_mode_writes_sanitized_prompt_without_model_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+
+            result = build_sanitized_intent_review(
+                batch,
+                root / "out",
+                agent_mode="llm",
+                prepare_llm_prompt=True,
+            )
+
+            self.assertEqual(result["status"], "llm_prompt_prepared")
+            self.assertTrue((root / "out" / "intent_review_context.json").exists())
+            self.assertTrue((root / "out" / "llm_intent_review_prompt.json").exists())
+            self.assertFalse((root / "out" / "intent_review.json").exists())
+
     def test_llm_mode_accepts_schema_valid_offline_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

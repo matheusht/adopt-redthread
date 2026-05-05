@@ -261,6 +261,8 @@ python3 -m unittest tests.test_sanitized_intent_review
 make test
 ```
 
+Manual testing guide: `docs/sanitized-intent-review-manual-test.md`.
+
 ### Phase 4 — RedThread export v0
 
 Objective: produce `redthread_evidence_export.json` from the sanitized intent review.

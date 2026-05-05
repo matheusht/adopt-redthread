@@ -612,6 +612,7 @@ def build_sanitized_intent_review(
     fail_on_marker_hit: bool = True,
     agent_mode: str = "deterministic",
     llm_review_output: str | Path | None = None,
+    prepare_llm_prompt: bool = False,
 ) -> dict[str, Any]:
     batch_dir = Path(batch_dir)
     output_dir = Path(output_dir) if output_dir else batch_dir / "intent_review"
@@ -620,6 +621,16 @@ def build_sanitized_intent_review(
         raise ValueError("agent_mode must be deterministic or llm")
     if agent_mode == "llm":
         _write_llm_prompt(output_dir, context)
+        if prepare_llm_prompt and not llm_review_output:
+            _write_json(output_dir / "intent_review_context.json", context)
+            return {
+                "output_dir": str(output_dir),
+                "agent_mode": agent_mode,
+                "status": "llm_prompt_prepared",
+                "prompt_path": str(output_dir / "llm_intent_review_prompt.json"),
+                "context_path": str(output_dir / "intent_review_context.json"),
+                "subject_count": len(context.get("subjects", [])),
+            }
         if not llm_review_output:
             raise ValueError("--agent-mode llm requires --llm-review-output with a schema-valid offline model output")
         review = _load_llm_review(llm_review_output, context)
@@ -652,6 +663,7 @@ def main() -> int:
     parser.add_argument("--fail-on-marker-hit", action="store_true")
     parser.add_argument("--agent-mode", choices=("deterministic", "llm"), default="deterministic")
     parser.add_argument("--llm-review-output")
+    parser.add_argument("--prepare-llm-prompt", action="store_true", help="Write sanitized LLM prompt/context and exit without requiring model output.")
     args = parser.parse_args()
     result = build_sanitized_intent_review(
         args.batch_dir,
@@ -659,6 +671,7 @@ def main() -> int:
         fail_on_marker_hit=args.fail_on_marker_hit,
         agent_mode=args.agent_mode,
         llm_review_output=args.llm_review_output,
+        prepare_llm_prompt=args.prepare_llm_prompt,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

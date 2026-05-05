@@ -11,7 +11,8 @@ Use it when you have multiple local `.har` captures and want to see whether the 
 ```bash
 make evidence-har-batch \
   HAR_INPUT_DIR=./captures \
-  HAR_BATCH_OUTPUT=runs/har_batches/batch_001
+  HAR_BATCH_OUTPUT=runs/har_batches/batch_001 \
+  HAR_BATCH_LIMIT=10
 ```
 
 Equivalent direct command:
@@ -23,6 +24,7 @@ python3 scripts/run_har_evidence_batch.py \
   --ingestion zapi \
   --redthread-python ../redthread/.venv/bin/python \
   --redthread-src ../redthread/src \
+  --limit 10 \
   --fail-on-marker-hit
 ```
 

@@ -2,6 +2,7 @@ PYTHON ?= python3
 REDTHREAD_PYTHON ?= ../redthread/.venv/bin/python
 HAR_INPUT_DIR ?=
 HAR_BATCH_MANIFEST ?=
+HAR_BATCH_LIMIT ?=
 HAR_BATCH_OUTPUT ?= runs/har_batches/latest
 
 OBSERVATION ?= runs/reviewer_packet/reviewer_observation_template.md
@@ -100,9 +101,9 @@ evidence-approved-context-replay-approval-request:
 	$(PYTHON) scripts/build_approved_context_replay_execution_request.py --replay-plan $(APPROVED_REPLAY_PLAN) --replay-result $(APPROVED_REPLAY_RESULT) --output-dir $(APPROVED_REPLAY_OUTPUT) --fail-on-marker-hit
 
 evidence-har-batch:
-	@test -n "$(HAR_INPUT_DIR)$(HAR_BATCH_MANIFEST)" || (echo "Usage: make evidence-har-batch HAR_INPUT_DIR=./captures [HAR_BATCH_OUTPUT=runs/har_batches/latest] OR HAR_BATCH_MANIFEST=./manifest.json" && exit 1)
+	@test -n "$(HAR_INPUT_DIR)$(HAR_BATCH_MANIFEST)" || (echo "Usage: make evidence-har-batch HAR_INPUT_DIR=./captures [HAR_BATCH_OUTPUT=runs/har_batches/latest] [HAR_BATCH_LIMIT=N] OR HAR_BATCH_MANIFEST=./manifest.json" && exit 1)
 	@test -z "$(HAR_INPUT_DIR)" -o -z "$(HAR_BATCH_MANIFEST)" || (echo "Use exactly one of HAR_INPUT_DIR or HAR_BATCH_MANIFEST" && exit 1)
-	$(PYTHON) scripts/run_har_evidence_batch.py $(if $(HAR_BATCH_MANIFEST),--manifest $(HAR_BATCH_MANIFEST),--input-dir $(HAR_INPUT_DIR)) --output-dir $(HAR_BATCH_OUTPUT) --ingestion zapi --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src --fail-on-marker-hit
+	$(PYTHON) scripts/run_har_evidence_batch.py $(if $(HAR_BATCH_MANIFEST),--manifest $(HAR_BATCH_MANIFEST),--input-dir $(HAR_INPUT_DIR)) --output-dir $(HAR_BATCH_OUTPUT) --ingestion zapi $(if $(HAR_BATCH_LIMIT),--limit $(HAR_BATCH_LIMIT),) --redthread-python $(REDTHREAD_PYTHON) --redthread-src ../redthread/src --fail-on-marker-hit
 
 evidence-observation-summary:
 	$(PYTHON) scripts/summarize_reviewer_observation.py --observation $(OBSERVATION) --output-dir $(OBSERVATION_OUTPUT) --fail-on-marker-hit

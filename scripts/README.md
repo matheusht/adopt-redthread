@@ -96,7 +96,8 @@ The offline HAR batch lane is a local evidence QA harness, not a scanner or auto
 ```bash
 make evidence-har-batch \
   HAR_INPUT_DIR=./captures \
-  HAR_BATCH_OUTPUT=runs/har_batches/batch_001
+  HAR_BATCH_OUTPUT=runs/har_batches/batch_001 \
+  HAR_BATCH_LIMIT=10
 
 make evidence-har-batch \
   HAR_BATCH_MANIFEST=./manifests/batch.json \

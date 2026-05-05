@@ -143,7 +143,8 @@ Use this for local batch QA across explicit `.har` captures. It does not run liv
 ```bash
 make evidence-har-batch \
   HAR_INPUT_DIR=./captures \
-  HAR_BATCH_OUTPUT=runs/har_batches/batch_001
+  HAR_BATCH_OUTPUT=runs/har_batches/batch_001 \
+  HAR_BATCH_LIMIT=10
 
 # or use a manifest with relative .har paths resolved from the manifest directory
 make evidence-har-batch \

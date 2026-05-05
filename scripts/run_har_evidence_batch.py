@@ -300,10 +300,13 @@ def _build_batch_artifacts(
         "subjects": subjects,
     }
     processed_subject_count = status_counts.get("processed", 0)
+    subject_privacy_failed_count = sum(1 for s in subjects if not s.get("privacy_audit", {}).get("passed", False))
     aggregate = {
         "schema_version": BATCH_SCHEMA_VERSION,
         "processed_subject_count": processed_subject_count,
         "non_processed_subject_count": len(subjects) - processed_subject_count,
+        "subject_privacy_passed_count": len(subjects) - subject_privacy_failed_count,
+        "subject_privacy_failed_count": subject_privacy_failed_count,
         "gate_decision_counts": dict(sorted(gate_counts.items())),
         "batch_status_counts": dict(sorted(status_counts.items())),
         "blocker_category_counts": dict(sorted(blocker_counts.items())),
@@ -450,6 +453,8 @@ def _aggregate_markdown(aggregate: dict[str, Any]) -> str:
         "",
         f"- Processed subject count: `{aggregate['processed_subject_count']}`",
         f"- Non-processed subject count: `{aggregate['non_processed_subject_count']}`",
+        f"- Subject privacy passed count: `{aggregate['subject_privacy_passed_count']}`",
+        f"- Subject privacy failed count: `{aggregate['subject_privacy_failed_count']}`",
         f"- Gate decision counts: `{aggregate['gate_decision_counts']}`",
         f"- Batch status counts: `{aggregate['batch_status_counts']}`",
         f"- Blocker category counts: `{aggregate['blocker_category_counts']}`",

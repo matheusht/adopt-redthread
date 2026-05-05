@@ -69,6 +69,8 @@ class HarEvidenceBatchTests(unittest.TestCase):
             aggregate = json.loads((output_dir / "aggregate_blockers.json").read_text(encoding="utf-8"))
             self.assertEqual(aggregate["processed_subject_count"], 2)
             self.assertEqual(aggregate["non_processed_subject_count"], 0)
+            self.assertEqual(aggregate["subject_privacy_passed_count"], 2)
+            self.assertEqual(aggregate["subject_privacy_failed_count"], 0)
 
     def test_failed_input_becomes_failed_batch_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -89,6 +91,8 @@ class HarEvidenceBatchTests(unittest.TestCase):
             aggregate = json.loads((output_dir / "aggregate_blockers.json").read_text(encoding="utf-8"))
             self.assertEqual(aggregate["processed_subject_count"], 0)
             self.assertEqual(aggregate["non_processed_subject_count"], 1)
+            self.assertEqual(aggregate["subject_privacy_passed_count"], 1)
+            self.assertEqual(aggregate["subject_privacy_failed_count"], 0)
 
     def test_empty_input_dir_writes_no_inputs_batch_without_running_workflow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

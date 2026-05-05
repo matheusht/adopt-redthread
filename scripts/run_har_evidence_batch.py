@@ -301,8 +301,13 @@ def _build_batch_artifacts(
     }
     processed_subject_count = status_counts.get("processed", 0)
     subject_privacy_failed_count = sum(1 for s in subjects if not s.get("privacy_audit", {}).get("passed", False))
+    followup_required = any(
+        s.get("batch_status") != "processed" or s.get("gate_decision") in {"review", "block"}
+        for s in subjects
+    )
     aggregate = {
         "schema_version": BATCH_SCHEMA_VERSION,
+        "followup_required": followup_required,
         "processed_subject_count": processed_subject_count,
         "non_processed_subject_count": len(subjects) - processed_subject_count,
         "subject_privacy_passed_count": len(subjects) - subject_privacy_failed_count,
@@ -451,6 +456,7 @@ def _aggregate_markdown(aggregate: dict[str, Any]) -> str:
     return "\n".join([
         "# HAR Evidence Batch Aggregate Blockers",
         "",
+        f"- Follow-up required: `{aggregate['followup_required']}`",
         f"- Processed subject count: `{aggregate['processed_subject_count']}`",
         f"- Non-processed subject count: `{aggregate['non_processed_subject_count']}`",
         f"- Subject privacy passed count: `{aggregate['subject_privacy_passed_count']}`",

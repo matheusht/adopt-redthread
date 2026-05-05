@@ -81,6 +81,8 @@ Processed subjects keep the bridge gate decision exactly as `approve`, `review`,
 
 `batch_manifest.json` includes sanitized `input_source_type` accounting (`input_dir` or `manifest`) without persisting input paths, plus sanitized `execution_controls` accounting. In V1 all controls are false: live safe replay, live workflow replay, reviewed auth, reviewed writes, and boundary probe execution are forced off.
 
+`aggregate_blockers.json` includes sanitized reviewer/operator triage fields: `followup_required`, `followup_subject_count`, `evidence_review_subject_count`, `remediation_subject_count`, and `recommended_batch_next_step`. These fields are derived only from batch status, gate decision, privacy-audit status, and repeated missing-evidence categories.
+
 Do not treat batch observations as confirmed findings, severity truth, validation, regression proof, execution proof, or release approval.
 
 ## Safety boundaries

@@ -295,6 +295,16 @@ def _build_batch_artifacts(
         "batch_status_counts": dict(sorted(status_counts.items())),
         "raw_input_values_persisted": False,
         "raw_input_paths_persisted": False,
+        "top_level_artifacts": [
+            "aggregate_blockers.json",
+            "aggregate_blockers.md",
+            "batch_manifest.json",
+            "batch_manifest.md",
+            "engine_gaps.md",
+            "privacy_audit.json",
+            "subject_index.json",
+            "subject_index.md",
+        ],
     }
     subject_index = {
         "schema_version": BATCH_SCHEMA_VERSION,
@@ -459,6 +469,7 @@ def _batch_manifest_markdown(manifest: dict[str, Any]) -> str:
         f"- Live execution performed: `{manifest['live_execution_performed']}`",
         f"- Raw input values persisted: `{manifest['raw_input_values_persisted']}`",
         f"- Raw input paths persisted: `{manifest['raw_input_paths_persisted']}`",
+        f"- Top-level artifacts: `{manifest['top_level_artifacts']}`",
         f"- Gate decision counts: `{manifest['gate_decision_counts']}`",
         f"- Batch status counts: `{manifest['batch_status_counts']}`",
         "",

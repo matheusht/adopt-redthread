@@ -104,7 +104,7 @@ make evidence-har-batch \
   HAR_BATCH_OUTPUT=runs/har_batches/batch_001
 ```
 
-Generated batch artifacts include `batch_manifest.{json,md}`, `subject_index.{json,md}`, `aggregate_blockers.{json,md}`, `engine_gaps.md`, `privacy_audit.json`, and isolated `subjects/subject_*/` folders with sanitized artifacts only. `aggregate_blockers.json` includes sanitized follow-up, evidence-review, remediation, and recommended-next-step counts for reviewer/operator triage. Manifest input is supported by the script directly; relative `.har` entries resolve from the manifest file's directory. The target is repeated sanitized engine-gap feedback across captures.
+Generated batch artifacts include `batch_manifest.{json,md}`, `subject_index.{json,md}`, `aggregate_blockers.{json,md}`, `engine_gaps.md`, `privacy_audit.json`, and isolated `subjects/subject_*/` folders with sanitized artifacts only. `batch_manifest.json` includes a sanitized top-level artifact inventory, and `aggregate_blockers.json` includes sanitized follow-up, evidence-review, remediation, and recommended-next-step counts for reviewer/operator triage. Manifest input is supported by the script directly; relative `.har` entries resolve from the manifest file's directory. The target is repeated sanitized engine-gap feedback across captures.
 
 Safety rules:
 - no live replay, authenticated replay, write execution, boundary probe, or approval gathering

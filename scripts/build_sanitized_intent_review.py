@@ -16,6 +16,7 @@ from scripts.run_har_evidence_batch import marker_audit
 CONTEXT_SCHEMA_VERSION = "adopt_redthread.sanitized_intent_review_context.v0"
 REVIEW_SCHEMA_VERSION = "adopt_redthread.sanitized_intent_review.v0"
 EXPORT_SCHEMA_VERSION = "adopt_redthread.redthread_evidence_export.v0"
+CONTRACT_PREVIEW_SCHEMA_VERSION = "redthread.evidence_contract_preview.v0"
 
 ALLOWED_SUBJECT_ARTIFACTS = {
     "workflow_summary.json",
@@ -25,6 +26,26 @@ ALLOWED_SUBJECT_ARTIFACTS = {
 }
 
 FORBIDDEN_CLAIM_LANGUAGE = ("critical severity", "high severity", "confirmed vulnerability", "exploitable")
+
+REVIEW_REQUIRED_KEYS = {
+    "schema_version",
+    "review_id",
+    "source_batch",
+    "privacy_attestation",
+    "subjects",
+    "batch_summary",
+}
+EXPORT_REQUIRED_KEYS = {
+    "schema_version",
+    "export_id",
+    "source",
+    "evidence_envelope",
+    "workflow_evidence",
+    "intent_context",
+    "execution_requirements",
+    "promotion_semantics",
+    "privacy_attestation",
+}
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -312,6 +333,48 @@ def build_intent_review(context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def validate_intent_review_contract(review: dict[str, Any], export: dict[str, Any]) -> dict[str, Any]:
+    errors: list[str] = []
+    if review.get("schema_version") != REVIEW_SCHEMA_VERSION:
+        errors.append("intent_review.schema_version")
+    if export.get("schema_version") != EXPORT_SCHEMA_VERSION:
+        errors.append("redthread_evidence_export.schema_version")
+    for key in sorted(REVIEW_REQUIRED_KEYS - set(review)):
+        errors.append(f"intent_review.missing.{key}")
+    for key in sorted(EXPORT_REQUIRED_KEYS - set(export)):
+        errors.append(f"redthread_evidence_export.missing.{key}")
+    review_subject_ids = [str(subject.get("subject_id")) for subject in review.get("subjects", [])]
+    export_subject_ids = [str(item.get("subject_id")) for item in export.get("workflow_evidence", [])]
+    if sorted(review_subject_ids) != sorted(export_subject_ids):
+        errors.append("subject_id_set_mismatch")
+    promotion = export.get("promotion_semantics", {})
+    if not promotion.get("redthread_evaluation_required"):
+        errors.append("promotion_semantics.redthread_evaluation_required")
+    forbidden_true_fields = [
+        "adopt_redthread_final_decision_claimed",
+        "confirmed_security_finding_claimed",
+        "severity_claimed",
+        "release_gate_override",
+    ]
+    for field in forbidden_true_fields:
+        if promotion.get(field):
+            errors.append(f"promotion_semantics.forbidden_true.{field}")
+    for subject in review.get("subjects", []):
+        finding = subject.get("finding_semantics", {})
+        if finding.get("confirmed_finding_claimed") or finding.get("severity_claimed") or finding.get("scanner_claimed"):
+            errors.append(f"subject.{subject.get('subject_id')}.finding_semantics")
+        if subject.get("approved_execution_requirements", {}).get("default_live_execution_allowed"):
+            errors.append(f"subject.{subject.get('subject_id')}.default_live_execution_allowed")
+    return {
+        "schema_version": "adopt_redthread.sanitized_intent_review_schema_validation.v0",
+        "passed": not errors,
+        "error_count": len(errors),
+        "errors": errors,
+        "validated_artifacts": ["intent_review.json", "redthread_evidence_export.json"],
+        "redthread_evaluation_required": bool(promotion.get("redthread_evaluation_required")),
+    }
+
+
 def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
     subjects = review.get("subjects", [])
     return {
@@ -397,6 +460,62 @@ def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
             "raw_ids_included": False,
             "secrets_included": False,
         },
+    }
+
+
+def build_redthread_contract_preview(export: dict[str, Any]) -> dict[str, Any]:
+    promotion = export.get("promotion_semantics", {})
+    envelope = export.get("evidence_envelope", {})
+    workflow_evidence = export.get("workflow_evidence", [])
+    execution_requirements = export.get("execution_requirements", [])
+    intent_context = export.get("intent_context", [])
+    return {
+        "schema_version": CONTRACT_PREVIEW_SCHEMA_VERSION,
+        "status": "proposal_preview_not_upstreamed",
+        "evidence_envelope": {
+            "schema_version": CONTRACT_PREVIEW_SCHEMA_VERSION,
+            "run_id": export.get("export_id"),
+            "input_family": export.get("source", {}).get("source_artifact_family"),
+            "operation_count": envelope.get("operation_count", 0),
+            "workflow_count": envelope.get("workflow_count", 0),
+            "artifact_manifest": envelope.get("artifact_manifest", []),
+        },
+        "workflow_evidence": {
+            "ordered_operations": [op for workflow in workflow_evidence for op in workflow.get("ordered_operation_roles", [])],
+            "workflow_classes": sorted({workflow.get("workflow_class", "unknown") for workflow in workflow_evidence}),
+            "successful_workflow_count": 0,
+            "blocked_workflow_count": sum(1 for req in execution_requirements if req.get("approved_replay_required") or req.get("boundary_proof_required")),
+            "response_binding_summary": [workflow.get("response_binding_summary", {}) for workflow in workflow_evidence],
+        },
+        "attack_context_summary": {
+            "tool_action_schemas": [],
+            "action_class_counts": {},
+            "targeted_missing_context_questions": [question for item in intent_context for question in item.get("reviewer_questions", [])],
+        },
+        "replay_and_auth_diagnostics": {
+            "replay_passed": False,
+            "dry_run_executed": False,
+            "approved_auth_context_required": any(req.get("approved_replay_required") for req in execution_requirements),
+            "approved_write_context_required": any(req.get("approved_replay_required") for req in execution_requirements),
+            "replay_failure_category": "not_executed_by_intent_review_agent",
+        },
+        "promotion_recommendation": {
+            "recommendation": "review",
+            "decision_reason_category": "redthread_evaluation_required",
+            "confirmed_security_finding": False,
+            "coverage_label": "sanitized_intent_hypotheses_only",
+            "coverage_gaps": [gap for item in intent_context for gap in item.get("missing_evidence", [])],
+            "trusted_evidence": False,
+            "not_proven": True,
+            "redthread_evaluation_required": bool(promotion.get("redthread_evaluation_required")),
+        },
+        "next_evidence_guidance": {
+            "top_targeted_probe": "redthread_review_of_sanitized_export",
+            "next_evidence_needed": [gap.get("next_action") for item in intent_context for gap in item.get("missing_evidence", [])],
+            "rerun_triggers": ["approved_context_added", "reviewer_observation_summary_added"],
+            "reviewer_action": "evaluate_sanitized_export_in_redthread_owned_gate",
+        },
+        "privacy_attestation": export.get("privacy_attestation", {}),
     }
 
 
@@ -507,8 +626,12 @@ def build_sanitized_intent_review(
     else:
         review = build_intent_review(context)
     export = build_redthread_evidence_export(review)
+    schema_validation = validate_intent_review_contract(review, export)
+    if not schema_validation["passed"]:
+        raise ValueError(f"sanitized intent review schema validation failed: {schema_validation}")
+    contract_preview = build_redthread_contract_preview(export)
     markdown = render_intent_review_markdown(review)
-    audit = _assert_safe_artifacts([context, review, export, markdown], fail_on_marker_hit)
+    audit = _assert_safe_artifacts([context, review, export, schema_validation, contract_preview, markdown], fail_on_marker_hit)
     context["privacy_attestation"]["marker_audit_passed"] = audit["passed"]
     review["privacy_attestation"]["marker_audit_passed"] = audit["passed"]
 
@@ -516,6 +639,8 @@ def build_sanitized_intent_review(
     _write_json(output_dir / "intent_review.json", review)
     _write_text(output_dir / "intent_review.md", markdown)
     _write_json(output_dir / "redthread_evidence_export.json", export)
+    _write_json(output_dir / "schema_validation.json", schema_validation)
+    _write_json(output_dir / "redthread_evidence_contract_preview.json", contract_preview)
     _write_json(output_dir / "privacy_audit.json", audit)
     return {"output_dir": str(output_dir), "privacy_audit": audit, "subject_count": len(review["subjects"]), "agent_mode": agent_mode}
 

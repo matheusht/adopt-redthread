@@ -136,6 +136,8 @@ def build_har_batch_review_workflow(batch_dir: str | Path, output_dir: str | Pat
             "intent_review.json",
             "intent_review.md",
             "redthread_evidence_export.json",
+            "schema_validation.json",
+            "redthread_evidence_contract_preview.json",
             "privacy_audit.json",
         ],
         "subject_count": intent_review_result.get("subject_count"),

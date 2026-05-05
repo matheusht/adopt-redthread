@@ -8,7 +8,9 @@ from pathlib import Path
 from scripts.build_sanitized_intent_review import (
     build_intent_review,
     build_intent_review_context,
+    build_redthread_evidence_export,
     build_sanitized_intent_review,
+    validate_intent_review_contract,
 )
 
 
@@ -113,7 +115,27 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertTrue(export["promotion_semantics"]["redthread_evaluation_required"])
             self.assertFalse(export["promotion_semantics"]["confirmed_security_finding_claimed"])
             self.assertFalse(export["promotion_semantics"]["release_gate_override"])
+            schema_validation = json.loads((out / "schema_validation.json").read_text(encoding="utf-8"))
+            self.assertTrue(schema_validation["passed"])
+            contract_preview = json.loads((out / "redthread_evidence_contract_preview.json").read_text(encoding="utf-8"))
+            self.assertEqual(contract_preview["status"], "proposal_preview_not_upstreamed")
+            self.assertTrue(contract_preview["promotion_recommendation"]["redthread_evaluation_required"])
+            self.assertTrue(contract_preview["promotion_recommendation"]["not_proven"])
             self.assertIn("RedThread evaluation is required", markdown)
+
+    def test_schema_validation_rejects_release_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            context = build_intent_review_context(batch)
+            review = build_intent_review(context)
+            export = build_redthread_evidence_export(review)
+            export["promotion_semantics"]["release_gate_override"] = True
+
+            validation = validate_intent_review_contract(review, export)
+
+            self.assertFalse(validation["passed"])
+            self.assertIn("promotion_semantics.forbidden_true.release_gate_override", validation["errors"])
 
     def test_llm_mode_accepts_schema_valid_offline_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

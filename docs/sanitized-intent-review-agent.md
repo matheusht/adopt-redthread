@@ -2,7 +2,7 @@
 
 Schema versions: `adopt_redthread.sanitized_intent_review_context.v0`, `adopt_redthread.sanitized_intent_review.v0`, `adopt_redthread.redthread_evidence_export.v0`
 
-Status: Phase 1-6 local implementation target.
+Status: Phase 1-8 local implementation target.
 
 ## Executive recommendation
 
@@ -329,6 +329,43 @@ Verification:
 ```bash
 make evidence-har-batch-review-workflow HAR_BATCH_OUTPUT=runs/har_batches/latest
 python3 -m unittest tests.test_har_batch_review_workflow
+make test
+```
+
+### Phase 7 — Schema and invariant validation
+
+Objective: write `schema_validation.json` for the intent review and RedThread export artifacts.
+
+Acceptance criteria:
+
+- Validation passes only when required top-level fields and schema versions are present.
+- Subject sets match between `intent_review.json` and `redthread_evidence_export.json`.
+- Validation fails if local final-decision, confirmed finding, severity, scanner, default live execution, or release override semantics are claimed.
+- The validator is deterministic and has no dependency on external schema packages.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_sanitized_intent_review
+```
+
+### Phase 8 — RedThread evidence contract preview
+
+Objective: produce `redthread_evidence_contract_preview.json`, a proposal-shaped adapter view aligned to `docs/redthread-evidence-contract-proposal.md` without claiming upstream adoption.
+
+Acceptance criteria:
+
+- Preview includes evidence envelope, workflow evidence, attack context summary, replay/auth diagnostics, promotion recommendation, and next evidence guidance.
+- Preview status remains `proposal_preview_not_upstreamed`.
+- Promotion recommendation remains `review`, `not_proven: true`, and `redthread_evaluation_required: true`.
+- The batch review workflow includes the preview artifact in Phase 6 artifact inventory.
+
+Verification:
+
+```bash
+make evidence-intent-review HAR_BATCH_OUTPUT=runs/har_batches/latest
+make evidence-har-batch-review-workflow HAR_BATCH_OUTPUT=runs/har_batches/latest
+python3 -m unittest tests.test_sanitized_intent_review tests.test_har_batch_review_workflow
 make test
 ```
 

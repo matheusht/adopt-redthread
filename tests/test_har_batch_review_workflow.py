@@ -76,6 +76,8 @@ class HarBatchReviewWorkflowTests(unittest.TestCase):
             self.assertTrue(phase6["redthread_evaluation_required"])
             self.assertFalse(phase6["confirmed_security_finding_claimed"])
             self.assertTrue((batch / "intent_review" / "redthread_evidence_export.json").exists())
+            self.assertTrue((batch / "intent_review" / "schema_validation.json").exists())
+            self.assertTrue((batch / "intent_review" / "redthread_evidence_contract_preview.json").exists())
 
             audit = json.loads((out / "privacy_audit.json").read_text(encoding="utf-8"))
             self.assertTrue(audit["passed"])

@@ -85,6 +85,8 @@ Processed subjects keep the bridge gate decision exactly as `approve`, `review`,
 
 `make evidence-har-batch-review-workflow` builds sanitized Phase 1-5 follow-up artifacts from the batch output: reviewer packet, boundary plan, approved replay plan, triage automation, and readiness gate. Human reviewer summaries and approved non-production execution evidence remain explicit blockers when absent; the workflow does not fabricate validation or execute boundary/live replay.
 
+`make evidence-intent-review HAR_BATCH_OUTPUT=runs/har_batches/latest` builds the Sanitized Intent Review Agent v0 artifacts documented in [`sanitized-intent-review-agent.md`](sanitized-intent-review-agent.md): `intent_review_context.json`, `intent_review.json`, `intent_review.md`, and `redthread_evidence_export.json`. This is a deterministic sanitized interpretation/export layer only; it does not read raw HARs, call an LLM, execute endpoints, or claim findings.
+
 Do not treat batch observations as confirmed findings, severity truth, validation, regression proof, execution proof, or release approval.
 
 ## Safety boundaries

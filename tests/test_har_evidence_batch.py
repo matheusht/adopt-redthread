@@ -47,6 +47,7 @@ class HarEvidenceBatchTests(unittest.TestCase):
 
             self.assertEqual(manifest["subject_count"], 2)
             self.assertEqual(manifest["input_source_type"], "input_dir")
+            self.assertFalse(manifest["raw_input_paths_persisted"])
             self.assertEqual(manifest["gate_decision_counts"], {"approve": 1, "block": 1})
             self.assertEqual(manifest["execution_controls"], {
                 "live_safe_replay": False,
@@ -191,6 +192,7 @@ class HarEvidenceBatchTests(unittest.TestCase):
 
             self.assertEqual(manifest["subject_count"], 1)
             self.assertEqual(manifest["input_source_type"], "manifest")
+            self.assertFalse(manifest["raw_input_paths_persisted"])
             self.assertEqual([path.resolve() for path in seen], [(captures / "one.har").resolve()])
 
     def test_privacy_blocked_subject_causes_failure_when_configured(self) -> None:

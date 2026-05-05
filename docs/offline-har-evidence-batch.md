@@ -79,7 +79,7 @@ runs/har_batches/batch_001/
 
 Processed subjects keep the bridge gate decision exactly as `approve`, `review`, or `block`. Batch processing states are separate and include `processed`, `failed`, and `privacy_blocked`. Empty or fully limited batches report batch status `no_inputs` and do not run the bridge workflow.
 
-`batch_manifest.json` includes sanitized `input_source_type` accounting (`input_dir` or `manifest`) without persisting input paths, plus sanitized `execution_controls` accounting. In V1 all controls are false: live safe replay, live workflow replay, reviewed auth, reviewed writes, and boundary probe execution are forced off.
+`batch_manifest.json` includes sanitized `input_source_type` accounting (`input_dir` or `manifest`) without persisting input paths, explicit `raw_input_paths_persisted: false` accounting, plus sanitized `execution_controls` accounting. In V1 all controls are false: live safe replay, live workflow replay, reviewed auth, reviewed writes, and boundary probe execution are forced off.
 
 `aggregate_blockers.json` includes sanitized reviewer/operator triage fields: `followup_required`, `followup_subject_count`, `evidence_review_subject_count`, `remediation_subject_count`, and `recommended_batch_next_step`. These fields are derived only from batch status, gate decision, privacy-audit status, and repeated missing-evidence categories.
 

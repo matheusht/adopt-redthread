@@ -138,7 +138,7 @@ This will:
 
 ### Run an offline HAR evidence batch
 
-Use this for local batch QA across explicit `.har` captures. It writes sanitized aggregate follow-up, evidence-review, remediation, and recommended-next-step counts. It does not run live replay, auth reuse, writes, boundary probes, or approval collection.
+Use this for local batch QA across explicit `.har` captures. It writes sanitized aggregate follow-up, evidence-review, remediation, and recommended-next-step counts without persisting raw input paths. It does not run live replay, auth reuse, writes, boundary probes, or approval collection.
 
 ```bash
 make evidence-har-batch \

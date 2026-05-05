@@ -294,6 +294,7 @@ def _build_batch_artifacts(
         "gate_decision_counts": dict(sorted(gate_counts.items())),
         "batch_status_counts": dict(sorted(status_counts.items())),
         "raw_input_values_persisted": False,
+        "raw_input_paths_persisted": False,
     }
     subject_index = {
         "schema_version": BATCH_SCHEMA_VERSION,
@@ -457,6 +458,7 @@ def _batch_manifest_markdown(manifest: dict[str, Any]) -> str:
         f"- Execution controls: `{manifest.get('execution_controls', {})}`",
         f"- Live execution performed: `{manifest['live_execution_performed']}`",
         f"- Raw input values persisted: `{manifest['raw_input_values_persisted']}`",
+        f"- Raw input paths persisted: `{manifest['raw_input_paths_persisted']}`",
         f"- Gate decision counts: `{manifest['gate_decision_counts']}`",
         f"- Batch status counts: `{manifest['batch_status_counts']}`",
         "",

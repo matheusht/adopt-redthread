@@ -109,7 +109,7 @@ Generated batch artifacts include `batch_manifest.{json,md}`, `subject_index.{js
 Safety rules:
 - no live replay, authenticated replay, write execution, boundary probe, or approval gathering
 - no LLM access to raw HARs
-- no raw HAR/session/cookie/header/body/request/response/app values in generated subject or aggregate artifacts
+- no raw HAR paths or HAR/session/cookie/header/body/request/response/app values in generated subject or aggregate artifacts
 - no new gate outcomes; skipped/failed/privacy-blocked are batch statuses only
 - offline observations are not findings, validation, regression proof, execution proof, or release approval
 

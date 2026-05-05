@@ -144,6 +144,11 @@ Use this for local batch QA across explicit `.har` captures. It does not run liv
 make evidence-har-batch \
   HAR_INPUT_DIR=./captures \
   HAR_BATCH_OUTPUT=runs/har_batches/batch_001
+
+# or use a manifest with relative .har paths resolved from the manifest directory
+make evidence-har-batch \
+  HAR_BATCH_MANIFEST=./manifests/batch.json \
+  HAR_BATCH_OUTPUT=runs/har_batches/batch_001
 ```
 
 ### Run commands one by one

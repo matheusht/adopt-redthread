@@ -26,6 +26,19 @@ python3 scripts/run_har_evidence_batch.py \
   --fail-on-marker-hit
 ```
 
+Manifest input is also supported. Relative `.har` entries resolve from the manifest file's directory:
+
+```json
+{"inputs": ["captures/case_001.har", "captures/case_002.har"]}
+```
+
+```bash
+python3 scripts/run_har_evidence_batch.py \
+  --manifest ./manifests/batch.json \
+  --output-dir runs/har_batches/batch_001 \
+  --fail-on-marker-hit
+```
+
 ## What it does
 
 For each explicit local `.har` input, the script:
@@ -34,7 +47,7 @@ For each explicit local `.har` input, the script:
 2. creates an isolated subject run directory;
 3. runs the existing offline bridge workflow;
 4. forces live replay, authenticated replay, write execution, and boundary execution off;
-5. writes sanitized subject summaries;
+5. writes only sanitized subject artifacts to the batch output;
 6. audits generated subject and batch outputs for configured sensitive markers and forbidden raw-field keys;
 7. writes aggregate blocker/gap counts for engine planning.
 
@@ -62,7 +75,7 @@ runs/har_batches/batch_001/
 
 ## Semantics
 
-Processed subjects keep the bridge gate decision exactly as `approve`, `review`, or `block`. Batch processing states are separate and include `processed`, `failed`, and `privacy_blocked`.
+Processed subjects keep the bridge gate decision exactly as `approve`, `review`, or `block`. Batch processing states are separate and include `processed`, `failed`, and `privacy_blocked`. Empty or fully limited batches report batch status `no_inputs` and do not run the bridge workflow.
 
 Do not treat batch observations as confirmed findings, severity truth, validation, regression proof, execution proof, or release approval.
 
@@ -80,4 +93,4 @@ This lane must not:
 - introduce a new gate outcome;
 - upgrade `review` or `block` to `approve`.
 
-If the privacy audit fails, the batch fails closed. With `--fail-on-marker-hit`, the command exits non-zero.
+If a subject privacy audit fails, the subject directory is replaced with minimal sanitized `privacy_audit.json`, `subject_summary.json`, and `subject_summary.md`. With `--fail-on-marker-hit`, the command exits non-zero.

@@ -91,20 +91,24 @@ Handy commands:
 
 ## Offline HAR batch
 
-The offline HAR batch lane is a local evidence QA harness, not a scanner or autonomous attack loop. It accepts only explicit local `.har` inputs, calls the existing offline bridge path per subject, preserves the local gate decision as `approve`, `review`, or `block`, and uses separate batch statuses such as `processed`, `failed`, or `privacy_blocked`.
+The offline HAR batch lane is a local evidence QA harness, not a scanner or autonomous attack loop. It accepts only explicit local `.har` inputs, calls the existing offline bridge path per subject, preserves the local gate decision as `approve`, `review`, or `block`, and uses separate batch statuses such as `processed`, `failed`, `privacy_blocked`, or `no_inputs`.
 
 ```bash
 make evidence-har-batch \
   HAR_INPUT_DIR=./captures \
   HAR_BATCH_OUTPUT=runs/har_batches/batch_001
+
+make evidence-har-batch \
+  HAR_BATCH_MANIFEST=./manifests/batch.json \
+  HAR_BATCH_OUTPUT=runs/har_batches/batch_001
 ```
 
-Generated batch artifacts include `batch_manifest.{json,md}`, `subject_index.{json,md}`, `aggregate_blockers.{json,md}`, `engine_gaps.md`, `privacy_audit.json`, and isolated `subjects/subject_*/` run folders. The target is repeated sanitized engine-gap feedback across captures.
+Generated batch artifacts include `batch_manifest.{json,md}`, `subject_index.{json,md}`, `aggregate_blockers.{json,md}`, `engine_gaps.md`, `privacy_audit.json`, and isolated `subjects/subject_*/` folders with sanitized artifacts only. Manifest input is supported by the script directly; relative `.har` entries resolve from the manifest file's directory. The target is repeated sanitized engine-gap feedback across captures.
 
 Safety rules:
 - no live replay, authenticated replay, write execution, boundary probe, or approval gathering
 - no LLM access to raw HARs
-- no raw HAR/session/cookie/header/body/request/response/app values in generated aggregate artifacts
+- no raw HAR/session/cookie/header/body/request/response/app values in generated subject or aggregate artifacts
 - no new gate outcomes; skipped/failed/privacy-blocked are batch statuses only
 - offline observations are not findings, validation, regression proof, execution proof, or release approval
 

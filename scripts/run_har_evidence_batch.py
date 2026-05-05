@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -57,7 +58,10 @@ def run_har_evidence_batch(
     subjects_root = output_root / "subjects"
     subjects_root.mkdir(parents=True, exist_ok=True)
 
+    if limit is not None and limit < 0:
+        raise ValueError("--limit must be greater than or equal to 0")
     inputs = _discover_inputs(input_dir=input_dir, manifest=manifest)
+    discovered_input_count = len(inputs)
     if limit is not None:
         inputs = inputs[:limit]
 
@@ -67,43 +71,55 @@ def run_har_evidence_batch(
         subject_dir = subjects_root / subject_id
         subject_dir.mkdir(parents=True, exist_ok=True)
         try:
-            run_bridge_workflow(
-                input_path,
-                ingestion=ingestion,
-                output_dir=subject_dir,
-                run_dryrun=True,
-                run_live_safe_replay=False,
-                run_live_workflow_replay=False,
-                auth_context=None,
-                allow_reviewed_auth=False,
-                write_context=None,
-                allow_reviewed_writes=False,
-                redthread_python=redthread_python,
-                redthread_src=redthread_src,
-            )
-            try:
-                build_evidence_report(subject_dir, subject_dir / "evidence_report.md")
-            except Exception:
-                # The batch summary is still useful when the bridge produced machine-readable output.
-                pass
-            summary = build_subject_summary(subject_id, subject_dir, batch_status="processed")
+            with tempfile.TemporaryDirectory(prefix=f"{subject_id}_bridge_work_") as work_tmp:
+                work_dir = Path(work_tmp)
+                run_bridge_workflow(
+                    input_path,
+                    ingestion=ingestion,
+                    output_dir=work_dir,
+                    run_dryrun=True,
+                    run_live_safe_replay=False,
+                    run_live_workflow_replay=False,
+                    auth_context=None,
+                    allow_reviewed_auth=False,
+                    write_context=None,
+                    allow_reviewed_writes=False,
+                    redthread_python=redthread_python,
+                    redthread_src=redthread_src,
+                )
+                try:
+                    build_evidence_report(work_dir, work_dir / "evidence_report.md")
+                except Exception:
+                    # The batch summary is still useful when the bridge produced machine-readable output.
+                    pass
+                summary = build_subject_summary(subject_id, work_dir, batch_status="processed")
+                _write_sanitized_subject_artifacts(work_dir, subject_dir, summary)
         except Exception as exc:
             summary = _failed_subject_summary(subject_id, exc)
             _write_json(subject_dir / "subject_summary.json", summary)
             _write_text(subject_dir / "subject_summary.md", _subject_summary_markdown(summary))
             if fail_fast:
                 raise
-        audit_text = json.dumps(summary, sort_keys=True) + "\n" + _read_optional(subject_dir / "subject_summary.md")
-        audit = marker_audit(audit_text)
-        summary["privacy_audit"] = audit
-        if not audit["passed"]:
-            summary["batch_status"] = "privacy_blocked"
-        _write_json(subject_dir / "privacy_audit.json", audit)
         _write_json(subject_dir / "subject_summary.json", summary)
         _write_text(subject_dir / "subject_summary.md", _subject_summary_markdown(summary))
+        audit = marker_audit(_generated_subject_artifact_text(subject_dir))
+        summary["privacy_audit"] = audit
+        if not audit["passed"]:
+            summary = _privacy_blocked_subject_summary(subject_id, audit)
+            _replace_subject_with_privacy_block(subject_dir, summary, audit)
+        else:
+            _write_json(subject_dir / "privacy_audit.json", audit)
+            _write_json(subject_dir / "subject_summary.json", summary)
+            _write_text(subject_dir / "subject_summary.md", _subject_summary_markdown(summary))
         subject_summaries.append(summary)
 
-    artifacts = _build_batch_artifacts(subject_summaries, total_inputs=len(inputs), ingestion=ingestion)
+    artifacts = _build_batch_artifacts(
+        subject_summaries,
+        total_inputs=len(inputs),
+        discovered_input_count=discovered_input_count,
+        limit=limit,
+        ingestion=ingestion,
+    )
     aggregate_text = "\n".join(
         json.dumps(artifacts[name], sort_keys=True) if name.endswith("json") else artifacts[name]
         for name in artifacts
@@ -189,27 +205,80 @@ def marker_audit(text: str) -> dict[str, Any]:
     }
 
 
+def _generated_subject_artifact_text(subject_dir: Path) -> str:
+    chunks: list[str] = []
+    for path in sorted(subject_dir.iterdir()):
+        if path.name == "privacy_audit.json" or path.suffix not in {".json", ".md"}:
+            continue
+        chunks.append(path.read_text(encoding="utf-8"))
+    return "\n".join(chunks)
+
+
+def _write_sanitized_subject_artifacts(work_dir: Path, subject_dir: Path, summary: dict[str, Any]) -> None:
+    gate = _load_optional(work_dir / "gate_verdict.json") or {}
+    sanitized_gate = {
+        "decision": summary.get("gate_decision", "unknown"),
+        "reason_count": len(_list_strings(gate.get("reasons"))),
+        "raw_input_values_persisted": False,
+    }
+    workflow_summary = _load_optional(work_dir / "workflow_summary.json") or {}
+    sanitized_workflow = {
+        "fixture_count": summary.get("fixture_count", 0),
+        "gate_decision": summary.get("gate_decision", "unknown"),
+        "redthread_replay_passed": summary.get("redthread_replay_passed", False),
+        "redthread_dryrun_executed": summary.get("dryrun_executed", False),
+        "live_safe_replay_executed": False,
+        "live_workflow_replay_executed": False,
+        "live_execution_performed": False,
+        "decision_reason_count": len(_list_strings((workflow_summary.get("decision_reason_summary") or {}).get("reason_codes"))),
+        "raw_input_values_persisted": False,
+    }
+    _write_json(subject_dir / "gate_verdict.json", sanitized_gate)
+    _write_json(subject_dir / "workflow_summary.json", sanitized_workflow)
+    report_path = work_dir / "evidence_report.md"
+    if report_path.exists():
+        _write_text(subject_dir / "evidence_report.md", report_path.read_text(encoding="utf-8"))
+
+
 def _discover_inputs(*, input_dir: str | Path | None, manifest: str | Path | None) -> list[Path]:
     if bool(input_dir) == bool(manifest):
         raise ValueError("supply exactly one of --input-dir or --manifest")
     if input_dir:
         root = Path(input_dir)
         return sorted(path for path in root.iterdir() if path.is_file() and path.suffix.casefold() == ".har")
-    payload = _load(Path(manifest))
+    manifest_path = Path(manifest)
+    payload = _load(manifest_path)
     entries = payload.get("inputs", []) if isinstance(payload, dict) else payload
-    return [Path(entry) for entry in entries if str(entry).casefold().endswith(".har")]
+    base_dir = manifest_path.resolve().parent
+    paths: list[Path] = []
+    for entry in entries:
+        if not str(entry).casefold().endswith(".har"):
+            continue
+        path = Path(entry)
+        paths.append(path if path.is_absolute() else base_dir / path)
+    return paths
 
 
-def _build_batch_artifacts(subjects: list[dict[str, Any]], *, total_inputs: int, ingestion: str) -> dict[str, Any]:
+def _build_batch_artifacts(
+    subjects: list[dict[str, Any]],
+    *,
+    total_inputs: int,
+    discovered_input_count: int,
+    limit: int | None,
+    ingestion: str,
+) -> dict[str, Any]:
     gate_counts = Counter(s.get("gate_decision", "unknown") for s in subjects if s.get("batch_status") == "processed")
     status_counts = Counter(s.get("batch_status", "unknown") for s in subjects)
     blocker_counts = Counter(item for s in subjects for item in s.get("primary_blocker_categories", []))
     next_counts = Counter(item for s in subjects for item in s.get("next_evidence_needed", []))
     batch_manifest = {
         "schema_version": BATCH_SCHEMA_VERSION,
-        "batch_status": "complete" if all(s.get("batch_status") == "processed" for s in subjects) else "complete_with_non_processed_subjects",
+        "batch_status": _batch_status(subjects),
         "ingestion": ingestion,
+        "discovered_input_count": discovered_input_count,
         "input_count": total_inputs,
+        "limit_applied": limit is not None,
+        "limit": limit,
         "subject_count": len(subjects),
         "live_execution_performed": False,
         "gate_decision_counts": dict(sorted(gate_counts.items())),
@@ -241,6 +310,43 @@ def _build_batch_artifacts(subjects: list[dict[str, Any]], *, total_inputs: int,
         "aggregate_blockers.md": _aggregate_markdown(aggregate),
         "engine_gaps.md": _engine_gaps_markdown(aggregate),
     }
+
+
+def _batch_status(subjects: list[dict[str, Any]]) -> str:
+    if not subjects:
+        return "no_inputs"
+    if all(s.get("batch_status") == "processed" for s in subjects):
+        return "complete"
+    return "complete_with_non_processed_subjects"
+
+
+def _privacy_blocked_subject_summary(subject_id: str, audit: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": SUBJECT_SCHEMA_VERSION,
+        "subject_id": subject_id,
+        "batch_status": "privacy_blocked",
+        "gate_decision": "unknown",
+        "fixture_count": 0,
+        "redthread_replay_passed": False,
+        "dryrun_executed": False,
+        "auth_surface_present": False,
+        "write_surface_present": False,
+        "boundary_evidence_present": False,
+        "live_execution_performed": False,
+        "confirmed_security_finding": False,
+        "primary_blocker_categories": ["privacy_audit_failed"],
+        "next_evidence_needed": ["remove_raw_values_or_sensitive_markers_from_generated_artifacts"],
+        "privacy_audit": audit,
+    }
+
+
+def _replace_subject_with_privacy_block(subject_dir: Path, summary: dict[str, Any], audit: dict[str, Any]) -> None:
+    for path in subject_dir.iterdir():
+        if path.is_file() and path.suffix in {".json", ".md"}:
+            path.unlink()
+    _write_json(subject_dir / "privacy_audit.json", audit)
+    _write_json(subject_dir / "subject_summary.json", summary)
+    _write_text(subject_dir / "subject_summary.md", _subject_summary_markdown(summary))
 
 
 def _failed_subject_summary(subject_id: str, exc: Exception) -> dict[str, Any]:
@@ -303,7 +409,9 @@ def _batch_manifest_markdown(manifest: dict[str, Any]) -> str:
         "# HAR Evidence Batch Manifest",
         "",
         f"- Batch status: `{manifest['batch_status']}`",
+        f"- Discovered input count: `{manifest['discovered_input_count']}`",
         f"- Input count: `{manifest['input_count']}`",
+        f"- Limit applied: `{manifest['limit_applied']}`",
         f"- Subject count: `{manifest['subject_count']}`",
         f"- Live execution performed: `{manifest['live_execution_performed']}`",
         f"- Raw input values persisted: `{manifest['raw_input_values_persisted']}`",

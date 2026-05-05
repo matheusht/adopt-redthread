@@ -83,6 +83,8 @@ Processed subjects keep the bridge gate decision exactly as `approve`, `review`,
 
 `subject_index.json` and each `subject_summary.json` include a sanitized `subject_artifacts` inventory and `subject_artifact_count` containing generated artifact names/counts only. `aggregate_blockers.json` includes sanitized reviewer/operator triage fields: `followup_required`, `followup_subject_count`, `evidence_review_subject_count`, `remediation_subject_count`, and `recommended_batch_next_step`. These fields are derived only from batch status, gate decision, privacy-audit status, and repeated missing-evidence categories.
 
+`make evidence-har-batch-review-workflow` builds sanitized Phase 1-5 follow-up artifacts from the batch output: reviewer packet, boundary plan, approved replay plan, triage automation, and readiness gate. Human reviewer summaries and approved non-production execution evidence remain explicit blockers when absent; the workflow does not fabricate validation or execute boundary/live replay.
+
 Do not treat batch observations as confirmed findings, severity truth, validation, regression proof, execution proof, or release approval.
 
 ## Safety boundaries

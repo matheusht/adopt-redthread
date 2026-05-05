@@ -106,6 +106,8 @@ make evidence-har-batch \
 
 Generated batch artifacts include `batch_manifest.{json,md}`, `subject_index.{json,md}`, `aggregate_blockers.{json,md}`, `engine_gaps.md`, `privacy_audit.json`, and isolated `subjects/subject_*/` folders with sanitized artifacts only. `batch_manifest.json` includes a sanitized top-level artifact inventory, `subject_index.json` includes sanitized per-subject artifact-name inventories/counts, and `aggregate_blockers.json` includes sanitized follow-up, evidence-review, remediation, and recommended-next-step counts for reviewer/operator triage. Manifest input is supported by the script directly; relative `.har` entries resolve from the manifest file's directory. The target is repeated sanitized engine-gap feedback across captures.
 
+After a batch completes, run `make evidence-har-batch-review-workflow` to generate sanitized Phase 1-5 follow-up artifacts under `$(HAR_BATCH_OUTPUT)/review_workflow`. These artifacts prepare reviewer validation, boundary planning, approved replay planning, batch triage automation, and readiness gating without promoting gate decisions or executing live/auth/write/boundary flows.
+
 Safety rules:
 - no live replay, authenticated replay, write execution, boundary probe, or approval gathering
 - no LLM access to raw HARs

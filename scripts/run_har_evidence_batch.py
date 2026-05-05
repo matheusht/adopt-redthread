@@ -112,6 +112,7 @@ def run_har_evidence_batch(
             _write_json(subject_dir / "subject_summary.json", summary)
             _write_text(subject_dir / "subject_summary.md", _subject_summary_markdown(summary))
         summary["subject_artifacts"] = _subject_artifact_inventory(subject_dir)
+        summary["subject_artifact_count"] = len(summary["subject_artifacts"])
         _write_json(subject_dir / "subject_summary.json", summary)
         _write_text(subject_dir / "subject_summary.md", _subject_summary_markdown(summary))
         subject_summaries.append(summary)
@@ -490,7 +491,7 @@ def _batch_manifest_markdown(manifest: dict[str, Any]) -> str:
 def _subject_index_markdown(subjects: list[dict[str, Any]]) -> str:
     lines = ["# HAR Evidence Batch Subject Index", "", "| Subject | Batch status | Gate decision | Fixtures | Artifacts |", "|---|---|---:|---:|---:|"]
     for subject in subjects:
-        lines.append(f"| `{subject['subject_id']}` | `{subject.get('batch_status')}` | `{subject.get('gate_decision')}` | `{subject.get('fixture_count')}` | `{len(subject.get('subject_artifacts', []))}` |")
+        lines.append(f"| `{subject['subject_id']}` | `{subject.get('batch_status')}` | `{subject.get('gate_decision')}` | `{subject.get('fixture_count')}` | `{subject.get('subject_artifact_count', len(subject.get('subject_artifacts', [])))}` |")
     lines.append("")
     return "\n".join(lines)
 

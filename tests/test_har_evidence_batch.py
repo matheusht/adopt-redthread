@@ -63,6 +63,7 @@ class HarEvidenceBatchTests(unittest.TestCase):
             subject_two = json.loads((output_dir / "subjects" / "subject_002" / "subject_summary.json").read_text(encoding="utf-8"))
             self.assertIn("subject_summary.md", subject_two["subject_artifacts"])
             self.assertIn("privacy_audit.json", subject_two["subject_artifacts"])
+            self.assertEqual(subject_two["subject_artifact_count"], len(subject_two["subject_artifacts"]))
             self.assertEqual(subject_two["gate_decision"], "block")
             self.assertEqual(subject_two["batch_status"], "processed")
             self.assertFalse(subject_two["live_execution_performed"])
@@ -96,6 +97,7 @@ class HarEvidenceBatchTests(unittest.TestCase):
             self.assertEqual(manifest["batch_status_counts"], {"failed": 1})
             subject = json.loads((output_dir / "subjects" / "subject_001" / "subject_summary.json").read_text(encoding="utf-8"))
             self.assertIn("subject_summary.md", subject["subject_artifacts"])
+            self.assertEqual(subject["subject_artifact_count"], len(subject["subject_artifacts"]))
             self.assertEqual(subject["batch_status"], "failed")
             self.assertEqual(subject["gate_decision"], "unknown")
             self.assertIn("subject_processing_failed", subject["primary_blocker_categories"])
@@ -225,6 +227,7 @@ class HarEvidenceBatchTests(unittest.TestCase):
             subject_dir = output_dir / "subjects" / "subject_001"
             subject = json.loads((subject_dir / "subject_summary.json").read_text(encoding="utf-8"))
             self.assertEqual(subject["subject_artifacts"], ["privacy_audit.json", "subject_summary.json", "subject_summary.md"])
+            self.assertEqual(subject["subject_artifact_count"], 3)
             self.assertEqual(subject["batch_status"], "privacy_blocked")
             self.assertEqual(subject["primary_blocker_categories"], ["privacy_audit_failed"])
             self.assertFalse((subject_dir / "workflow_summary.json").exists())

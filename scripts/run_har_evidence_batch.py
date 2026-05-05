@@ -119,6 +119,7 @@ def run_har_evidence_batch(
         discovered_input_count=discovered_input_count,
         limit=limit,
         ingestion=ingestion,
+        input_source_type="manifest" if manifest else "input_dir",
     )
     aggregate_text = "\n".join(
         json.dumps(artifacts[name], sort_keys=True) if name.endswith("json") else artifacts[name]
@@ -266,6 +267,7 @@ def _build_batch_artifacts(
     discovered_input_count: int,
     limit: int | None,
     ingestion: str,
+    input_source_type: str,
 ) -> dict[str, Any]:
     gate_counts = Counter(s.get("gate_decision", "unknown") for s in subjects if s.get("batch_status") == "processed")
     status_counts = Counter(s.get("batch_status", "unknown") for s in subjects)
@@ -275,6 +277,7 @@ def _build_batch_artifacts(
         "schema_version": BATCH_SCHEMA_VERSION,
         "batch_status": _batch_status(subjects),
         "ingestion": ingestion,
+        "input_source_type": input_source_type,
         "discovered_input_count": discovered_input_count,
         "input_count": total_inputs,
         "limit_applied": limit is not None,
@@ -416,6 +419,7 @@ def _batch_manifest_markdown(manifest: dict[str, Any]) -> str:
         "# HAR Evidence Batch Manifest",
         "",
         f"- Batch status: `{manifest['batch_status']}`",
+        f"- Input source type: `{manifest.get('input_source_type')}`",
         f"- Discovered input count: `{manifest['discovered_input_count']}`",
         f"- Input count: `{manifest['input_count']}`",
         f"- Limit applied: `{manifest['limit_applied']}`",

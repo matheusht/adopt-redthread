@@ -68,6 +68,7 @@ class HarEvidenceBatchTests(unittest.TestCase):
             self.assertNotIn("request_blueprint", workflow)
             aggregate = json.loads((output_dir / "aggregate_blockers.json").read_text(encoding="utf-8"))
             self.assertTrue(aggregate["followup_required"])
+            self.assertEqual(aggregate["recommended_batch_next_step"], "review_repeated_missing_evidence_counts")
             self.assertEqual(aggregate["processed_subject_count"], 2)
             self.assertEqual(aggregate["non_processed_subject_count"], 0)
             self.assertEqual(aggregate["subject_privacy_passed_count"], 2)
@@ -91,6 +92,7 @@ class HarEvidenceBatchTests(unittest.TestCase):
             self.assertIn("subject_processing_failed", subject["primary_blocker_categories"])
             aggregate = json.loads((output_dir / "aggregate_blockers.json").read_text(encoding="utf-8"))
             self.assertTrue(aggregate["followup_required"])
+            self.assertEqual(aggregate["recommended_batch_next_step"], "rerun_failed_subjects_after_input_or_bridge_fix")
             self.assertEqual(aggregate["processed_subject_count"], 0)
             self.assertEqual(aggregate["non_processed_subject_count"], 1)
             self.assertEqual(aggregate["subject_privacy_passed_count"], 1)
@@ -115,6 +117,7 @@ class HarEvidenceBatchTests(unittest.TestCase):
             self.assertFalse(any(manifest["execution_controls"].values()))
             aggregate = json.loads((output_dir / "aggregate_blockers.json").read_text(encoding="utf-8"))
             self.assertFalse(aggregate["followup_required"])
+            self.assertEqual(aggregate["recommended_batch_next_step"], "no_followup_required")
 
     def test_limit_zero_is_explicit_no_inputs_batch_with_discovered_count(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

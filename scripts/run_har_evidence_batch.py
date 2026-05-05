@@ -308,6 +308,7 @@ def _build_batch_artifacts(
     aggregate = {
         "schema_version": BATCH_SCHEMA_VERSION,
         "followup_required": followup_required,
+        "recommended_batch_next_step": _recommended_batch_next_step(status_counts, subject_privacy_failed_count, next_counts),
         "processed_subject_count": processed_subject_count,
         "non_processed_subject_count": len(subjects) - processed_subject_count,
         "subject_privacy_passed_count": len(subjects) - subject_privacy_failed_count,
@@ -339,6 +340,18 @@ def _batch_status(subjects: list[dict[str, Any]]) -> str:
     if all(s.get("batch_status") == "processed" for s in subjects):
         return "complete"
     return "complete_with_non_processed_subjects"
+
+
+def _recommended_batch_next_step(status_counts: Counter, subject_privacy_failed_count: int, next_counts: Counter) -> str:
+    if subject_privacy_failed_count:
+        return "remediate_privacy_audit_before_review"
+    if status_counts.get("failed", 0):
+        return "rerun_failed_subjects_after_input_or_bridge_fix"
+    if status_counts.get("privacy_blocked", 0):
+        return "remediate_privacy_audit_before_review"
+    if next_counts:
+        return "review_repeated_missing_evidence_counts"
+    return "no_followup_required"
 
 
 def _privacy_blocked_subject_summary(subject_id: str, audit: dict[str, Any]) -> dict[str, Any]:
@@ -457,6 +470,7 @@ def _aggregate_markdown(aggregate: dict[str, Any]) -> str:
         "# HAR Evidence Batch Aggregate Blockers",
         "",
         f"- Follow-up required: `{aggregate['followup_required']}`",
+        f"- Recommended batch next step: `{aggregate['recommended_batch_next_step']}`",
         f"- Processed subject count: `{aggregate['processed_subject_count']}`",
         f"- Non-processed subject count: `{aggregate['non_processed_subject_count']}`",
         f"- Subject privacy passed count: `{aggregate['subject_privacy_passed_count']}`",

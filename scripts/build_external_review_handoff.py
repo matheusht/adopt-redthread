@@ -190,12 +190,14 @@ This is **not** validation by itself. It becomes validation evidence only after 
 ## Reviewer protocol
 
 1. Give the reviewer only the allowed files above.
-2. Do not explain the run before they answer the silent-review questions.
-3. Ask them to decide ship, change, block, or unsure using only the evidence packet.
-4. Ask them to fill `reviewer_observation_template.md` with judgments and sanitized evidence labels only.
-5. Store each filled observation separately outside this handoff directory.
-6. Summarize each filled observation with `make evidence-observation-summary`.
-7. Roll up {target_review_count} complete summaries with `make evidence-validation-rollup`.
+2. Ask them to open `external_reviewer_instructions.md`, then `evidence_report.md`, then `reviewer_packet.md`; boundary artifacts come after they state the verdict.
+3. Tell them to use `evidence_report.md` → `Expected cold-review conclusion` as the canonical release verdict.
+4. Do not explain the run before they answer the silent-review questions.
+5. Ask them to decide ship, change, block, or unsure using only the evidence packet.
+6. Ask them to fill `reviewer_observation_template.md` with judgments and sanitized evidence labels only.
+7. Store each filled observation separately outside this handoff directory.
+8. Summarize each filled observation with `make evidence-observation-summary`.
+9. Roll up {target_review_count} complete summaries with `make evidence-validation-rollup`.
 
 ## Count rule
 

@@ -42,6 +42,7 @@ REQUIRED_SCHEMAS = {
     "boundary_probe_context_request": "adopt_redthread.boundary_probe_context_request.v1",
     "boundary_probe_result": "adopt_redthread.boundary_probe_result.v1",
     "evidence_freshness": "adopt_redthread.evidence_freshness_manifest.v1",
+    "approved_context_replay": "adopt_redthread.approved_context_replay_result.v1",
 }
 
 
@@ -57,6 +58,7 @@ def build_evidence_readiness(
     boundary_context_request: str | Path = DEFAULT_BOUNDARY_CONTEXT_REQUEST,
     boundary_result: str | Path = DEFAULT_BOUNDARY_RESULT,
     freshness_manifest: str | Path = DEFAULT_FRESHNESS_MANIFEST,
+    approved_context_replay_result: str | Path | None = None,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     regenerate_freshness: bool = True,
     regenerate_external_review_returns: bool = True,
@@ -82,6 +84,7 @@ def build_evidence_readiness(
     boundary_context_request_path = Path(boundary_context_request)
     boundary_path = Path(boundary_result)
     freshness_path = Path(freshness_manifest)
+    approved_replay_path = Path(approved_context_replay_result) if approved_context_replay_result else None
 
     if regenerate_freshness:
         freshness = build_evidence_freshness_manifest(
@@ -121,9 +124,14 @@ def build_evidence_readiness(
     readout = _load_json(readout_path)
     boundary_context_payload = _load_json(boundary_context_path)
     boundary = _load_json(boundary_path)
+    approved_replay = _load_json(approved_replay_path) if approved_replay_path else None
 
     marker_audits = _collect_marker_audits(packet, handoff, batch, readout, returns, boundary_context_payload, request, boundary, freshness)
+    if approved_replay:
+        marker_audits.extend(_collect_marker_audits(approved_replay))
     generated_paths = [matrix_path, packet_path, handoff_path, batch_path, readout_path, returns_path, boundary_context_path, boundary_context_request_path, boundary_path, freshness_path]
+    if approved_replay_path is not None:
+        generated_paths.append(approved_replay_path)
     local_audit = _safe_marker_audit(audit_sanitized_markdown([path for path in generated_paths if path.exists()]))
     marker_audits.append({"label": "readiness_input_files", **local_audit})
     if fail_on_marker_hit and any((not audit.get("passed", False)) or int(audit.get("marker_hit_count", 0) or 0) for audit in marker_audits):
@@ -143,6 +151,8 @@ def build_evidence_readiness(
         "boundary_probe_result": _boundary_component(boundary_path, boundary),
         "evidence_freshness": _freshness_component(freshness_path, freshness),
     }
+    if approved_replay_path is not None and approved_replay is not None:
+        components["approved_context_replay"] = _approved_context_replay_component(approved_replay_path, approved_replay)
     blockers = _blockers(components, marker_audits)
     payload = {
         "schema_version": SCHEMA_VERSION,
@@ -284,6 +294,42 @@ def _boundary_component(path: Path, boundary: dict[str, Any]) -> dict[str, Any]:
     return component
 
 
+def _approved_context_replay_component(path: Path, replay: dict[str, Any]) -> dict[str, Any]:
+    state = replay.get("execution_state", {}) if isinstance(replay.get("execution_state"), dict) else {}
+    case = replay.get("case_evidence", {}) if isinstance(replay.get("case_evidence"), dict) else {}
+    approval_scope = replay.get("approval_scope", {}) if isinstance(replay.get("approval_scope"), dict) else {}
+    component = _schema_component(path, replay, "approved_context_replay")
+    component.update({
+        "case_id": case.get("case_id"),
+        "method_class": case.get("method_class"),
+        "execution_mode": case.get("execution_mode"),
+        "context_ready": bool(state.get("context_ready", False)),
+        "execution_approved": bool(state.get("execution_approved", False)),
+        "execute_requested": bool(state.get("execute_requested", False)),
+        "executed": bool(state.get("executed", False)),
+        "validated": bool(state.get("validated", False)),
+        "release_approved": bool(state.get("release_approved", False)),
+        "result_class": replay.get("result_class"),
+        "http_status_family": replay.get("http_status_family"),
+        "approval_supplied": bool(approval_scope.get("approval_supplied", False)),
+        "approval_schema_valid": bool(approval_scope.get("schema_valid", False)),
+        "approval_label_present": bool(approval_scope.get("approval_label_present", False)),
+        "approval_allowed_case_count": int(approval_scope.get("allowed_case_count", 0) or 0),
+        "approval_allowed_execution_mode_count": int(approval_scope.get("allowed_execution_mode_count", 0) or 0),
+        "explicit_case_scope_present": bool(approval_scope.get("explicit_case_scope_present", False)),
+        "explicit_execution_mode_scope_present": bool(approval_scope.get("explicit_execution_mode_scope_present", False)),
+        "wildcard_case_scope_requested": bool(approval_scope.get("wildcard_case_scope_requested", False)),
+        "wildcard_execution_mode_requested": bool(approval_scope.get("wildcard_execution_mode_requested", False)),
+        "requested_case_in_scope": bool(approval_scope.get("requested_case_in_scope", False)),
+        "requested_execution_mode_in_scope": bool(approval_scope.get("requested_execution_mode_in_scope", False)),
+        "raw_approval_values_persisted": bool(approval_scope.get("raw_approval_values_persisted", False)),
+        "confirmed_security_finding": bool(replay.get("confirmed_security_finding", False)),
+        "release_gate_override": bool(replay.get("release_gate_override", False)),
+        "decision_semantics_changed": bool(replay.get("decision_semantics_changed", False)),
+    })
+    return component
+
+
 def _freshness_component(path: Path, freshness: dict[str, Any]) -> dict[str, Any]:
     summary = freshness.get("summary", {}) if isinstance(freshness.get("summary"), dict) else {}
     component = _schema_component(path, freshness, "evidence_freshness")
@@ -332,6 +378,9 @@ def _blockers(components: dict[str, dict[str, Any]], marker_audits: list[dict[st
     boundary = components["boundary_probe_result"]
     if boundary.get("schema_valid") and not boundary.get("boundary_probe_executed"):
         blockers.append({"code": "boundary_probe_not_executed", "component": "boundary_probe_result", "detail": str(boundary.get("result_status"))})
+    approved_replay = components.get("approved_context_replay")
+    if approved_replay and approved_replay.get("schema_valid") and not approved_replay.get("executed"):
+        blockers.append({"code": "approved_context_replay_not_executed", "component": "approved_context_replay", "detail": str(approved_replay.get("result_class"))})
     if components["evidence_matrix"].get("schema_valid") and not components["evidence_matrix"].get("has_approve_review_block_examples"):
         blockers.append({"code": "matrix_missing_decision_examples", "component": "evidence_matrix", "detail": "approve/review/block examples are not all present"})
     return blockers
@@ -351,6 +400,8 @@ def _readiness_status(blockers: list[dict[str, str]]) -> str:
         return "boundary_context_pending"
     if "boundary_probe_not_executed" in codes:
         return "boundary_context_pending"
+    if "approved_context_replay_not_executed" in codes:
+        return "approved_context_replay_pending"
     if "matrix_missing_decision_examples" in codes:
         return "needs_decision_example_coverage"
     return "ready_for_sanitized_readout"
@@ -385,6 +436,21 @@ def _recommended_next_actions(blockers: list[dict[str, str]], components: dict[s
             actions.append("Boundary context is ready, but no boundary probe has executed; do not treat ready context as execution proof.")
         else:
             actions.append("Keep boundary execution blocked until approved non-production tenant/user context exists; do not treat missing context as a confirmed vulnerability.")
+    if "approved_context_replay_not_executed" in codes:
+        replay = components.get("approved_context_replay", {})
+        if replay.get("context_ready") and not replay.get("execution_approved"):
+            if replay.get("wildcard_case_scope_requested") or replay.get("wildcard_execution_mode_requested"):
+                actions.append("Approved-context replay approval is too broad; replace wildcard approval scope with an explicit sanitized case ID and execution mode before any execution.")
+            elif replay.get("approval_supplied") and (not replay.get("requested_case_in_scope") or not replay.get("requested_execution_mode_in_scope")):
+                actions.append("Approved-context replay approval does not match the requested case/mode; regenerate or repair the sanitized approval artifact before any execution.")
+            elif replay.get("approval_supplied") and (not replay.get("explicit_case_scope_present") or not replay.get("explicit_execution_mode_scope_present")):
+                actions.append("Approved-context replay approval scope is incomplete; require explicit case and execution-mode scope before any execution.")
+            else:
+                actions.append("Approved-context replay context is ready, but explicit execution approval is absent; generate the sanitized approval request and do not execute without operator approval.")
+        elif not replay.get("context_ready"):
+            actions.append("Approved-context replay is blocked until approved non-production runtime context is supplied; do not treat replay planning as execution proof.")
+        else:
+            actions.append("Approved-context replay is approved but not executed; execution still requires the explicit execute flag in the approved non-production window.")
     if "matrix_missing_decision_examples" in codes:
         actions.append("Regenerate the evidence matrix with approve, review, and block examples present.")
     if not actions:
@@ -476,6 +542,8 @@ def _component_detail(label: str, component: dict[str, Any]) -> str:
         return f"status:{component.get('result_status')} executed:{component.get('boundary_probe_executed')} finding:{component.get('confirmed_security_finding')}"
     if label == "evidence_freshness":
         return f"status:{component.get('freshness_status')} problems:{component.get('problem_count')}"
+    if label == "approved_context_replay":
+        return f"case:{component.get('case_id')} context:{component.get('context_ready')} approved:{component.get('execution_approved')} executed:{component.get('executed')} scope:{component.get('explicit_case_scope_present')}/{component.get('explicit_execution_mode_scope_present')} result:{component.get('result_class')}"
     if label == "external_review_sessions":
         return f"status:{component.get('session_status')} sessions:{component.get('session_count')}/{component.get('target_review_count')}"
     if label == "external_review_handoff":
@@ -502,6 +570,7 @@ def main() -> None:
     parser.add_argument("--boundary-context-request", default=str(DEFAULT_BOUNDARY_CONTEXT_REQUEST))
     parser.add_argument("--boundary-result", default=str(DEFAULT_BOUNDARY_RESULT))
     parser.add_argument("--freshness-manifest", default=str(DEFAULT_FRESHNESS_MANIFEST))
+    parser.add_argument("--approved-context-replay-result", default=None, help="Optional approved_context_replay_result.json to index without making approved-context replay required evidence")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--skip-regenerate-freshness", action="store_true")
     parser.add_argument("--skip-regenerate-external-review-returns", action="store_true")
@@ -521,6 +590,7 @@ def main() -> None:
         boundary_context_request=args.boundary_context_request,
         boundary_result=args.boundary_result,
         freshness_manifest=args.freshness_manifest,
+        approved_context_replay_result=args.approved_context_replay_result,
         output_dir=args.output_dir,
         regenerate_freshness=not args.skip_regenerate_freshness,
         regenerate_external_review_returns=not args.skip_regenerate_external_review_returns,

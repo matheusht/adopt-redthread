@@ -27,6 +27,7 @@ def build_evidence_report(
     live_safe = _load_optional(root / "live_safe_replay.json")
     redthread = _load_optional(root / "redthread_replay_verdict.json")
     runtime_inputs = _load_optional(root / "redthread_runtime_inputs.json") or {}
+    runtime_acceptance = _load_optional(root / "runtime_outcome_acceptance.json")
 
     requirement_summary = summary.get("live_workflow_requirement_summary", {})
     binding_summary = summary.get("live_workflow_binding_application_summary", {})
@@ -74,6 +75,10 @@ def build_evidence_report(
         app_context_summary,
     )
     rerun_trigger_lines = _rerun_trigger_lines(rerun_trigger_summary)
+    runtime_acceptance_line = _runtime_acceptance_line(runtime_acceptance)
+    runtime_acceptance_section = _runtime_acceptance_section(runtime_acceptance)
+    display_decision_explanation = _display_decision_explanation(decision_reason_summary, coverage_summary, runtime_acceptance)
+    cold_verdict_lines = _cold_verdict_lines(gate, summary, workflow_status, coverage_summary, decision_reason_summary, runtime_acceptance, redthread_passed, boundary_result)
 
     lines = [
         f"# Evidence Report: {root.name}",
@@ -82,12 +87,15 @@ def build_evidence_report(
         "",
         "This section is the no-walkthrough summary: what was tested, what evidence ran, why the gate decided, and what is still not proven.",
         "",
+        *cold_verdict_lines,
+        "",
         f"- Tested input: `{Path(str(summary.get('input_file', 'unknown'))).name}` via `{summary.get('ingestion', 'unknown')}` with `{summary.get('fixture_count', 0)}` fixtures.",
         f"- Workflow exercised: {_workflow_quick_read(summary, workflow_status, requirement_summary, binding_summary)}",
         f"- RedThread evaluated: replay_passed=`{bool(redthread_passed)}`, dry_run_executed=`{summary.get('redthread_dryrun_executed', False)}`, rubric=`{summary.get('dryrun_rubric_name', 'n/a')}`.",
         f"- Local gate outcome: `{gate.get('decision', summary.get('gate_decision', 'unknown'))}`; category=`{decision_reason_summary.get('category', 'unknown')}`; confirmed_security_finding=`{decision_reason_summary.get('confirmed_security_finding', False)}`.",
+        f"- Runtime outcome acceptance: {runtime_acceptance_line}",
         f"- Reviewer action: {reviewer_action}",
-        f"- Why this outcome: {decision_reason_summary.get('explanation', 'n/a')}",
+        f"- Why this outcome: {display_decision_explanation}",
         f"- Still not proven: {_reviewer_gap_line(coverage_summary)}",
         f"- Boundary probe result: {boundary_result_line}",
         f"- Next useful probe: {attack_brief_summary.get('top_targeted_probe', 'n/a')}",
@@ -103,6 +111,7 @@ def build_evidence_report(
         f"- What evidence should I collect next? {_inline_next_evidence(next_evidence_lines)}",
         f"- What changes force a rerun? {_inline_rerun_triggers(rerun_trigger_lines)}",
         f"- Confirmed issue, auth/replay failure, or insufficient evidence? {finding_type}",
+        f"- Was the write rejection a confirmed vulnerability? {runtime_acceptance_line}",
         f"- Boundary probe evidence present? {boundary_result_line}",
         "- Repeat before release? Rerun this evidence path when tool scopes, auth/write context, binding behavior, or boundary selectors change before release.",
         "",
@@ -127,7 +136,11 @@ def build_evidence_report(
         f"- Decision reason category: `{decision_reason_summary.get('category', 'unknown')}`",
         f"- Confirmed security finding: `{decision_reason_summary.get('confirmed_security_finding', False)}`",
         f"- Reviewer action: {reviewer_action}",
-        f"- Decision reason explanation: {decision_reason_summary.get('explanation', 'n/a')}",
+        f"- Decision reason explanation: {display_decision_explanation}",
+        "",
+        "## Runtime outcome acceptance",
+        "",
+        *runtime_acceptance_section,
         "",
         "## Input",
         "",
@@ -251,6 +264,67 @@ def build_evidence_report(
     return report
 
 
+def _cold_verdict_lines(
+    gate: dict[str, Any],
+    summary: dict[str, Any],
+    workflow_status: dict[str, int],
+    coverage_summary: dict[str, Any],
+    decision_reason_summary: dict[str, Any],
+    runtime_acceptance: dict[str, Any] | None,
+    redthread_passed: Any,
+    boundary_result: dict[str, Any] | None,
+) -> list[str]:
+    decision = str(gate.get("decision", summary.get("gate_decision", "unknown")))
+    gaps = _join(coverage_summary.get("coverage_gaps", []))
+    boundary_status = str((boundary_result or {}).get("result_status", "absent"))
+    finding = decision_reason_summary.get("confirmed_security_finding", False)
+    lines = [
+        f"- Expected cold-review conclusion: `{decision}`.",
+        f"- Canonical release gate: local bridge decision=`{decision}`, category=`{decision_reason_summary.get('category', 'unknown')}`, confirmed_security_finding=`{finding}`.",
+    ]
+    if decision == "block":
+        lines.append(
+            "- Why this is not approval: live workflow status "
+            f"successful=`{workflow_status['successful']}`, blocked=`{workflow_status['blocked']}`, aborted=`{workflow_status['aborted']}`; "
+            f"coverage_gaps=`{gaps}`."
+        )
+    elif decision == "review":
+        lines.append(f"- Why this is a review checkpoint: coverage_gaps=`{gaps}`.")
+    elif decision == "approve":
+        lines.append("- Why this is only scoped approval: it applies only to this tested evidence envelope, not whole-app safety.")
+    if runtime_acceptance:
+        accepted = runtime_acceptance.get("accepted_outcome", {}) if isinstance(runtime_acceptance.get("accepted_outcome"), dict) else {}
+        status_family = accepted.get("http_status_family", "unknown")
+        lines.append(f"- Mixed-signal rule: operator-accepted HTTP {status_family} safe rejection is evidence context, not approval and not external validation.")
+    if redthread_passed is not None:
+        lines.append(f"- Mixed-signal rule: RedThread replay passed=`{bool(redthread_passed)}` is supporting evidence; it does not override the local gate decision.")
+    if boundary_status != "absent":
+        lines.append(f"- Mixed-signal rule: boundary artifact status=`{boundary_status}` is boundary context, not a release override.")
+    lines.append("- Non-claims: not a confirmed vulnerability unless `confirmed_security_finding=True`; not external validation until filled reviewer observations are summarized and rolled up.")
+    return lines
+
+
+def _display_decision_explanation(
+    decision_reason_summary: dict[str, Any],
+    coverage_summary: dict[str, Any],
+    runtime_acceptance: dict[str, Any] | None,
+) -> str:
+    category = str(decision_reason_summary.get("category", "unknown"))
+    gaps = {str(item) for item in coverage_summary.get("coverage_gaps", [])}
+    if runtime_acceptance and category == "auth_or_replay_failed":
+        accepted = runtime_acceptance.get("accepted_outcome", {}) if isinstance(runtime_acceptance.get("accepted_outcome"), dict) else {}
+        status_family = accepted.get("http_status_family", "unknown")
+        step = accepted.get("failed_step", "unknown_step")
+        return (
+            f"Live workflow replay did not complete successfully. The operator-accepted HTTP {status_family} rejection at `{step}` "
+            "explains the write-path runtime outcome, but it does not convert aborted workflow evidence into approval. "
+            "Boundary proof and external validation are still missing; this is not a confirmed vulnerability."
+        )
+    if "workflow_aborted" in gaps and category == "auth_or_replay_failed":
+        return "Live workflow replay aborted; this blocks release evidence without proving a confirmed vulnerability."
+    return str(decision_reason_summary.get("explanation", "n/a"))
+
+
 def _workflow_quick_read(
     summary: dict[str, Any],
     workflow_status: dict[str, int],
@@ -268,6 +342,43 @@ def _workflow_quick_read(
         f"classes=`{classes}`; bindings_applied_planned=`{applied}/{planned}`."
     )
 
+
+
+def _runtime_acceptance_line(runtime_acceptance: dict[str, Any] | None) -> str:
+    if not runtime_acceptance:
+        return "none recorded; do not infer an accepted safe write rejection from replay failure alone"
+    accepted = runtime_acceptance.get("accepted_outcome", {}) if isinstance(runtime_acceptance.get("accepted_outcome"), dict) else {}
+    semantics = runtime_acceptance.get("gate_semantics", {}) if isinstance(runtime_acceptance.get("gate_semantics"), dict) else {}
+    status_family = str(accepted.get("http_status_family", "unknown"))
+    step = str(accepted.get("failed_step", "unknown_step"))
+    interpretation = str(accepted.get("operator_interpretation", "operator accepted this runtime outcome"))
+    finding = accepted.get("confirmed_security_finding", False)
+    gate_unchanged = semantics.get("acceptance_does_not_mutate_replay_result", True)
+    return (
+        f"HTTP {status_family} at `{step}` was operator-accepted as `{interpretation}`; "
+        f"confirmed_security_finding=`{finding}`; gate_result_unchanged=`{gate_unchanged}`"
+    )
+
+
+def _runtime_acceptance_section(runtime_acceptance: dict[str, Any] | None) -> list[str]:
+    if not runtime_acceptance:
+        return [
+            "- Acceptance recorded: `False`",
+            "- Interpretation: no operator-accepted safe write rejection is recorded for this evidence run.",
+        ]
+    accepted = runtime_acceptance.get("accepted_outcome", {}) if isinstance(runtime_acceptance.get("accepted_outcome"), dict) else {}
+    semantics = runtime_acceptance.get("gate_semantics", {}) if isinstance(runtime_acceptance.get("gate_semantics"), dict) else {}
+    return [
+        "- Acceptance recorded: `True`",
+        f"- Accepted runtime status family: `HTTP {accepted.get('http_status_family', 'unknown')}`",
+        f"- Accepted failed step label: `{accepted.get('failed_step', 'unknown_step')}`",
+        f"- Operator interpretation: `{accepted.get('operator_interpretation', 'operator accepted this runtime outcome')}`",
+        f"- Confirmed security finding: `{accepted.get('confirmed_security_finding', False)}`",
+        f"- Gate result unchanged by acceptance: `{semantics.get('acceptance_does_not_mutate_replay_result', True)}`",
+        f"- Does not claim external validation: `{semantics.get('acceptance_does_not_claim_external_validation', True)}`",
+        f"- Does not claim boundary validation: `{semantics.get('acceptance_does_not_claim_boundary_validation', True)}`",
+        "- Reviewer interpretation: the write rejection can be treated as an expected safe outcome, but this is still not approval because workflow success, boundary proof, and external validation are not complete.",
+    ]
 
 
 def _reviewer_gap_line(coverage_summary: dict[str, Any]) -> str:
@@ -418,7 +529,7 @@ def _not_proven_lines(
     if "tenant_user_boundary_unproven" in gaps and boundary_status != "passed_boundary_probe":
         lines.append("- cross-user, cross-tenant, or resource-ownership enforcement")
     if "auth_or_replay_blocked" in gaps or auth_diagnostics_summary.get("replay_failure_category") not in {None, "none", "unknown"}:
-        lines.append("- valid auth/session/write-context delivery for this run; this is not proof of a confirmed vulnerability")
+        lines.append("- complete live workflow success under approved auth/write context; this is not proof of a confirmed vulnerability")
     lines.extend(
         [
             "- production publish gating wired into a real release system",

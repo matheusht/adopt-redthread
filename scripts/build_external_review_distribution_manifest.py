@@ -266,6 +266,7 @@ def _markdown(payload: dict[str, Any]) -> str:
         f"- Validation status: `{payload.get('validation_status')}`",
         f"- Target review count: `{payload.get('target_review_count')}`",
         f"- Delivery count: `{len(payload['deliveries'])}`",
+        "- Status scope: distribution readiness only; release verdicts remain inside each session evidence report.",
         "",
         "## Deliveries",
         "",
@@ -276,11 +277,11 @@ def _markdown(payload: dict[str, Any]) -> str:
         lines.append(
             f"| `{delivery['session_id']}` | `{delivery.get('session_dir')}` | `{delivery['allowed_file_count']}` | `{delivery.get('filled_observation_path')}` | `{delivery.get('expected_summary_path')}` |"
         )
-    lines.extend(["", "## Blockers", ""])
+    lines.extend(["", "## Distribution blockers", ""])
     if payload["blockers"]:
         lines.extend(f"- `{blocker['code']}` on `{blocker['component']}`: {blocker['detail']}" for blocker in payload["blockers"])
     else:
-        lines.append("- none")
+        lines.append("- none; this means no distribution blocker, not that the release is approved")
     lines.extend(["", "## Operator instructions", ""])
     lines.extend(f"- {instruction}" for instruction in payload["operator_instructions"])
     lines.extend([

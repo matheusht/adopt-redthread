@@ -59,6 +59,7 @@ class ExternalReviewHandoffTests(unittest.TestCase):
         self.assertTrue(instructions_exists)
         self.assertIn("This is **not** validation by itself", instructions)
         self.assertIn("Give the reviewer only the allowed files", instructions)
+        self.assertIn("Expected cold-review conclusion", instructions)
         self.assertNotIn("authorization:", instructions.casefold())
         self.assertNotIn("value_preview", instructions.casefold())
 

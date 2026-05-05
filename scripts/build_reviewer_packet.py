@@ -63,7 +63,8 @@ COLD_REVIEW_PROTOCOL = {
         "production/staging write context values",
     ],
     "steps": [
-        "Give only the sanitized report, matrix, and packet to the reviewer.",
+        "Give only the isolated sanitized session folder to the reviewer.",
+        "Ask the reviewer to open the evidence report first and use its Expected cold-review conclusion as the canonical release verdict.",
         "Ask the reviewer to answer the six silent-review questions before any explanation.",
         "Have the reviewer fill the observation template using judgments and evidence labels only.",
         "Run the observation summary command and treat incomplete output as non-validation evidence.",
@@ -220,7 +221,7 @@ def _artifact_manifest(paths: dict[str, Path]) -> dict[str, dict[str, Any]]:
 def _observation_template() -> dict[str, Any]:
     return {
         "schema_version": "adopt_redthread.reviewer_observation_template.v1",
-        "instructions": "Use after the reviewer reads the packet artifacts without a walkthrough. Do not paste raw HAR, cookie, auth header, request body, response body, or secret values into answers.",
+        "instructions": "This file starts as a blank template; fill it in place after reading the packet artifacts without a walkthrough. Do not paste raw HAR, cookie, auth header, request body, response body, or secret values into answers.",
         "fields": [{"field": field, "prompt": prompt, "answer": ""} for field, prompt in OBSERVATION_FIELDS],
         "silent_reviewer_questions": [{"question": question, "answer": ""} for question in REVIEWER_QUESTIONS],
     }
@@ -298,6 +299,12 @@ def _markdown(payload: dict[str, Any]) -> str:
         f"- Reviewer observation template: `{payload['artifacts']['reviewer_observation_template']}`",
         *([f"- Boundary probe result: `{payload['artifacts']['boundary_probe_result']}`"] if "boundary_probe_result" in payload["artifacts"] else ["- Boundary probe result: `absent; tenant_user_boundary_unproven wording remains driven by report/matrix coverage gaps`"]),
         *([f"- Boundary context request: `{payload['artifacts']['boundary_context_request']}`"] if "boundary_context_request" in payload["artifacts"] else ["- Boundary context request: `absent; boundary context ask is not packaged in this packet`"]),
+        "",
+        "## Session-local path note",
+        "",
+        "If this packet is inside a `review_N/artifacts/` folder, open the local files in that same `artifacts/` folder instead of the source `runs/...` paths above. Fill `../filled_reviewer_observation.md`; it starts blank even though the filename says `filled`.",
+        "",
+        "Use `evidence_report.md` → `Expected cold-review conclusion` as the canonical release verdict. RedThread pass/fail, safe-rejection acceptance, and boundary-artifact status are supporting signals; they do not override the local bridge gate.",
         "",
         "## Sanitized artifact manifest",
         "",
@@ -378,7 +385,7 @@ def _markdown(payload: dict[str, Any]) -> str:
             "",
             "## Handoff rule",
             "",
-            "Give the report, matrix, boundary result if present, and boundary context request if present to the reviewer first. Do not explain the run until they answer the silent reviewer questions. Use the observation template only after they answer.",
+            "Give one isolated review_N session folder to the reviewer. Do not explain the run until they answer the silent reviewer questions. Use the evidence report's Expected cold-review conclusion as the canonical verdict, and use the observation template only after they answer.",
             "",
             "After the reviewer fills the template, run `make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md` to produce the sanitized observation summary. Treat an incomplete summary as `incomplete_not_reviewer_evidence`, not as validation.",
             "",

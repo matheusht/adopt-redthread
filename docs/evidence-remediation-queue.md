@@ -10,6 +10,10 @@ It exists so the next action is explicit instead of hidden across several genera
 
 ```bash
 make evidence-remediation-queue
+
+# Optional: carry approved-context replay state through regenerated readiness.
+make evidence-remediation-queue \
+  EVIDENCE_APPROVED_REPLAY_RESULT=runs/approved_context_replay/approved_context_replay_result.json
 ```
 
 Default output:
@@ -37,7 +41,7 @@ The queue reads sanitized generated metadata only:
 
 The queue command list also points operators through `make evidence-external-review-returns` after per-review summaries are generated, so missing/incomplete/follow-up state is visible before the external validation readout is interpreted.
 
-The readiness ledger already indexes matrix, packet, handoff, sessions, validation readout, external review returns, boundary context, boundary context request, boundary result, and freshness. The queue does not reopen raw app artifacts.
+The readiness ledger already indexes matrix, packet, handoff, sessions, validation readout, external review returns, boundary context, boundary context request, boundary result, freshness, and optional approved-context replay state when supplied. The queue does not reopen raw app artifacts.
 
 ## What it never includes
 
@@ -63,15 +67,25 @@ Current expected local status before real external reviews is:
 open_items
 ```
 
-The current queue should normally contain:
+The current queue should normally contain some combination of:
 
 1. `collect_external_reviewer_observations`
-2. `validate_approved_boundary_context`
-3. `wait_for_approved_boundary_context`
+2. `validate_approved_boundary_context` or `wait_for_boundary_probe_execution`
+3. `complete_approved_context_replay_execution` when an optional approved-context replay result is indexed but not executed
 
 If the request artifact itself is missing, invalid, or privacy-blocked, the queue may first add `regenerate_boundary_context_request`. If the return ledger is waiting/incomplete, the queue keeps the existing `collect_external_reviewer_observations` item and includes return-ledger verification.
 
-That is the correct honest state: external validation is still waiting on humans, boundary context intake is not ready, and boundary execution is still blocked on approved non-production context.
+That is the correct honest state: external validation is still waiting on humans, boundary execution is still blocked until separately approved/executed, and endpoint replay planning/approval requests are not execution proof.
+
+For `complete_approved_context_replay_execution`, the queue now reads sanitized approval-scope facts from readiness. It can distinguish:
+
+- no approval supplied: `blocked_on_operator_execution_approval`
+- approval supplied with missing explicit scope: `blocked_on_scoped_execution_approval`
+- approval supplied for the wrong case/mode: `blocked_on_matching_execution_approval`
+- approval supplied with wildcard scope: `blocked_on_narrow_execution_approval`
+- approval supplied and scoped, but not executed: `blocked_on_execute_flag`
+
+All of these remain blocked states until approved non-production context, explicit scoped approval, and the execute flag are present together.
 
 ## Work item fields
 
@@ -101,13 +115,15 @@ make evidence-observation-summary OBSERVATION=runs/external_review_sessions/revi
 make evidence-external-review-returns
 make evidence-external-validation-readout
 make evidence-readiness
+make evidence-approved-context-replay-approval-request APPROVED_REPLAY_OUTPUT=runs/approved_context_replay
+make evidence-approved-context-replay APPROVED_REPLAY_CASE=case_id APPROVED_REPLAY_OUTPUT=runs/approved_context_replay APPROVED_REPLAY_EXECUTION_APPROVAL=path/to/local_approval.json APPROVED_REPLAY_EXECUTE=1
 make evidence-boundary-context-request
 make evidence-boundary-probe-context BOUNDARY_CONTEXT=path/to/sanitized_context.json
 make evidence-boundary-probe-context
 make evidence-boundary-probe-result
 ```
 
-Boundary-related commands remain blocked until approved non-production tenant/user context exists. Regenerating the default boundary context/request/result artifacts is allowed; validating a local ignored sanitized context with `BOUNDARY_CONTEXT=...` is allowed when approved metadata exists. Treating `ready_for_boundary_probe` context or default result templates as execution proof is not.
+Boundary-related commands remain blocked until approved non-production tenant/user context exists and a separate boundary execution window exists. Approved-context replay execution commands remain blocked until a sanitized approval artifact exists, the approval artifact has explicit matching case/mode scope, and the operator explicitly approves the non-production execution window. Wildcard approval scope is rejected. Regenerating default/request artifacts is allowed; treating `ready_for_boundary_probe` context, approval requests, or default result templates as execution proof is not.
 
 ## Non-claims
 
@@ -118,6 +134,7 @@ The remediation queue does not prove:
 - buyer demand
 - production readiness
 - approved boundary context
+- approved-context replay execution before it actually runs
 - boundary execution
 - whole-app safety
 

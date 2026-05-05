@@ -10,6 +10,10 @@ It is deliberately conservative. It indexes generated evidence metadata; it does
 
 ```bash
 make evidence-readiness
+
+# Optional: index one approved-context replay result without making replay proof mandatory for all runs.
+make evidence-readiness \
+  EVIDENCE_APPROVED_REPLAY_RESULT=runs/approved_context_replay/approved_context_replay_result.json
 ```
 
 Default output:
@@ -43,6 +47,10 @@ The ledger reads these generated JSON artifacts:
 - `runs/boundary_probe_result/tenant_user_boundary_probe_result.json`
 - `runs/evidence_freshness/evidence_freshness_manifest.json`
 
+Optional input:
+
+- `runs/approved_context_replay/approved_context_replay_result.json` when supplied via `EVIDENCE_APPROVED_REPLAY_RESULT=...`
+
 It also runs the configured sensitive-marker audit over those known inputs. That audit is a bounded privacy tripwire, not a complete secret scanner.
 
 ## What it never includes
@@ -62,6 +70,7 @@ The readiness ledger must not include:
 - `stale_or_missing_evidence` — freshness checks found stale/missing copied reviewer artifacts.
 - `waiting_for_external_validation` — sanitized evidence is present, but external reviewer summaries are not yet ready.
 - `boundary_context_pending` — external validation is otherwise ready, but boundary context is not ready or boundary probe execution still has not happened.
+- `approved_context_replay_pending` — an optional approved-context replay result was indexed but has not executed yet; the component includes sanitized approval-scope booleans/counts so reviewers can distinguish missing, incomplete, wildcard, mismatched, and exact approval state without raw approval text.
 - `needs_decision_example_coverage` — the matrix does not contain approve/review/block examples.
 - `ready_for_sanitized_readout` — required sanitized artifacts are present, fresh, marker-clean, and external validation readout is ready.
 
@@ -82,6 +91,7 @@ The ledger records blocker labels such as:
 - `boundary_context_not_ready`
 - `boundary_context_request_not_ready`
 - `boundary_probe_not_executed`
+- `approved_context_replay_not_executed`
 - `stale_or_missing_evidence_copies`
 - `privacy_marker_audit_failed`
 - `missing_required_evidence`
@@ -99,6 +109,9 @@ The ledger emits next actions from the blockers. Examples:
 - validate sanitized boundary context metadata before any future boundary execution
 - keep boundary execution blocked until approved non-production tenant/user context exists
 - keep `boundary_probe_not_executed` open even when context is `ready_for_boundary_probe`, because ready context is not execution proof
+- generate the approved-context replay approval request when runtime context is ready but execution approval is absent
+- reject wildcard or incomplete approved-context replay approval scope and require explicit case/mode scope
+- keep approved-context replay blocked until the explicit execute flag is used inside an approved non-production execution window
 - remove/regenerate artifacts that hit configured sensitive-marker checks
 
 Readiness indexes the return ledger status and bounded boundary-context-request delivery coverage. For per-review external return status after distribution, run:
@@ -124,6 +137,20 @@ For an ordered work queue with owner labels, priorities, verification commands, 
 ```bash
 make evidence-remediation-queue
 ```
+
+## Approved-context replay scope fields
+
+When `EVIDENCE_APPROVED_REPLAY_RESULT` is supplied, the `approved_context_replay` component records sanitized approval-scope facts only:
+
+- approval supplied/schema valid booleans
+- approval label present boolean, not the label text
+- allowed case/mode counts, not raw lists beyond the already-sanitized requested case evidence
+- explicit scope booleans
+- wildcard-requested booleans
+- requested case/mode in-scope booleans
+- `raw_approval_values_persisted: false`
+
+These fields drive more precise recommended actions. They are accounting evidence, not approval or execution proof.
 
 ## Non-claims
 

@@ -83,6 +83,80 @@ class EvidenceRemediationQueueTests(unittest.TestCase):
         self.assertIn("return ledger status", external_items[0]["action"])
         self.assertIn("make evidence-external-review-returns", external_items[0]["verification_commands"])
 
+    def test_approved_context_replay_not_executed_adds_replay_item(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            readiness = _write_readiness(root / "readiness.json", marker_hit=False)
+            payload = json.loads(readiness.read_text(encoding="utf-8"))
+            payload["components"]["approved_context_replay"] = {
+                "path": "runs/test_replay/approved_context_replay_result.json",
+                "case_id": "post_api_Users",
+                "context_ready": True,
+                "execution_approved": False,
+                "executed": False,
+                "result_class": "not_run",
+                "approval_supplied": False,
+                "explicit_case_scope_present": False,
+                "explicit_execution_mode_scope_present": False,
+                "wildcard_case_scope_requested": False,
+                "wildcard_execution_mode_requested": False,
+                "requested_case_in_scope": False,
+                "requested_execution_mode_in_scope": False,
+            }
+            payload["blockers"].append({"code": "approved_context_replay_not_executed", "component": "approved_context_replay", "detail": "not_run"})
+            readiness.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            distribution = _write_distribution(root / "distribution.json", status="ready_to_distribute")
+
+            payload = build_evidence_remediation_queue(
+                readiness_ledger=readiness,
+                distribution_manifest=distribution,
+                output_dir=root / "out",
+                regenerate_readiness=False,
+                fail_on_marker_hit=True,
+            )
+
+        replay_items = [item for item in payload["items"] if item["id"] == "complete_approved_context_replay_execution"]
+        self.assertEqual(len(replay_items), 1)
+        self.assertEqual(replay_items[0]["status"], "blocked_on_operator_execution_approval")
+        self.assertIn("make evidence-approved-context-replay-approval-request APPROVED_REPLAY_OUTPUT=runs/test_replay", payload["commands"])
+
+    def test_approved_context_replay_wildcard_scope_gets_narrowing_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            readiness = _write_readiness(root / "readiness.json", marker_hit=False)
+            payload = json.loads(readiness.read_text(encoding="utf-8"))
+            payload["components"]["approved_context_replay"] = {
+                "path": "runs/test_replay/approved_context_replay_result.json",
+                "case_id": "post_api_Users",
+                "context_ready": True,
+                "execution_approved": False,
+                "executed": False,
+                "result_class": "not_run",
+                "approval_supplied": True,
+                "explicit_case_scope_present": False,
+                "explicit_execution_mode_scope_present": False,
+                "wildcard_case_scope_requested": True,
+                "wildcard_execution_mode_requested": True,
+                "requested_case_in_scope": False,
+                "requested_execution_mode_in_scope": False,
+            }
+            payload["blockers"].append({"code": "approved_context_replay_not_executed", "component": "approved_context_replay", "detail": "not_run"})
+            readiness.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            distribution = _write_distribution(root / "distribution.json", status="ready_to_distribute")
+
+            payload = build_evidence_remediation_queue(
+                readiness_ledger=readiness,
+                distribution_manifest=distribution,
+                output_dir=root / "out",
+                regenerate_readiness=False,
+                fail_on_marker_hit=True,
+            )
+
+        replay_items = [item for item in payload["items"] if item["id"] == "complete_approved_context_replay_execution"]
+        self.assertEqual(len(replay_items), 1)
+        self.assertEqual(replay_items[0]["status"], "blocked_on_narrow_execution_approval")
+        self.assertIn("wildcard", replay_items[0]["action"])
+
     def test_boundary_context_request_not_ready_adds_request_item(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

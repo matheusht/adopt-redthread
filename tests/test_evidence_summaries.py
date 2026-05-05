@@ -30,6 +30,32 @@ class EvidenceSummaryTests(unittest.TestCase):
         self.assertIn("tenant_user_boundary_unproven", coverage["coverage_gaps"])
         self.assertEqual(coverage["applied_response_binding_count"], 3)
 
+    def test_aborted_workflow_runtime_failure_is_not_strong_coverage(self) -> None:
+        summary = {
+            "gate_decision": "block",
+            "live_workflow_replay_executed": True,
+            "live_workflow_aborted_count": 1,
+            "live_workflow_reason_counts": {"http_error": 1},
+            "redthread_replay_passed": True,
+        }
+        gate = {"decision": "block", "warnings": [], "blockers": ["live_workflow_replay_failures_present"]}
+        live_workflow = {
+            "successful_workflow_count": 0,
+            "blocked_workflow_count": 0,
+            "aborted_workflow_count": 1,
+            "reason_counts": {"http_error": 1},
+        }
+
+        decision = build_decision_reason_summary(gate, summary, live_workflow=live_workflow, redthread={"passed": True})
+        coverage = build_coverage_summary(summary, live_workflow=live_workflow)
+
+        self.assertEqual(decision["category"], "auth_or_replay_failed")
+        self.assertEqual(decision["primary_reason"], "http_error")
+        self.assertEqual(coverage["label"], "auth_or_replay_blocked")
+        self.assertEqual(coverage["successful_workflow_count"], 0)
+        self.assertEqual(coverage["aborted_workflow_count"], 1)
+        self.assertIn("workflow_aborted", coverage["coverage_gaps"])
+
     def test_gainly_like_run_reports_weak_coverage_dispatch_and_token_risk(self) -> None:
         summary = {
             "fixture_count": 1,

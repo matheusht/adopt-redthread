@@ -68,6 +68,8 @@ This is useful before:
 
 The product is not yet "RedThread automatically attacks every app live." The product today is "RedThread-informed evidence and gate decisions for discovered agent/tool workflows."
 
+After the OWASP Shop lesson capture, the next narrow engine slice is [`docs/approved-context-replay-v1.md`](approved-context-replay-v1.md): one approval-gated endpoint replay/proof primitive that can convert approved non-production runtime context into sanitized observed-result evidence without changing gate semantics. The follow-on readiness/remediation work now carries sanitized approval-scope booleans/counts so reviewers can see whether replay is blocked by missing approval, incomplete scope, wildcard scope, mismatched case/mode, or a missing execute flag without exposing raw approval contents.
+
 ## Latest AI Engineer Feedback Direction
 
 A target AI engineer reviewed ATP Tennis, Gainly, and Venice evidence and confirmed the core wedge: the reports help pre-release agent/tool testing and conservative `review` / `block` decisions are trusted.
@@ -100,6 +102,7 @@ Run these because they are deterministic, local, read-only, or explicitly bounde
 - `make evidence-boundary-probe-context` (sanitized approved-context template/intake validator; no live execution; current default is `blocked_missing_context`)
 - `make evidence-boundary-context-request` (sanitized missing-context request/checklist; no live execution and no raw context values)
 - `make evidence-boundary-probe-result` (sanitized result template/validator; no live execution; current default is `blocked_missing_context`)
+- `make evidence-approved-context-replay APPROVED_REPLAY_CASE=case_id` in default not-run mode (sanitized plan/result only; no live execution unless `APPROVED_REPLAY_EXECUTE=1` plus approved runtime context and sanitized execution approval are supplied)
 - `make check-zapi-reference` when the local ignored HAR/run artifacts are present
 - `make test`
 - `scripts/run_bridge_pipeline.py` against sanitized fixture inputs
@@ -111,6 +114,7 @@ Run these because they are deterministic, local, read-only, or explicitly bounde
 Run these only after a human supplies and approves non-production context:
 
 - reviewed auth-safe reads that require approved auth headers/session context
+- approved-context replay execution with `APPROVED_REPLAY_EXECUTE=1`
 - reviewed non-destructive staging writes
 - Victoria-style write workflows
 - any workflow that needs request bodies, IDs, auth headers, cookies, or app-specific values from a real session
@@ -373,3 +377,39 @@ What must be proven before expanding scope:
 [^owasp-llm06]: OWASP GenAI Security Project, "LLM06:2025 Excessive Agency," https://genai.owasp.org/llmrisk/llm06/
 [^mcp-security]: Model Context Protocol, "Security Best Practices," https://modelcontextprotocol.io/specification/latest/basic/security_best_practices
 [^owasp-mcp-poisoning]: OWASP Foundation, "MCP Tool Poisoning," https://owasp.org/www-community/attacks/MCP_Tool_Poisoning
+
+## Current Narrow Engine Slice: Approved Context Replay v1
+
+After the OWASP Shop evidence walk-through, the next useful project-wide improvement is not more packaging and not a broad scanner. It is the narrow `approved_context_replay_v1` path:
+
+```text
+one live-plan case
++ approved non-production runtime context
++ explicit sanitized execution approval
++ explicit execute flag
+-> sanitized endpoint replay plan/result proof
+-> readiness/remediation can distinguish context_ready, execution_approved, executed, validated, and release_approved
+```
+
+Implemented local boundaries:
+
+- default mode is not-run planning only
+- approval requests are false by default
+- raw auth/cookie/header/body/target/write-context values are runtime-only and not persisted
+- readiness can optionally index one replay result via `EVIDENCE_APPROVED_REPLAY_RESULT=...`
+- remediation can now produce the `complete_approved_context_replay_execution` item when replay proof is still absent
+- `safe_rejection` and `safe_success` remain evidence classes, not release approval
+- `confirmed_security_finding` and `release_gate_override` remain false in v1 unless a separate future validation/judgment step says otherwise
+
+OWASP status with this integration remains blocked:
+
+- formal external human observations are still absent
+- boundary context is ready, but boundary probe execution has not happened
+- approved-context replay context is ready for `post_api_Users`, but explicit execution approval is absent and no replay execution was run in this slice
+
+Next work should stay narrow:
+
+1. keep approval-request artifacts sanitized and false by default
+2. only execute a single endpoint replay after explicit non-production approval
+3. feed executed/not-executed state into readiness and remediation
+4. do not build broad discovery, exploitation, crawling, or production enforcement

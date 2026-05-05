@@ -195,10 +195,12 @@ Use this folder for one silent external cold review. This folder is not validati
 ## Reviewer steps
 
 1. Open only the files listed above.
-2. Answer the silent-review questions before any walkthrough.
-3. Save sanitized answers in `{filled_observation.name}`.
-4. Do not paste raw captured values, source code, session material, request bodies, response bodies, or credentials.
-5. After the reviewer is done, summarize with:
+2. Open `reviewer_session_instructions.md`, then `artifacts/evidence_report.md`, then `artifacts/reviewer_packet.md`; use boundary artifacts only after stating the verdict.
+3. Use `artifacts/evidence_report.md` → `Expected cold-review conclusion` as the canonical release verdict.
+4. Answer the silent-review questions before any walkthrough.
+5. Save sanitized answers in `{filled_observation.name}`; it starts as a blank template even though the filename says `filled`.
+6. Do not paste raw captured values, source code, session material, request bodies, response bodies, or credentials.
+7. After the reviewer is done, summarize with:
 
 ```bash
 make evidence-observation-summary OBSERVATION={_display_path(filled_observation)} OBSERVATION_OUTPUT={_display_path(expected_summary.parent)}

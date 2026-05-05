@@ -1794,3 +1794,346 @@ make evidence-external-review-returns
 make evidence-readiness
 make evidence-remediation-queue
 ```
+
+## 2026-05-04 — approved-context endpoint replay proof primitive
+
+### Slice — controlled execution proof without gate inflation
+
+Implemented:
+
+- `adapters/live_replay/approved_context_replay.py` adds `approved_context_replay(...)`, a narrow wrapper around the existing live replay guardrails for one case at a time
+- `scripts/run_approved_context_replay.py` exposes plan/not-run mode by default and gated live execution only with `--execute` plus sanitized execution approval
+- `Makefile` adds `make evidence-approved-context-replay APPROVED_REPLAY_CASE=...`
+- `docs/approved-context-replay-v1.md` documents the state model, approval contract, privacy rules, commands, non-goals, and OWASP implications
+- `tests/test_approved_context_replay.py` covers not-run default behavior, context-ready-without-execution, sanitized HTTP 4xx execution result normalization, and fail-closed approval privacy checks
+
+What it does:
+
+- turns one live attack-plan case into sanitized `approved_context_replay_plan/result` artifacts
+- separates `context_ready`, `execution_approved`, `executed`, `validated`, and `release_approved`
+- supports approved non-production runtime context without persisting raw auth, cookie, target URL, request-body, response-body, app field names, or write-context values
+- records observed HTTP status family and result class such as `not_run`, `blocked`, `safe_success`, or `safe_rejection`
+- keeps `release_gate_override: false`, `decision_semantics_changed: false`, and `confirmed_security_finding: false` in v1
+
+What it does not do:
+
+- does not run by default
+- does not build a broad scanner, crawler, or autonomous exploitation engine
+- does not authorize production/staging writes by itself
+- does not treat context readiness or execution approval as execution proof
+- does not treat safe HTTP 4xx rejection as approval
+- does not change local bridge `approve` / `review` / `block` semantics
+
+OWASP dry checks generated:
+
+```bash
+make evidence-approved-context-replay \
+  APPROVED_REPLAY_ATTACK_PLAN=runs/owasp_shop/live_attack_plan.json \
+  APPROVED_REPLAY_CASE=post_api_Users \
+  APPROVED_REPLAY_OUTPUT=runs/owasp_shop/approved_context_replay/post_api_Users
+
+make evidence-approved-context-replay \
+  APPROVED_REPLAY_ATTACK_PLAN=runs/owasp_shop/live_attack_plan.json \
+  APPROVED_REPLAY_CASE=post_api_Users \
+  APPROVED_REPLAY_OUTPUT=runs/owasp_shop/approved_context_replay/post_api_Users_context_checked \
+  APPROVED_REPLAY_WRITE_CONTEXT=runs/owasp_shop/staging_write_context.json
+```
+
+Both are non-execution artifacts. The second proves approved write context can make `context_ready: true` while `execution_approved: false`, `executed: false`, and `release_approved: false` remain honest.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_approved_context_replay -v
+make test
+```
+
+## 2026-05-04 — approved-context replay execution-approval request
+
+### Slice — explicit approval window before execution
+
+Implemented:
+
+- `build_execution_approval_request(...)` in `adapters/live_replay/approved_context_replay.py`
+- `scripts/build_approved_context_replay_execution_request.py`
+- `make evidence-approved-context-replay-approval-request`
+- docs updates for approval-request state and command usage
+- tests for false-by-default templates and blocked-until-context-ready behavior
+
+What it does:
+
+- reads an approved-context replay plan/result
+- emits `execution_approval_request.{md,json}` and `execution_approval.local.template.json`
+- keeps the approval template false by default
+- reports whether the replay is blocked on runtime context, ready to request execution approval, approved-but-not-executed, or already executed
+- keeps `context_ready`, `execution_approved`, `executed`, `validated`, and `release_approved` distinct
+
+What it does not do:
+
+- does not execute an endpoint
+- does not approve execution by itself
+- does not persist raw auth, cookie, target URL, request-body, response-body, app field names, or write-context values
+- does not change bridge gate semantics
+- does not claim OWASP release approval, formal external validation, or boundary proof
+
+OWASP dry approval request generated:
+
+```bash
+make evidence-approved-context-replay-approval-request \
+  APPROVED_REPLAY_OUTPUT=runs/owasp_shop/approved_context_replay/post_api_Users_context_checked
+```
+
+Observed request status:
+
+```text
+ready_to_request_execution_approval
+```
+
+That means approved runtime context is ready for the selected case, but explicit execution approval is still absent and no endpoint replay has executed.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_approved_context_replay -v
+make test
+```
+
+## 2026-05-04 — approved-context replay readiness/remediation integration
+
+### Slice — make endpoint replay proof visible to evidence accounting
+
+Implemented:
+
+- optional approved-context replay indexing in `scripts/build_evidence_readiness.py`
+- `EVIDENCE_APPROVED_REPLAY_RESULT=...` support in `make evidence-readiness`
+- `approved_context_replay_not_executed` blocker when an indexed replay result has `executed: false`
+- remediation item `complete_approved_context_replay_execution` in `scripts/build_evidence_remediation_queue.py`
+- docs updates for readiness, remediation, scripts, README, project direction, and Approved Context Replay v1
+- tests covering readiness blocker generation and remediation queue conversion
+
+State distinctions preserved:
+
+- `context_ready` remains metadata/runtime-context readiness, not execution proof
+- `execution_approved` remains approval metadata, not execution proof
+- `executed` remains endpoint replay evidence, not validation
+- `validated` remains separate from release approval
+- `release_gate_override` remains false
+
+OWASP dry accounting regenerated with the context-checked approved-context replay result:
+
+```bash
+python3 scripts/build_evidence_readiness.py \
+  --evidence-matrix runs/owasp_shop/evidence_matrix/evidence_matrix.json \
+  --reviewer-packet runs/owasp_shop/reviewer_packet/reviewer_packet.json \
+  --handoff-manifest runs/owasp_shop/external_review_handoff/external_review_handoff_manifest.json \
+  --session-batch runs/owasp_shop/external_review_sessions/external_review_session_batch.json \
+  --validation-readout runs/owasp_shop/external_validation_readout/external_validation_readout.json \
+  --external-review-returns runs/owasp_shop/external_review_returns/external_review_return_ledger.json \
+  --boundary-context runs/owasp_shop/boundary_probe_context/tenant_user_boundary_probe_context.template.json \
+  --boundary-context-request runs/owasp_shop/boundary_probe_context_request/tenant_user_boundary_probe_context_request.json \
+  --boundary-result runs/owasp_shop/boundary_probe_result/tenant_user_boundary_probe_result.json \
+  --freshness-manifest runs/owasp_shop/evidence_freshness/evidence_freshness_manifest.json \
+  --approved-context-replay-result runs/owasp_shop/approved_context_replay/post_api_Users_context_checked/approved_context_replay_result.json \
+  --output-dir runs/owasp_shop/evidence_readiness \
+  --skip-regenerate-freshness \
+  --skip-regenerate-external-review-returns \
+  --skip-regenerate-boundary-context-request \
+  --fail-on-marker-hit
+```
+
+Observed OWASP readiness:
+
+```text
+readiness_status: waiting_for_external_validation
+blocker_count: 4
+approved_context_replay_not_executed: present
+```
+
+Regenerated OWASP remediation queue:
+
+```bash
+python3 scripts/build_evidence_remediation_queue.py \
+  --readiness-ledger runs/owasp_shop/evidence_readiness/evidence_readiness.json \
+  --distribution-manifest runs/owasp_shop/external_review_distribution/external_review_distribution_manifest.json \
+  --output-dir runs/owasp_shop/evidence_remediation \
+  --skip-regenerate-readiness \
+  --fail-on-marker-hit
+```
+
+Observed OWASP remediation item:
+
+```text
+complete_approved_context_replay_execution: blocked_on_operator_execution_approval
+```
+
+No endpoint replay, boundary probe, live write, external delivery, or release action was executed by this slice.
+
+## 2026-05-04 — approved-context replay approval-scope hardening
+
+### Slice — fail closed on broad execution approvals
+
+Tightened `approved_context_replay_v1` execution approval semantics:
+
+- `allowed_case_ids` must be present and non-empty
+- `allowed_execution_modes` must be present and non-empty
+- `approval_label` must be present and non-empty
+- `"*"` wildcard case scope is rejected
+- `"*"` wildcard execution-mode scope is rejected
+
+Why:
+
+Approved Context Replay v1 is one endpoint/workflow at a time. A broad approval artifact would weaken the execution boundary and could turn a single-case proof primitive into an accidental multi-endpoint executor.
+
+What remains unchanged:
+
+- no endpoint executes without `--execute` / `APPROVED_REPLAY_EXECUTE=1`
+- no endpoint executes without approved runtime context
+- approval requests remain false by default
+- raw auth/cookie/header/body/target/write-context values remain runtime-only and are not persisted
+- `confirmed_security_finding`, `release_gate_override`, and `decision_semantics_changed` remain false in v1
+- bridge `approve` / `review` / `block` semantics remain authoritative
+
+Tests added:
+
+- missing case/mode scope keeps `execution_approved: false`
+- wildcard case/mode scope keeps `execution_approved: false`
+
+## 2026-05-04 — approved-context replay sanitized approval-scope summary
+
+### Slice — make approval state reviewable without exposing approval contents
+
+Added `approval_scope` to approved-context replay results.
+
+The result now records sanitized booleans/counts only:
+
+- approval supplied
+- schema valid
+- approved flag true/false
+- non-production scope approved
+- operator execution approval present
+- approval label present
+- allowed case count
+- allowed execution-mode count
+- explicit case scope present
+- explicit execution-mode scope present
+- wildcard case scope requested
+- wildcard execution-mode scope requested
+- requested case in scope
+- requested execution mode in scope
+- raw approval values persisted: false
+
+Why:
+
+A reviewer should be able to understand why `execution_approved` is false or true without seeing the raw approval artifact. This closes a documentation gap between blocked reasons and actual approval-state review.
+
+Privacy boundary:
+
+- no approval labels are copied
+- no raw allowed-case list is copied beyond already-sanitized case evidence
+- no runtime auth/cookie/header/body/target/write-context values are copied
+- marker audits still run over generated outputs
+
+No execution behavior changed. This is observability/accounting only.
+
+### OWASP dry artifacts regenerated after approval-scope summary
+
+Regenerated non-execution OWASP approved-context replay artifacts:
+
+```bash
+make evidence-approved-context-replay \
+  APPROVED_REPLAY_ATTACK_PLAN=runs/owasp_shop/live_attack_plan.json \
+  APPROVED_REPLAY_CASE=post_api_Users \
+  APPROVED_REPLAY_OUTPUT=runs/owasp_shop/approved_context_replay/post_api_Users
+
+make evidence-approved-context-replay \
+  APPROVED_REPLAY_ATTACK_PLAN=runs/owasp_shop/live_attack_plan.json \
+  APPROVED_REPLAY_CASE=post_api_Users \
+  APPROVED_REPLAY_OUTPUT=runs/owasp_shop/approved_context_replay/post_api_Users_context_checked \
+  APPROVED_REPLAY_WRITE_CONTEXT=runs/owasp_shop/staging_write_context.json
+```
+
+Observed context-checked state:
+
+```text
+context_ready: true
+execution_approved: false
+executed: false
+result_class: not_run
+approval_supplied: false
+explicit_case_scope_present: false
+explicit_execution_mode_scope_present: false
+raw_approval_values_persisted: false
+```
+
+Regenerated the approval request, readiness ledger, and remediation queue from the updated result. OWASP remains blocked and no live endpoint replay was executed.
+
+## 2026-05-04 — readiness/remediation approval-scope accounting
+
+### Slice — carry approved-context replay scope state into the evidence loop
+
+Extended the readiness/remediation layer to read the sanitized `approval_scope` summary emitted by Approved Context Replay v1.
+
+Readiness now indexes these approved-context replay component fields:
+
+- approval supplied
+- approval schema valid
+- approval label present
+- allowed case count
+- allowed execution-mode count
+- explicit case scope present
+- explicit execution-mode scope present
+- wildcard case scope requested
+- wildcard execution-mode scope requested
+- requested case in scope
+- requested execution mode in scope
+- raw approval values persisted
+
+Remediation now maps `approved_context_replay_not_executed` into more specific blocked states:
+
+- `blocked_on_operator_execution_approval` when no approval is supplied
+- `blocked_on_scoped_execution_approval` when an approval exists but lacks explicit case/mode scope
+- `blocked_on_matching_execution_approval` when an approval exists but does not match the requested case/mode
+- `blocked_on_narrow_execution_approval` when wildcard scope is requested
+- `blocked_on_execute_flag` when scoped approval exists but execution has not been requested
+
+Why:
+
+The prior queue could say that execution approval was absent or execution had not happened, but it could not explain whether an approval artifact was missing, too broad, incomplete, or mismatched. The new fields make the next action precise while keeping raw approval contents out of generated evidence.
+
+Non-changes:
+
+- no replay execution was added or run
+- no boundary probe was added or run
+- no external reviewer delivery was performed
+- no raw approval labels, auth values, cookie/header/body values, target URLs, write-context values, or boundary values are copied
+- `approve` / `review` / `block` semantics remain unchanged
+
+### OWASP readiness/remediation regenerated with approval-scope accounting
+
+Regenerated the OWASP readiness ledger and remediation queue using:
+
+```text
+runs/owasp_shop/approved_context_replay/post_api_Users_context_checked/approved_context_replay_result.json
+```
+
+Observed sanitized approved-context replay component state:
+
+```text
+context_ready: true
+execution_approved: false
+executed: false
+approval_supplied: false
+explicit_case_scope_present: false
+explicit_execution_mode_scope_present: false
+wildcard_case_scope_requested: false
+requested_case_in_scope: false
+raw_approval_values_persisted: false
+```
+
+Observed remediation item:
+
+```text
+complete_approved_context_replay_execution: blocked_on_operator_execution_approval
+```
+
+The OWASP state remains blocked on human external validation, boundary execution proof, and explicit operator execution approval. No endpoint replay, boundary probe, external delivery, or release action was executed.

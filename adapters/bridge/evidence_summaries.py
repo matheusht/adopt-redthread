@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 AUTH_OR_CONTEXT_REASONS = {"missing_auth_context", "missing_write_context", "auth_header_family_mismatch"}
+RUNTIME_REPLAY_REASONS = {"http_error", "url_error", "timeout", "stream_open_partial_read"}
 BINDING_REASONS = {"binding_review_required", "response_binding_missing", "response_binding_target_missing"}
 SECRET_FIELD_HINTS = {"token", "secret", "password", "cookie", "session", "key", "credential"}
 USER_FIELD_HINTS = {"user", "profile", "account", "owner", "member", "customer", "actor"}
@@ -94,7 +95,7 @@ def build_decision_reason_summary(
     elif reason_keys & AUTH_OR_CONTEXT_REASONS:
         category = "auth_or_context_blocked"
         primary_reason = _first_reason(reason_keys, AUTH_OR_CONTEXT_REASONS)
-    elif live_safe_failures or any(key.startswith("http_status_") for key in reason_keys):
+    elif live_safe_failures or reason_keys & RUNTIME_REPLAY_REASONS or any(key.startswith("http_status_") for key in reason_keys):
         category = "auth_or_replay_failed"
         primary_reason = _first_http_or("live_replay_failure", reason_keys)
     elif reason_keys & BINDING_REASONS:
@@ -133,8 +134,9 @@ def build_coverage_summary(
     live_safe_executed = bool(summary.get("live_safe_replay_executed", False)) or bool(live_safe_replay)
     redthread_replay = bool(summary.get("redthread_replay_passed", False))
     redthread_dryrun = bool(summary.get("redthread_dryrun_executed", False))
-    successful_workflows = int(_value_from(summary, live_workflow, "live_workflow_replay_count", "successful_workflow_count", 0))
+    successful_workflows = int(_value_from(summary, live_workflow, "live_workflow_successful_count", "successful_workflow_count", 0))
     blocked_workflows = int(_value_from(summary, live_workflow, "live_workflow_blocked_count", "blocked_workflow_count", 0))
+    aborted_workflows = int(_value_from(summary, live_workflow, "live_workflow_aborted_count", "aborted_workflow_count", 0))
     binding = summary.get("live_workflow_binding_application_summary", {}) or {}
     applied_bindings = int(binding.get("applied_response_binding_count", 0))
     planned_bindings = int(binding.get("planned_response_binding_count", binding.get("declared_response_binding_count", 0)))
@@ -151,14 +153,16 @@ def build_coverage_summary(
         gaps.append("no_live_or_workflow_replay")
     if live_workflow_executed and blocked_workflows:
         gaps.append("workflow_blocked")
+    if live_workflow_executed and aborted_workflows:
+        gaps.append("workflow_aborted")
     if planned_bindings and applied_bindings < planned_bindings:
         gaps.append("bindings_not_fully_applied")
     if boundary_count == 0 or not bool(summary.get("tenant_boundary_probe_executed", False)):
         gaps.append("tenant_user_boundary_unproven")
-    if reason_counts and (set(reason_counts) & AUTH_OR_CONTEXT_REASONS or any(str(key).startswith("http_status_") for key in reason_counts)):
+    if reason_counts and (set(reason_counts) & (AUTH_OR_CONTEXT_REASONS | RUNTIME_REPLAY_REASONS) or any(str(key).startswith("http_status_") for key in reason_counts)):
         gaps.append("auth_or_replay_blocked")
 
-    if live_workflow_executed and successful_workflows > 0 and not blocked_workflows:
+    if live_workflow_executed and successful_workflows > 0 and not blocked_workflows and not aborted_workflows:
         label = "strong_workflow_coverage"
     elif "auth_or_replay_blocked" in gaps:
         label = "auth_or_replay_blocked"
@@ -178,6 +182,7 @@ def build_coverage_summary(
         "live_workflow_replay_executed": live_workflow_executed,
         "successful_workflow_count": successful_workflows,
         "blocked_workflow_count": blocked_workflows,
+        "aborted_workflow_count": aborted_workflows,
         "planned_response_binding_count": planned_bindings,
         "applied_response_binding_count": applied_bindings,
         "tenant_user_boundary_candidate_count": boundary_count,
@@ -523,7 +528,7 @@ def _first_reason(reason_keys: set[str], candidates: set[str]) -> str:
 
 def _first_http_or(default: str, reason_keys: set[str]) -> str:
     for reason in sorted(reason_keys):
-        if reason.startswith("http_status_"):
+        if reason.startswith("http_status_") or reason in RUNTIME_REPLAY_REASONS:
             return reason
     return default
 

@@ -66,6 +66,83 @@ class EvidenceReadinessTests(unittest.TestCase):
             self.assertEqual(payload["components"]["boundary_probe_context_request"]["request_status"], "context_ready")
             self.assertIn("ready context as execution proof", " ".join(payload["recommended_next_actions"]))
 
+    def test_optional_approved_context_replay_result_tracks_not_executed_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = _write_readiness_inputs(
+                root,
+                readout_status="ready_for_external_validation_readout",
+                boundary_context_status="ready_for_boundary_probe",
+                boundary_context_valid=True,
+            )
+            replay = _write_approved_replay(root / "approved_context_replay_result.json", context_ready=True, execution_approved=False, executed=False)
+
+            payload = build_evidence_readiness(
+                **paths,
+                approved_context_replay_result=replay,
+                output_dir=root / "out",
+                regenerate_freshness=False,
+                regenerate_external_review_returns=False,
+                fail_on_marker_hit=True,
+            )
+
+        component = payload["components"]["approved_context_replay"]
+        self.assertTrue(component["context_ready"])
+        self.assertFalse(component["execution_approved"])
+        self.assertFalse(component["executed"])
+        self.assertFalse(component["approval_supplied"])
+        self.assertFalse(component["explicit_case_scope_present"])
+        self.assertFalse(component["explicit_execution_mode_scope_present"])
+        self.assertFalse(component["raw_approval_values_persisted"])
+        blocker_codes = {blocker["code"] for blocker in payload["blockers"]}
+        self.assertIn("approved_context_replay_not_executed", blocker_codes)
+        self.assertIn("explicit execution approval is absent", " ".join(payload["recommended_next_actions"]))
+
+    def test_optional_approved_context_replay_wildcard_scope_recommendation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = _write_readiness_inputs(
+                root,
+                readout_status="ready_for_external_validation_readout",
+                boundary_context_status="ready_for_boundary_probe",
+                boundary_context_valid=True,
+            )
+            replay = _write_approved_replay(
+                root / "approved_context_replay_result.json",
+                context_ready=True,
+                execution_approved=False,
+                executed=False,
+                approval_scope={
+                    "approval_supplied": True,
+                    "schema_valid": True,
+                    "approval_label_present": True,
+                    "allowed_case_count": 1,
+                    "allowed_execution_mode_count": 1,
+                    "explicit_case_scope_present": False,
+                    "explicit_execution_mode_scope_present": False,
+                    "wildcard_case_scope_requested": True,
+                    "wildcard_execution_mode_requested": True,
+                    "requested_case_in_scope": False,
+                    "requested_execution_mode_in_scope": False,
+                    "raw_approval_values_persisted": False,
+                },
+            )
+
+            payload = build_evidence_readiness(
+                **paths,
+                approved_context_replay_result=replay,
+                output_dir=root / "out",
+                regenerate_freshness=False,
+                regenerate_external_review_returns=False,
+                fail_on_marker_hit=True,
+            )
+
+        component = payload["components"]["approved_context_replay"]
+        self.assertTrue(component["approval_supplied"])
+        self.assertTrue(component["wildcard_case_scope_requested"])
+        self.assertTrue(component["wildcard_execution_mode_requested"])
+        self.assertIn("too broad", " ".join(payload["recommended_next_actions"]))
+
     def test_missing_boundary_context_is_required_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             paths = _write_readiness_inputs(Path(tmp), readout_status="ready_for_external_validation_readout")
@@ -186,6 +263,46 @@ def _write_json(path: Path, payload: dict[str, object]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def _write_approved_replay(path: Path, *, context_ready: bool, execution_approved: bool, executed: bool, approval_scope: dict[str, object] | None = None) -> Path:
+    payload = {
+        "schema_version": "adopt_redthread.approved_context_replay_result.v1",
+        "case_evidence": {
+            "case_id": "post_api_Users",
+            "method_class": "reviewed_write",
+            "execution_mode": "live_reviewed_write_staging",
+        },
+        "execution_state": {
+            "context_ready": context_ready,
+            "execution_approved": execution_approved,
+            "execute_requested": executed,
+            "executed": executed,
+            "validated": False,
+            "release_approved": False,
+        },
+        "result_class": "safe_rejection" if executed else "not_run",
+        "http_status_family": "4xx" if executed else "not_applicable",
+        "approval_scope": approval_scope or {
+            "approval_supplied": False,
+            "schema_valid": False,
+            "approval_label_present": False,
+            "allowed_case_count": 0,
+            "allowed_execution_mode_count": 0,
+            "explicit_case_scope_present": False,
+            "explicit_execution_mode_scope_present": False,
+            "wildcard_case_scope_requested": False,
+            "wildcard_execution_mode_requested": False,
+            "requested_case_in_scope": False,
+            "requested_execution_mode_in_scope": False,
+            "raw_approval_values_persisted": False,
+        },
+        "confirmed_security_finding": False,
+        "release_gate_override": False,
+        "decision_semantics_changed": False,
+        "output_marker_audit": PASS_AUDIT,
+    }
+    return _write_json(path, payload)
 
 
 def _write_readiness_inputs(

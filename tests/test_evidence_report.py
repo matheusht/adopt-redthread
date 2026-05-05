@@ -205,7 +205,7 @@ class EvidenceReportTests(unittest.TestCase):
         self.assertIn("## Not proven by this run", report)
         self.assertIn("successful execution of the blocked workflow under approved context", report)
         self.assertIn("cross-user, cross-tenant, or resource-ownership enforcement", report)
-        self.assertIn("valid auth/session/write-context delivery for this run; this is not proof of a confirmed vulnerability", report)
+        self.assertIn("complete live workflow success under approved auth/write context; this is not proof of a confirmed vulnerability", report)
 
     def test_report_surfaces_boundary_probe_result_without_changing_verdict(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -280,6 +280,91 @@ class EvidenceReportTests(unittest.TestCase):
         self.assertIn("Gate decision interpretation: `review`; confirmed_security_finding=`False`", report)
         self.assertIn("Local bridge gate decision: `review`", report)
         self.assertIn("supply approved non-production boundary probe context", report)
+
+    def test_report_surfaces_operator_accepted_safe_write_rejection_without_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp) / "owasp_shop"
+            run_dir.mkdir()
+            _write_json(
+                run_dir / "workflow_summary.json",
+                {
+                    "ingestion": "zapi",
+                    "input_file": "owasp-shop_filtered.har",
+                    "fixture_count": 8,
+                    "live_workflow_count": 1,
+                    "live_workflow_replay_executed": True,
+                    "live_workflow_requirement_summary": {"workflow_class_counts": {"reviewed_write_workflow": 1}},
+                    "live_workflow_failure_class_summary": {"runtime_failure": 1},
+                    "redthread_replay_passed": True,
+                    "redthread_dryrun_executed": True,
+                    "gate_decision": "block",
+                    "decision_reason_summary": {
+                        "decision": "block",
+                        "category": "auth_or_replay_failed",
+                        "primary_reason": "http_error",
+                        "confirmed_security_finding": False,
+                        "explanation": "Live replay failed at runtime; this is not a confirmed security finding by itself.",
+                    },
+                    "coverage_summary": {
+                        "label": "auth_or_replay_blocked",
+                        "live_safe_replay_executed": True,
+                        "live_workflow_replay_executed": True,
+                        "successful_workflow_count": 0,
+                        "blocked_workflow_count": 0,
+                        "aborted_workflow_count": 1,
+                        "tenant_user_boundary_probed": False,
+                        "coverage_gaps": ["auth_or_replay_blocked", "tenant_user_boundary_unproven", "workflow_aborted"],
+                    },
+                    "auth_diagnostics_summary": {
+                        "auth_mode": "cookie",
+                        "approved_auth_context_required": True,
+                        "approved_auth_context_supplied": True,
+                        "approved_write_context_required": True,
+                        "approved_write_context_supplied": True,
+                        "replay_failure_category": "runtime_replay_failure",
+                        "http_status_counts": {"http_status_200": 8, "http_status_400": 1},
+                    },
+                    "attack_brief_summary": {"top_targeted_probe": "Verify user/tenant identifiers."},
+                },
+            )
+            _write_json(run_dir / "gate_verdict.json", {"decision": "block", "warnings": [], "blockers": ["live_workflow_replay_failures_present"]})
+            _write_json(run_dir / "live_workflow_replay.json", {"successful_workflow_count": 0, "blocked_workflow_count": 0, "aborted_workflow_count": 1})
+            _write_json(run_dir / "redthread_replay_verdict.json", {"passed": True})
+            _write_json(
+                run_dir / "runtime_outcome_acceptance.json",
+                {
+                    "schema_version": "adopt_redthread.runtime_outcome_acceptance.v1",
+                    "accepted_outcome": {
+                        "failed_step": "post_api_Users",
+                        "http_status_family": "4xx",
+                        "operator_interpretation": "expected_safe_server_rejection_for_this_write_scenario",
+                        "confirmed_security_finding": False,
+                    },
+                    "gate_semantics": {
+                        "acceptance_does_not_mutate_replay_result": True,
+                        "acceptance_does_not_claim_external_validation": True,
+                        "acceptance_does_not_claim_boundary_validation": True,
+                    },
+                },
+            )
+
+            report = build_evidence_report(run_dir)
+
+        self.assertIn("Expected cold-review conclusion: `block`", report)
+        self.assertIn("operator-accepted HTTP 4xx safe rejection is evidence context, not approval", report)
+        self.assertIn("Live workflow replay did not complete successfully", report)
+        self.assertIn("does not convert aborted workflow evidence into approval", report)
+        self.assertNotIn("Live replay failed because auth/session/environment/replay did not succeed", report)
+        self.assertIn("Runtime outcome acceptance: HTTP 4xx at `post_api_Users` was operator-accepted", report)
+        self.assertIn("## Runtime outcome acceptance", report)
+        self.assertIn("Accepted runtime status family: `HTTP 4xx`", report)
+        self.assertIn("Operator interpretation: `expected_safe_server_rejection_for_this_write_scenario`", report)
+        self.assertIn("Confirmed security finding: `False`", report)
+        self.assertIn("Gate result unchanged by acceptance: `True`", report)
+        self.assertIn("Does not claim external validation: `True`", report)
+        self.assertIn("Does not claim boundary validation: `True`", report)
+        self.assertIn("still not approval", report)
+        self.assertIn("Local bridge gate decision: `block`", report)
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:

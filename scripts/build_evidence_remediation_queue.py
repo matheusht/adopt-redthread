@@ -24,6 +24,7 @@ def build_evidence_remediation_queue(
     *,
     readiness_ledger: str | Path = DEFAULT_READINESS,
     distribution_manifest: str | Path | None = DEFAULT_DISTRIBUTION,
+    approved_context_replay_result: str | Path | None = None,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     regenerate_readiness: bool = True,
     fail_on_marker_hit: bool = True,
@@ -42,7 +43,11 @@ def build_evidence_remediation_queue(
     distribution_path = Path(distribution_manifest) if distribution_manifest else None
 
     if regenerate_readiness:
-        readiness = build_evidence_readiness(output_dir=readiness_path.parent, fail_on_marker_hit=fail_on_marker_hit)
+        readiness = build_evidence_readiness(
+            output_dir=readiness_path.parent,
+            approved_context_replay_result=approved_context_replay_result,
+            fail_on_marker_hit=fail_on_marker_hit,
+        )
         readiness_path = readiness_path.parent / "evidence_readiness.json"
     else:
         readiness = _load_json(readiness_path)
@@ -148,6 +153,71 @@ def _item_for_readiness_blocker(blocker: dict[str, Any], readiness: dict[str, An
                 "make evidence-external-validation-readout reports ready_for_external_validation_readout",
             ],
             "non_claim": "Missing external reviews mean waiting state, not validation failure or release approval.",
+        }
+    if code == "approved_context_replay_not_executed":
+        replay = readiness.get("components", {}).get("approved_context_replay", {}) if isinstance(readiness.get("components"), dict) else {}
+        context_ready = bool(replay.get("context_ready", False))
+        execution_approved = bool(replay.get("execution_approved", False))
+        replay_result_path = str(replay.get("path") or "runs/approved_context_replay/approved_context_replay_result.json")
+        replay_output_dir = str(Path(replay_result_path).parent)
+        replay_case_id = str(replay.get("case_id") or "case_id")
+        if not context_ready:
+            status = "blocked_on_approved_runtime_context"
+            blocked_by = ["approved non-production runtime context", "sanitized replay plan/result"]
+            action = "Supply approved non-production runtime context locally and rerun approved-context replay in not-run mode; do not execute or persist raw values."
+            commands = [
+                f"make evidence-approved-context-replay APPROVED_REPLAY_CASE={replay_case_id} APPROVED_REPLAY_OUTPUT={replay_output_dir} APPROVED_REPLAY_WRITE_CONTEXT=path/to/local_context.json",
+                f"make evidence-readiness EVIDENCE_APPROVED_REPLAY_RESULT={replay_result_path}",
+            ]
+        elif not execution_approved:
+            wildcard_scope = bool(replay.get("wildcard_case_scope_requested", False) or replay.get("wildcard_execution_mode_requested", False))
+            scope_missing = bool(not replay.get("explicit_case_scope_present", False) or not replay.get("explicit_execution_mode_scope_present", False))
+            scope_mismatch = bool(replay.get("approval_supplied", False) and (not replay.get("requested_case_in_scope", False) or not replay.get("requested_execution_mode_in_scope", False)))
+            if wildcard_scope:
+                status = "blocked_on_narrow_execution_approval"
+                blocked_by = ["wildcard approval scope must be replaced", "explicit case ID", "explicit execution mode"]
+                action = "Replace broad/wildcard approval scope with an explicit sanitized case ID and execution mode before any endpoint replay execution."
+            elif scope_mismatch:
+                status = "blocked_on_matching_execution_approval"
+                blocked_by = ["approval case/mode mismatch", "sanitized execution approval request", "explicit non-production execution approval"]
+                action = "Repair or regenerate the sanitized approval artifact so it matches the requested case ID and execution mode before any endpoint replay execution."
+            elif scope_missing and replay.get("approval_supplied", False):
+                status = "blocked_on_scoped_execution_approval"
+                blocked_by = ["explicit case scope", "explicit execution-mode scope", "sanitized execution approval request"]
+                action = "Repair the sanitized approval artifact with explicit case and execution-mode scope before any endpoint replay execution."
+            else:
+                status = "blocked_on_operator_execution_approval"
+                blocked_by = ["sanitized execution approval request", "explicit non-production execution approval"]
+                action = "Generate the sanitized execution-approval request, then wait for explicit operator approval before any endpoint replay execution."
+            commands = [
+                f"make evidence-approved-context-replay-approval-request APPROVED_REPLAY_OUTPUT={replay_output_dir}",
+                f"make evidence-approved-context-replay APPROVED_REPLAY_CASE={replay_case_id} APPROVED_REPLAY_OUTPUT={replay_output_dir} APPROVED_REPLAY_EXECUTION_APPROVAL=path/to/local_approval.json APPROVED_REPLAY_EXECUTE=1",
+            ]
+        else:
+            status = "blocked_on_execute_flag"
+            blocked_by = ["explicit execute flag", "approved non-production execution window"]
+            action = "Run the single approved-context replay only during the approved non-production execution window with the explicit execute flag."
+            commands = [
+                f"make evidence-approved-context-replay APPROVED_REPLAY_CASE={replay_case_id} APPROVED_REPLAY_OUTPUT={replay_output_dir} APPROVED_REPLAY_EXECUTION_APPROVAL=path/to/local_approval.json APPROVED_REPLAY_EXECUTE=1",
+                f"make evidence-readiness EVIDENCE_APPROVED_REPLAY_RESULT={replay_result_path}",
+            ]
+        return {
+            "id": "complete_approved_context_replay_execution",
+            "priority": 19,
+            "owner": "ReplayEvidenceOwner",
+            "status": status,
+            "source": "evidence_readiness.approved_context_replay_not_executed",
+            "blocked_by": blocked_by,
+            "action": action,
+            "verification_commands": commands,
+            "acceptance_criteria": [
+                "approved-context replay result has executed true only after explicit approval, explicit case/mode scope, and execute flag",
+                "result_class is one of safe_success, safe_rejection, blocked, or potential_finding",
+                "confirmed_security_finding remains false unless separately judged from observed evidence",
+                "release_gate_override remains false",
+                "marker audits pass and raw values remain absent",
+            ],
+            "non_claim": "Approved-context replay evidence is endpoint execution proof only; it is not release approval or external validation.",
         }
     if code == "boundary_context_request_not_ready":
         request = readiness.get("components", {}).get("boundary_probe_context_request", {}) if isinstance(readiness.get("components"), dict) else {}
@@ -424,6 +494,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build a sanitized evidence remediation queue from readiness/distribution metadata.")
     parser.add_argument("--readiness-ledger", default=str(DEFAULT_READINESS))
     parser.add_argument("--distribution-manifest", default=str(DEFAULT_DISTRIBUTION))
+    parser.add_argument("--approved-context-replay-result", default=None, help="Optional approved_context_replay_result.json to pass through when regenerating readiness")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--skip-regenerate-readiness", action="store_true")
     parser.add_argument("--fail-on-marker-hit", dest="fail_on_marker_hit", action="store_true", help="Exit non-zero if configured sensitive markers are present (default)")
@@ -433,6 +504,7 @@ def main() -> None:
     payload = build_evidence_remediation_queue(
         readiness_ledger=args.readiness_ledger,
         distribution_manifest=args.distribution_manifest,
+        approved_context_replay_result=args.approved_context_replay_result,
         output_dir=args.output_dir,
         regenerate_readiness=not args.skip_regenerate_readiness,
         fail_on_marker_hit=args.fail_on_marker_hit,

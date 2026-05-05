@@ -28,6 +28,9 @@ class ExternalReviewDistributionTests(unittest.TestCase):
         self.assertIn("not external validation", " ".join(payload["non_claims"]))
         self.assertIn("review_1", markdown)
         self.assertIn("ready_to_distribute", markdown)
+        self.assertIn("## Distribution blockers", markdown)
+        self.assertIn("not that the release is approved", markdown)
+        self.assertIn("distribution readiness only", markdown)
 
     def test_stale_freshness_blocks_distribution(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

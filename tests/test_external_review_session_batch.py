@@ -20,6 +20,7 @@ class ExternalReviewSessionBatchTests(unittest.TestCase):
             batch = build_external_review_session_batch(handoff_dir=handoff, output_dir=output, review_count=2)
             batch_json = (output / "external_review_session_batch.json").read_text(encoding="utf-8")
             batch_md = (output / "external_review_session_batch.md").read_text(encoding="utf-8")
+            instructions = (output / "review_1" / "reviewer_session_instructions.md").read_text(encoding="utf-8")
 
         self.assertEqual(batch["schema_version"], "adopt_redthread.external_review_session_batch.v1")
         self.assertEqual(batch["session_status"], "ready_for_external_reviewer_distribution")
@@ -31,6 +32,8 @@ class ExternalReviewSessionBatchTests(unittest.TestCase):
         self.assertIn("make evidence-observation-summary", batch_md)
         self.assertIn("not validation evidence", batch_md)
         self.assertIn("evidence_report.md", batch["sessions"][0]["allowed_artifacts"])
+        self.assertIn("Expected cold-review conclusion", instructions)
+        self.assertIn("it starts as a blank template", instructions)
 
     def test_marker_hit_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

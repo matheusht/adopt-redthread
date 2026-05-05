@@ -32,6 +32,9 @@ Current scripts:
 - `build_redthread_evidence_contract_proposal.py` — write the tiny generic RedThread evidence-contract proposal to `docs/` and `runs/` without upstreaming or adding integration plumbing
 - `check_atp_zapi_reference.py` — validate the local ATP Tennis ZAPI reference run and write a sanitized non-secret evidence summary
 - `run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
+- `run_approved_context_replay.py` — plan or execute one approval-gated endpoint replay from a live attack plan and emit sanitized proof; default mode is not-run, live execution requires approved non-production runtime context plus a sanitized execution-approval artifact
+- `build_approved_context_replay_execution_request.py` — build a sanitized execution-approval request and false-by-default local approval template from an approved-context replay plan/result; no endpoint execution
+- `run_har_evidence_batch.py` — run an explicit local folder or manifest of `.har` captures through the offline bridge only, with live/auth/write/boundary execution forced off, and write sanitized per-subject summaries, aggregate blocker/gap counts, and privacy audits
 - `run_live_workflow_replay.py` — execute grouped sequential workflow replay from workflow and attack plans using the same auth/write guardrails
   - carries bounded state/evidence forward between steps
   - emits structured workflow failure reasons and reason counts
@@ -66,15 +69,18 @@ Handy commands:
 - `make evidence-external-review-sessions` — build `runs/external_review_sessions/` with isolated per-review folders, boundary context request when present, and expected summary commands for external cold reviews
 - `make evidence-external-validation-readout` — build `runs/external_validation_readout/` from the external session batch and sanitized reviewer-observation summaries; also records whether the sanitized boundary context request was present in reviewer inputs; missing summaries remain waiting state, not validation
 - `make evidence-freshness` — build `runs/evidence_freshness/evidence_freshness_manifest.{md,json}` reporting stale/missing sanitized copies, including boundary context request copies when present, and failing on configured marker hits
-- `make evidence-readiness` — build `runs/evidence_readiness/evidence_readiness.{md,json}` from sanitized evidence metadata, including external review returns and boundary context intake/request state; current no-reviewer state remains waiting, not validation
+- `make evidence-readiness` — build `runs/evidence_readiness/evidence_readiness.{md,json}` from sanitized evidence metadata, including external review returns, boundary context intake/request state, and optional approved-context replay result via `EVIDENCE_APPROVED_REPLAY_RESULT=...`; current no-reviewer state remains waiting, not validation
 - `make evidence-external-review-distribution` — build `runs/external_review_distribution/external_review_distribution_manifest.{md,json}` with exact reviewer-session delivery records and expected summary paths
 - `make evidence-external-review-returns` — build `runs/external_review_returns/external_review_return_ledger.{md,json}` with per-review missing/incomplete/privacy/follow-up/complete status from sanitized summaries plus boundary-context-request input coverage
-- `make evidence-remediation-queue` — build `runs/evidence_remediation/evidence_remediation_queue.{md,json}` from sanitized readiness/distribution blockers; current open items remain external reviews, boundary context intake, and approved boundary execution context
+- `make evidence-remediation-queue` — build `runs/evidence_remediation/evidence_remediation_queue.{md,json}` from sanitized readiness/distribution blockers; pass `EVIDENCE_APPROVED_REPLAY_RESULT=...` to carry optional approved-context replay state through regenerated readiness; current open items can include external reviews, boundary execution, and approved-context replay execution approval/execution
 - `make evidence-boundary-probe-plan` — build `runs/boundary_probe_plan/tenant_user_boundary_probe_plan.{md,json}` from existing reviewed-write evidence; this is a sanitized next-probe plan, not execution evidence
 - `make evidence-boundary-execution-design` — write `docs/tenant-user-boundary-execution-design.md` plus generated `runs/boundary_execution_design/` copies of the approved-context and boundary-result contract; this is design-only, not execution
 - `make evidence-boundary-probe-context` — write `runs/boundary_probe_context/tenant_user_boundary_probe_context.template.{md,json}` from the plan/design, or validate an explicit sanitized context file via `BOUNDARY_CONTEXT=...`; this is context intake only, not execution proof
 - `make evidence-boundary-context-request` — write `runs/boundary_probe_context_request/tenant_user_boundary_probe_context_request.{md,json}` with the sanitized missing-context checklist and validation commands; this is a request package, not execution proof
 - `make evidence-boundary-probe-result` — write `runs/boundary_probe_result/tenant_user_boundary_probe_result.{md,json}` from the plan/design; this is a sanitized result template/validator, not execution proof
+- `make evidence-approved-context-replay APPROVED_REPLAY_CASE=case_id` — write `runs/approved_context_replay/approved_context_replay_plan.json`, `approved_context_replay_result.json`, and `approved_context_replay.md`; default mode is sanitized plan/not-run, and live execution requires `APPROVED_REPLAY_EXECUTE=1`, approved non-production runtime context, and a sanitized execution approval artifact with explicit case/mode scope; wildcard scope is rejected
+- `make evidence-approved-context-replay-approval-request APPROVED_REPLAY_OUTPUT=runs/approved_context_replay` — write `execution_approval_request.{md,json}` plus `execution_approval.local.template.json`; template booleans default to false and this is not execution approval by itself
+- `make evidence-har-batch HAR_INPUT_DIR=./captures HAR_BATCH_OUTPUT=runs/har_batches/latest` — process an explicit local `.har` folder through the offline bridge only and write sanitized batch summaries under ignored `runs/`; this does not run live replay, gather approval, reuse auth, execute writes, probe boundaries, or create release approval
 - `make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md OBSERVATION_OUTPUT=/path/to/review_output_dir` — summarize filled silent-review answers into `reviewer_observation_summary.{md,json}` under the output directory and fail on configured sensitive markers; default output is `runs/reviewer_packet/`
 - `make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"` — aggregate sanitized observation summaries into `runs/reviewer_validation/reviewer_validation_rollup.{md,json}`; default uses the current local packet summary
 - `make redthread-contract-proposal` — regenerate `docs/redthread-evidence-contract-proposal.md` and `runs/redthread_evidence_contract_proposal/redthread_evidence_contract_proposal.{md,json}`
@@ -82,6 +88,25 @@ Handy commands:
 - `make demo-bridge-pipeline` — run the full one-command pipeline from the sanitized HAR sample
 - `make live-zapi-bridge URL=https://example.com` — run a real ZAPI capture, then execute the full bridge flow
 - `make demo-all` — run the full local demo flow across ZAPI, NoUI, replay, dry-run, and the one-command pipeline
+
+## Offline HAR batch
+
+The offline HAR batch lane is a local evidence QA harness, not a scanner or autonomous attack loop. It accepts only explicit local `.har` inputs, calls the existing offline bridge path per subject, preserves the local gate decision as `approve`, `review`, or `block`, and uses separate batch statuses such as `processed`, `failed`, or `privacy_blocked`.
+
+```bash
+make evidence-har-batch \
+  HAR_INPUT_DIR=./captures \
+  HAR_BATCH_OUTPUT=runs/har_batches/batch_001
+```
+
+Generated batch artifacts include `batch_manifest.{json,md}`, `subject_index.{json,md}`, `aggregate_blockers.{json,md}`, `engine_gaps.md`, `privacy_audit.json`, and isolated `subjects/subject_*/` run folders. The target is repeated sanitized engine-gap feedback across captures.
+
+Safety rules:
+- no live replay, authenticated replay, write execution, boundary probe, or approval gathering
+- no LLM access to raw HARs
+- no raw HAR/session/cookie/header/body/request/response/app values in generated aggregate artifacts
+- no new gate outcomes; skipped/failed/privacy-blocked are batch statuses only
+- offline observations are not findings, validation, regression proof, execution proof, or release approval
 
 ## HAR notes
 

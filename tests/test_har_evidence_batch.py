@@ -47,6 +47,13 @@ class HarEvidenceBatchTests(unittest.TestCase):
 
             self.assertEqual(manifest["subject_count"], 2)
             self.assertEqual(manifest["gate_decision_counts"], {"approve": 1, "block": 1})
+            self.assertEqual(manifest["execution_controls"], {
+                "live_safe_replay": False,
+                "live_workflow_replay": False,
+                "reviewed_auth": False,
+                "reviewed_writes": False,
+                "boundary_probe": False,
+            })
             self.assertTrue((output_dir / "subjects" / "subject_001" / "subject_summary.json").exists())
             self.assertTrue((output_dir / "subjects" / "subject_002" / "subject_summary.md").exists())
             subject_two = json.loads((output_dir / "subjects" / "subject_002" / "subject_summary.json").read_text(encoding="utf-8"))
@@ -92,6 +99,7 @@ class HarEvidenceBatchTests(unittest.TestCase):
             self.assertEqual(manifest["input_count"], 0)
             self.assertEqual(manifest["subject_count"], 0)
             self.assertEqual(manifest["batch_status_counts"], {})
+            self.assertFalse(any(manifest["execution_controls"].values()))
 
     def test_limit_zero_is_explicit_no_inputs_batch_with_discovered_count(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

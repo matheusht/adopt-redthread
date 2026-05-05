@@ -2,7 +2,7 @@
 
 Schema versions: `adopt_redthread.sanitized_intent_review_context.v0`, `adopt_redthread.sanitized_intent_review.v0`, `adopt_redthread.redthread_evidence_export.v0`
 
-Status: Phase 1-3 local implementation target.
+Status: Phase 1-6 local implementation target.
 
 ## Executive recommendation
 
@@ -238,7 +238,7 @@ make test
 
 ### Phase 3 — Deterministic review generator v0
 
-Objective: generate `intent_review.json`, `intent_review.md`, and `redthread_evidence_export.json` without LLM dependency.
+Objective: generate `intent_review.json` and `intent_review.md` without LLM dependency.
 
 Files likely changed:
 
@@ -248,7 +248,7 @@ Files likely changed:
 
 Acceptance criteria:
 
-- Produces all expected artifacts from a sanitized batch fixture.
+- Produces expected review artifacts from a sanitized batch fixture.
 - Uses conservative enum classifications.
 - Marks uncertain cases as `unknown` or low confidence.
 - Never emits findings, severity, scanner language, or execution claims.
@@ -257,7 +257,78 @@ Verification:
 
 ```bash
 make evidence-intent-review HAR_BATCH_OUTPUT=runs/har_batches/latest
-python3 -m pytest tests/test_sanitized_intent_review.py
+python3 -m unittest tests.test_sanitized_intent_review
+make test
+```
+
+### Phase 4 — RedThread export v0
+
+Objective: produce `redthread_evidence_export.json` from the sanitized intent review.
+
+Files likely changed:
+
+- `scripts/build_sanitized_intent_review.py`
+- `tests/test_sanitized_intent_review.py`
+
+Acceptance criteria:
+
+- Export contains workflow evidence, intent context, missing evidence, reviewer questions, and execution requirements.
+- Export says RedThread evaluation is required.
+- Export does not claim final local decision, confirmed finding, severity, or release override.
+
+Verification:
+
+```bash
+make evidence-intent-review HAR_BATCH_OUTPUT=runs/har_batches/latest
+python3 -m unittest tests.test_sanitized_intent_review
+```
+
+### Phase 5 — Optional LLM mode behind guardrails
+
+Objective: support an optional offline LLM-output validation path without adding model calls or network execution.
+
+Files likely changed:
+
+- `scripts/build_sanitized_intent_review.py`
+- `tests/test_sanitized_intent_review.py`
+- `Makefile`
+
+Acceptance criteria:
+
+- Default mode remains deterministic.
+- `--agent-mode llm` writes `llm_intent_review_prompt.json` from sanitized context only.
+- LLM mode requires `--llm-review-output` containing a schema-valid offline model output.
+- LLM output is rejected if subject IDs do not match, if default live execution is allowed, or if finding/severity/scanner semantics are claimed.
+- No API calls are made by this repo in Phase 5.
+
+Verification:
+
+```bash
+python3 -m unittest tests.test_sanitized_intent_review
+```
+
+### Phase 6 — Batch review workflow integration
+
+Objective: integrate the intent review into the existing HAR batch review workflow.
+
+Files likely changed:
+
+- `scripts/build_har_batch_review_workflow.py`
+- `tests/test_har_batch_review_workflow.py`
+- `docs/offline-har-evidence-batch.md`
+
+Acceptance criteria:
+
+- `make evidence-har-batch-review-workflow` also produces the batch-level `intent_review/` directory.
+- The review workflow includes `phase_6_sanitized_intent_review.json/md`.
+- Phase 6 records that RedThread evaluation remains required and no confirmed finding is claimed.
+- Existing Phase 1-5 review workflow semantics remain unchanged.
+
+Verification:
+
+```bash
+make evidence-har-batch-review-workflow HAR_BATCH_OUTPUT=runs/har_batches/latest
+python3 -m unittest tests.test_har_batch_review_workflow
 make test
 ```
 

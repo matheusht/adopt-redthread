@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from scripts.build_sanitized_intent_review import (
+    build_intent_review,
     build_intent_review_context,
     build_sanitized_intent_review,
 )
@@ -113,6 +114,45 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertFalse(export["promotion_semantics"]["confirmed_security_finding_claimed"])
             self.assertFalse(export["promotion_semantics"]["release_gate_override"])
             self.assertIn("RedThread evaluation is required", markdown)
+
+    def test_llm_mode_accepts_schema_valid_offline_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            context = build_intent_review_context(batch)
+            llm_review = build_intent_review(context)
+            llm_path = root / "llm_review.json"
+            llm_path.write_text(json.dumps(llm_review), encoding="utf-8")
+
+            result = build_sanitized_intent_review(
+                batch,
+                root / "out",
+                agent_mode="llm",
+                llm_review_output=llm_path,
+            )
+
+            self.assertEqual(result["agent_mode"], "llm")
+            self.assertTrue((root / "out" / "llm_intent_review_prompt.json").exists())
+            export = json.loads((root / "out" / "redthread_evidence_export.json").read_text(encoding="utf-8"))
+            self.assertTrue(export["promotion_semantics"]["redthread_evaluation_required"])
+
+    def test_llm_mode_rejects_claimed_findings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            context = build_intent_review_context(batch)
+            llm_review = build_intent_review(context)
+            llm_review["subjects"][0]["finding_semantics"]["confirmed_finding_claimed"] = True
+            llm_path = root / "llm_review.json"
+            llm_path.write_text(json.dumps(llm_review), encoding="utf-8")
+
+            with self.assertRaises(ValueError):
+                build_sanitized_intent_review(
+                    batch,
+                    root / "out",
+                    agent_mode="llm",
+                    llm_review_output=llm_path,
+                )
 
     def test_privacy_audit_fails_on_forbidden_raw_field_key(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

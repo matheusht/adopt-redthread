@@ -452,11 +452,60 @@ def _assert_safe_artifacts(payloads: list[dict[str, Any] | str], fail_on_marker_
     return audit
 
 
-def build_sanitized_intent_review(batch_dir: str | Path, output_dir: str | Path | None = None, *, fail_on_marker_hit: bool = True) -> dict[str, Any]:
+def _load_llm_review(path: str | Path, context: dict[str, Any]) -> dict[str, Any]:
+    review = _read_json(Path(path))
+    if review.get("schema_version") != REVIEW_SCHEMA_VERSION:
+        raise ValueError("LLM review output used an unsupported schema_version")
+    expected_subject_ids = {str(subject["subject_id"]) for subject in context.get("subjects", [])}
+    actual_subject_ids = {str(subject.get("subject_id")) for subject in review.get("subjects", [])}
+    if actual_subject_ids != expected_subject_ids:
+        raise ValueError("LLM review output subject set does not match sanitized context")
+    for subject in review.get("subjects", []):
+        finding = subject.get("finding_semantics", {})
+        if finding.get("confirmed_finding_claimed") or finding.get("severity_claimed") or finding.get("scanner_claimed"):
+            raise ValueError("LLM review output attempted to claim finding, severity, or scanner semantics")
+        execution = subject.get("approved_execution_requirements", {})
+        if execution.get("default_live_execution_allowed"):
+            raise ValueError("LLM review output attempted to allow default live execution")
+    return review
+
+
+def _write_llm_prompt(output_dir: Path, context: dict[str, Any]) -> None:
+    prompt = {
+        "role": "Sanitized Intent Review Agent",
+        "task": "Classify sanitized context into the adopt_redthread.sanitized_intent_review.v0 schema only.",
+        "forbidden": [
+            "raw HAR access",
+            "raw URLs, paths, headers, cookies, bodies, auth values, IDs, secrets, or app field names",
+            "live endpoint execution",
+            "finding, severity, exploit, scanner, or release-gate claims",
+        ],
+        "required_schema_version": REVIEW_SCHEMA_VERSION,
+        "sanitized_context": context,
+    }
+    _write_json(output_dir / "llm_intent_review_prompt.json", prompt)
+
+
+def build_sanitized_intent_review(
+    batch_dir: str | Path,
+    output_dir: str | Path | None = None,
+    *,
+    fail_on_marker_hit: bool = True,
+    agent_mode: str = "deterministic",
+    llm_review_output: str | Path | None = None,
+) -> dict[str, Any]:
     batch_dir = Path(batch_dir)
     output_dir = Path(output_dir) if output_dir else batch_dir / "intent_review"
     context = build_intent_review_context(batch_dir)
-    review = build_intent_review(context)
+    if agent_mode not in {"deterministic", "llm"}:
+        raise ValueError("agent_mode must be deterministic or llm")
+    if agent_mode == "llm":
+        _write_llm_prompt(output_dir, context)
+        if not llm_review_output:
+            raise ValueError("--agent-mode llm requires --llm-review-output with a schema-valid offline model output")
+        review = _load_llm_review(llm_review_output, context)
+    else:
+        review = build_intent_review(context)
     export = build_redthread_evidence_export(review)
     markdown = render_intent_review_markdown(review)
     audit = _assert_safe_artifacts([context, review, export, markdown], fail_on_marker_hit)
@@ -468,7 +517,7 @@ def build_sanitized_intent_review(batch_dir: str | Path, output_dir: str | Path 
     _write_text(output_dir / "intent_review.md", markdown)
     _write_json(output_dir / "redthread_evidence_export.json", export)
     _write_json(output_dir / "privacy_audit.json", audit)
-    return {"output_dir": str(output_dir), "privacy_audit": audit, "subject_count": len(review["subjects"])}
+    return {"output_dir": str(output_dir), "privacy_audit": audit, "subject_count": len(review["subjects"]), "agent_mode": agent_mode}
 
 
 def main() -> int:
@@ -476,8 +525,16 @@ def main() -> int:
     parser.add_argument("--batch-dir", required=True)
     parser.add_argument("--output-dir")
     parser.add_argument("--fail-on-marker-hit", action="store_true")
+    parser.add_argument("--agent-mode", choices=("deterministic", "llm"), default="deterministic")
+    parser.add_argument("--llm-review-output")
     args = parser.parse_args()
-    result = build_sanitized_intent_review(args.batch_dir, args.output_dir, fail_on_marker_hit=args.fail_on_marker_hit)
+    result = build_sanitized_intent_review(
+        args.batch_dir,
+        args.output_dir,
+        fail_on_marker_hit=args.fail_on_marker_hit,
+        agent_mode=args.agent_mode,
+        llm_review_output=args.llm_review_output,
+    )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 

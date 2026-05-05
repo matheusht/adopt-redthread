@@ -111,7 +111,7 @@ evidence-har-batch-review-workflow:
 
 evidence-intent-review:
 	@test -n "$(HAR_BATCH_OUTPUT)" || (echo "Usage: make evidence-intent-review HAR_BATCH_OUTPUT=runs/har_batches/latest [INTENT_REVIEW_OUTPUT=path]" && exit 1)
-	$(PYTHON) scripts/build_sanitized_intent_review.py --batch-dir $(HAR_BATCH_OUTPUT) $(if $(INTENT_REVIEW_OUTPUT),--output-dir $(INTENT_REVIEW_OUTPUT),) --fail-on-marker-hit
+	$(PYTHON) scripts/build_sanitized_intent_review.py --batch-dir $(HAR_BATCH_OUTPUT) $(if $(INTENT_REVIEW_OUTPUT),--output-dir $(INTENT_REVIEW_OUTPUT),) $(if $(INTENT_REVIEW_AGENT_MODE),--agent-mode $(INTENT_REVIEW_AGENT_MODE),) $(if $(INTENT_REVIEW_LLM_OUTPUT),--llm-review-output $(INTENT_REVIEW_LLM_OUTPUT),) --fail-on-marker-hit
 
 evidence-observation-summary:
 	$(PYTHON) scripts/summarize_reviewer_observation.py --observation $(OBSERVATION) --output-dir $(OBSERVATION_OUTPUT) --fail-on-marker-hit

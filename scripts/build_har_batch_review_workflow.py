@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from scripts.build_sanitized_intent_review import build_sanitized_intent_review
 from scripts.run_har_evidence_batch import marker_audit
 
 SCHEMA_VERSION = "adopt_redthread.har_batch_review_workflow.v1"
@@ -124,6 +125,25 @@ def build_har_batch_review_workflow(batch_dir: str | Path, output_dir: str | Pat
         "privacy_audit_passed": aggregate.get("subject_privacy_failed_count") == 0,
         "live_execution_performed": False,
     }
+    intent_review_result = build_sanitized_intent_review(batch_dir, batch_dir / "intent_review", fail_on_marker_hit=True)
+    phase6 = {
+        "schema_version": SCHEMA_VERSION,
+        "phase": "phase_6_sanitized_intent_review",
+        "status": "complete_for_current_batch",
+        "intent_review_output_dir": "intent_review",
+        "intent_review_artifacts": [
+            "intent_review_context.json",
+            "intent_review.json",
+            "intent_review.md",
+            "redthread_evidence_export.json",
+            "privacy_audit.json",
+        ],
+        "subject_count": intent_review_result.get("subject_count"),
+        "agent_mode": intent_review_result.get("agent_mode"),
+        "live_execution_performed": False,
+        "redthread_evaluation_required": True,
+        "confirmed_security_finding_claimed": False,
+    }
 
     artifacts = {
         "phase_1_reviewer_packet.json": phase1,
@@ -136,6 +156,8 @@ def build_har_batch_review_workflow(batch_dir: str | Path, output_dir: str | Pat
         "phase_4_batch_triage_automation.md": _kv_md("Phase 4 Batch Triage Automation", phase4),
         "phase_5_readiness_gate.json": phase5,
         "phase_5_readiness_gate.md": _kv_md("Phase 5 Readiness Gate", phase5),
+        "phase_6_sanitized_intent_review.json": phase6,
+        "phase_6_sanitized_intent_review.md": _kv_md("Phase 6 Sanitized Intent Review", phase6),
     }
 
     audit_text = "\n".join(json.dumps(v, sort_keys=True) if isinstance(v, dict) else v for v in artifacts.values())

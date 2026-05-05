@@ -71,6 +71,12 @@ class HarBatchReviewWorkflowTests(unittest.TestCase):
             self.assertEqual(phase5["release_readiness"], "not_ready")
             self.assertIn("formal_reviewer_observation_summary", phase5["blocking_requirements"])
 
+            phase6 = json.loads((out / "phase_6_sanitized_intent_review.json").read_text(encoding="utf-8"))
+            self.assertEqual(phase6["status"], "complete_for_current_batch")
+            self.assertTrue(phase6["redthread_evaluation_required"])
+            self.assertFalse(phase6["confirmed_security_finding_claimed"])
+            self.assertTrue((batch / "intent_review" / "redthread_evidence_export.json").exists())
+
             audit = json.loads((out / "privacy_audit.json").read_text(encoding="utf-8"))
             self.assertTrue(audit["passed"])
 

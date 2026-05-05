@@ -111,6 +111,9 @@ def run_har_evidence_batch(
             _write_json(subject_dir / "privacy_audit.json", audit)
             _write_json(subject_dir / "subject_summary.json", summary)
             _write_text(subject_dir / "subject_summary.md", _subject_summary_markdown(summary))
+        summary["subject_artifacts"] = _subject_artifact_inventory(subject_dir)
+        _write_json(subject_dir / "subject_summary.json", summary)
+        _write_text(subject_dir / "subject_summary.md", _subject_summary_markdown(summary))
         subject_summaries.append(summary)
 
     artifacts = _build_batch_artifacts(
@@ -204,6 +207,14 @@ def marker_audit(text: str) -> dict[str, Any]:
         "markers": sorted(set(marker_hits)),
         "raw_field_keys": sorted(set(raw_field_hits)),
     }
+
+
+def _subject_artifact_inventory(subject_dir: Path) -> list[str]:
+    return sorted(
+        path.name
+        for path in subject_dir.iterdir()
+        if path.is_file() and path.suffix in {".json", ".md"}
+    )
 
 
 def _generated_subject_artifact_text(subject_dir: Path) -> str:
@@ -477,9 +488,9 @@ def _batch_manifest_markdown(manifest: dict[str, Any]) -> str:
 
 
 def _subject_index_markdown(subjects: list[dict[str, Any]]) -> str:
-    lines = ["# HAR Evidence Batch Subject Index", "", "| Subject | Batch status | Gate decision | Fixtures |", "|---|---|---:|---:|"]
+    lines = ["# HAR Evidence Batch Subject Index", "", "| Subject | Batch status | Gate decision | Fixtures | Artifacts |", "|---|---|---:|---:|---:|"]
     for subject in subjects:
-        lines.append(f"| `{subject['subject_id']}` | `{subject.get('batch_status')}` | `{subject.get('gate_decision')}` | `{subject.get('fixture_count')}` |")
+        lines.append(f"| `{subject['subject_id']}` | `{subject.get('batch_status')}` | `{subject.get('gate_decision')}` | `{subject.get('fixture_count')}` | `{len(subject.get('subject_artifacts', []))}` |")
     lines.append("")
     return "\n".join(lines)
 

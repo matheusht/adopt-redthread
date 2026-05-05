@@ -51,7 +51,7 @@ For each explicit local `.har` input, the script:
 4. forces live replay, authenticated replay, write execution, and boundary execution off;
 5. writes only sanitized subject artifacts to the batch output;
 6. audits generated subject and batch outputs for configured sensitive markers and forbidden raw-field keys;
-7. writes aggregate follow-up subject counts, recommended-next-step, processed/non-processed, privacy-audit, blocker, and gap counts for engine planning.
+7. writes aggregate follow-up, evidence-review, remediation, recommended-next-step, processed/non-processed, privacy-audit, blocker, and gap counts for engine planning.
 
 ## Outputs
 

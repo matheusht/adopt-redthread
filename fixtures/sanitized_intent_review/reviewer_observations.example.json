@@ -1,0 +1,25 @@
+{
+  "schema_version": "adopt_redthread.reviewer_observations.v0",
+  "observations": [
+    {
+      "subject_id": "subject_001",
+      "selection_reason": "Representative boundary-sensitive read workflow selected to test whether added context reduces generic uncertainty.",
+      "observed_behavior_summary": "The sanitized workflow appears to inspect records within an authorization-sensitive area without showing write behavior.",
+      "uncertainty_remaining": "Need RedThread-owned evaluation to decide whether the represented boundary context is sufficient.",
+      "boundary_area": "authorization_boundary",
+      "likely_intent": "authorization_sensitive_record_review",
+      "confidence": "medium",
+      "reviewer_question": "Does the supplied sanitized boundary context make this subject ready for RedThread-owned authorization-boundary evaluation?"
+    },
+    {
+      "subject_id": "subject_002",
+      "selection_reason": "Second proof subject selected to compare enriched context against the remaining cautious batch subjects.",
+      "observed_behavior_summary": "The sanitized workflow appears to exercise a read-oriented boundary-sensitive sequence.",
+      "uncertainty_remaining": "Need final RedThread evaluation before any security conclusion.",
+      "boundary_area": "authorization_boundary",
+      "likely_intent": "boundary_sensitive_read_review",
+      "confidence": "medium",
+      "reviewer_question": "Is this read-oriented sequence ready for RedThread evaluation, or is more sanitized reviewer context needed?"
+    }
+  ]
+}

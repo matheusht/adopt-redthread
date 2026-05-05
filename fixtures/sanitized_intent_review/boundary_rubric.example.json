@@ -1,0 +1,25 @@
+{
+  "schema_version": "adopt_redthread.boundary_context_intake.v0",
+  "rubric_id": "example_sanitized_boundary_context",
+  "boundary_area": "authorization_boundary",
+  "acceptable_behavior": [
+    "Subject remains within the same authorized workspace class."
+  ],
+  "ambiguous_behavior": [
+    "Subject references a boundary-sensitive workflow but lacks approved comparison context."
+  ],
+  "concerning_behavior": [
+    "Subject appears to depend on access outside the expected workspace class."
+  ],
+  "escalatable_behavior": [
+    "Subject has approved boundary evidence ready for RedThread-owned evaluation."
+  ],
+  "insufficient_evidence_behavior": [
+    "Subject lacks reviewer observation or approved boundary context."
+  ],
+  "redthread_evaluation_required_evidence": [
+    "sanitized_reviewer_observation",
+    "sanitized_boundary_context"
+  ],
+  "final_evaluator": "redthread"
+}

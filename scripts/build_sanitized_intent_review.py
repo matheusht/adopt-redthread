@@ -17,6 +17,10 @@ CONTEXT_SCHEMA_VERSION = "adopt_redthread.sanitized_intent_review_context.v0"
 REVIEW_SCHEMA_VERSION = "adopt_redthread.sanitized_intent_review.v0"
 EXPORT_SCHEMA_VERSION = "adopt_redthread.redthread_evidence_export.v0"
 CONTRACT_PREVIEW_SCHEMA_VERSION = "redthread.evidence_contract_preview.v0"
+ADVANCEMENT_SCHEMA_VERSION = "adopt_redthread.intent_review_advancement.v0"
+BUSINESS_VALIDATION_SCHEMA_VERSION = "adopt_redthread.intent_review_business_validation.v0"
+BOUNDARY_RUBRIC_SCHEMA_VERSION = "adopt_redthread.boundary_context_intake.v0"
+REVIEWER_OBSERVATIONS_SCHEMA_VERSION = "adopt_redthread.reviewer_observations.v0"
 
 ALLOWED_SUBJECT_ARTIFACTS = {
     "workflow_summary.json",
@@ -94,8 +98,35 @@ def _review_workflow_inventory(batch_dir: Path) -> list[dict[str, Any]]:
     return artifacts
 
 
-def build_intent_review_context(batch_dir: str | Path) -> dict[str, Any]:
+def _load_optional_intake(path: str | Path | None) -> dict[str, Any]:
+    if not path:
+        return {"present": False}
+    payload = _read_json(Path(path))
+    payload["present"] = True
+    return payload
+
+
+def _observation_by_subject(observations: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    by_subject: dict[str, dict[str, Any]] = {}
+    for item in observations.get("observations", []):
+        if not isinstance(item, dict):
+            continue
+        enriched = dict(item)
+        enriched["present"] = True
+        by_subject[str(enriched.get("subject_id", "unknown_subject"))] = enriched
+    return by_subject
+
+
+def build_intent_review_context(
+    batch_dir: str | Path,
+    *,
+    boundary_rubric: str | Path | None = None,
+    reviewer_observations: str | Path | None = None,
+) -> dict[str, Any]:
     batch_dir = Path(batch_dir)
+    boundary_context = _load_optional_intake(boundary_rubric)
+    observations = _load_optional_intake(reviewer_observations)
+    observations_by_subject = _observation_by_subject(observations)
     manifest = _read_json(batch_dir / "batch_manifest.json")
     aggregate = _read_json(batch_dir / "aggregate_blockers.json")
     subject_index = _read_json(batch_dir / "subject_index.json")
@@ -139,6 +170,8 @@ def build_intent_review_context(batch_dir: str | Path) -> dict[str, Any]:
                 "raw_field_hit_count": int(privacy_audit.get("raw_field_hit_count", 0)),
             },
             "evidence_report_summary": _safe_report_summary(subject_dir / "evidence_report.md"),
+            "reviewer_observation": observations_by_subject.get(subject_id, {"present": False}),
+            "boundary_context": boundary_context,
         })
 
     context = {
@@ -160,6 +193,18 @@ def build_intent_review_context(batch_dir: str | Path) -> dict[str, Any]:
             "missing_boundary_evidence_subject_count": int(aggregate.get("missing_boundary_evidence_subject_count", 0)),
             "confirmed_security_finding_count": int(aggregate.get("confirmed_security_finding_count", 0)),
             "recommended_batch_next_step": aggregate.get("recommended_batch_next_step", "unknown"),
+        },
+        "review_context_intake": {
+            "boundary_context_present": bool(boundary_context.get("present", False)),
+            "reviewer_observation_subject_count": len(observations_by_subject),
+            "outcome_labels": [
+                "more_context_needed",
+                "reviewer_confidence_increased",
+                "change_required_before_release",
+                "block_should_be_considered_by_redthread",
+                "not_enough_evidence_to_advance",
+            ],
+            "redthread_final_gate": True,
         },
         "review_workflow_artifacts": _review_workflow_inventory(batch_dir),
         "subjects": subjects,
@@ -215,16 +260,22 @@ def _intent_label(subject: dict[str, Any], workflow_class: str) -> str:
 
 def _missing_evidence(subject: dict[str, Any]) -> list[dict[str, Any]]:
     gaps: list[dict[str, Any]] = []
+    boundary_context_present = bool(subject.get("boundary_context", {}).get("present", False))
+    reviewer_observation_present = bool(subject.get("reviewer_observation", {}).get("present", False))
     for i, item in enumerate(subject.get("next_evidence_needed", []), start=1):
         text = str(item)
         if "boundary" in text:
             category = "missing_boundary_context"
+            if boundary_context_present:
+                continue
         elif "auth" in text:
             category = "missing_auth_context"
         elif "write" in text:
             category = "missing_write_context"
         elif "reviewer" in text or "observation" in text:
             category = "missing_reviewer_observation"
+            if reviewer_observation_present:
+                continue
         else:
             category = "unknown"
         gaps.append({
@@ -243,12 +294,36 @@ def _missing_evidence(subject: dict[str, Any]) -> list[dict[str, Any]]:
     return gaps
 
 
+def _review_outcome(subject: dict[str, Any], missing: list[dict[str, Any]], export_status: str) -> dict[str, Any]:
+    categories = {gap["category"] for gap in missing}
+    observation = subject.get("reviewer_observation", {})
+    if export_status == "ready":
+        label = "reviewer_confidence_increased" if observation.get("present") else "more_context_needed"
+        next_action = "send_sanitized_packet_to_redthread_final_gate"
+    elif "missing_boundary_context" in categories or "missing_reviewer_observation" in categories:
+        label = "more_context_needed"
+        next_action = "collect_sanitized_boundary_context_and_reviewer_observation"
+    else:
+        label = "not_enough_evidence_to_advance"
+        next_action = "resolve_sanitized_evidence_gaps_before_redthread_evaluation"
+    return {
+        "label": label,
+        "next_action": next_action,
+        "redthread_final_gate_required": True,
+        "not_a_confirmed_finding": True,
+        "decision_support_only": True,
+    }
+
+
 def _review_subject(subject: dict[str, Any]) -> dict[str, Any]:
     workflow_class = _workflow_class(subject)
     missing = _missing_evidence(subject)
     approved_replay_required = subject["write_surface_present"] or subject["auth_surface_present"]
     boundary_proof_required = not subject["boundary_evidence_present"]
     export_status = "blocked" if subject["batch_status"] != "processed" else ("ready_with_gaps" if missing else "ready")
+    outcome = _review_outcome(subject, missing, export_status)
+    boundary_context = subject.get("boundary_context", {})
+    reviewer_observation = subject.get("reviewer_observation", {})
     return {
         "subject_id": subject["subject_id"],
         "input_quality": {
@@ -256,11 +331,20 @@ def _review_subject(subject: dict[str, Any]) -> dict[str, Any]:
             "blocker_categories": list(subject.get("primary_blocker_categories", [])),
             "evidence_gap_categories": [gap["category"] for gap in missing],
         },
+        "review_support_outcome": outcome,
+        "context_signals": {
+            "boundary_context_present": bool(boundary_context.get("present", False)),
+            "boundary_area": boundary_context.get("boundary_area", reviewer_observation.get("boundary_area", "unknown")),
+            "reviewer_observation_present": bool(reviewer_observation.get("present", False)),
+            "reviewer_selection_reason": reviewer_observation.get("selection_reason", "not_provided"),
+            "reviewer_observed_behavior_summary": reviewer_observation.get("observed_behavior_summary", "not_provided"),
+            "reviewer_uncertainty_remaining": reviewer_observation.get("uncertainty_remaining", "not_provided"),
+        },
         "intent_hypotheses": [{
             "id": "intent_hypothesis_001",
-            "label": _intent_label(subject, workflow_class),
-            "confidence": "medium" if subject["fixture_count"] else "low",
-            "basis": ["sanitized_workflow_summary", "sanitized_subject_summary"],
+            "label": reviewer_observation.get("likely_intent", _intent_label(subject, workflow_class)),
+            "confidence": reviewer_observation.get("confidence", "medium" if subject["fixture_count"] else "low"),
+            "basis": ["sanitized_workflow_summary", "sanitized_subject_summary"] + (["sanitized_reviewer_observation"] if reviewer_observation.get("present") else []) + (["sanitized_boundary_context"] if boundary_context.get("present") else []),
             "not_proven": True,
         }],
         "workflow_classification": {
@@ -291,7 +375,7 @@ def _review_subject(subject: dict[str, Any]) -> dict[str, Any]:
         "missing_evidence": missing,
         "reviewer_questions": [{
             "id": "reviewer_question_001",
-            "question": "Does this sanitized workflow require approved non-production replay or boundary proof before RedThread evaluation?",
+            "question": reviewer_observation.get("reviewer_question", "Does this sanitized workflow require approved non-production replay or boundary proof before RedThread evaluation?"),
             "answer_required_for": "approved_replay" if approved_replay_required else ("boundary_proof" if boundary_proof_required else "confidence"),
         }],
         "redthread_export_readiness": {
@@ -329,6 +413,9 @@ def build_intent_review(context: dict[str, Any]) -> dict[str, Any]:
             "redthread_ready_subject_count": sum(1 for s in subjects if s["redthread_export_readiness"]["status"] == "ready"),
             "approved_replay_required_subject_count": sum(1 for s in subjects if s["approved_execution_requirements"]["approved_replay_required"]),
             "boundary_proof_required_subject_count": sum(1 for s in subjects if s["approved_execution_requirements"]["boundary_proof_required"]),
+            "review_support_outcomes": sorted({s["review_support_outcome"]["label"] for s in subjects}),
+            "subjects_with_boundary_context_count": sum(1 for s in subjects if s["context_signals"]["boundary_context_present"]),
+            "subjects_with_reviewer_observation_count": sum(1 for s in subjects if s["context_signals"]["reviewer_observation_present"]),
         },
     }
 
@@ -373,6 +460,103 @@ def validate_intent_review_contract(review: dict[str, Any], export: dict[str, An
         "validated_artifacts": ["intent_review.json", "redthread_evidence_export.json"],
         "redthread_evaluation_required": bool(promotion.get("redthread_evaluation_required")),
     }
+
+
+def _advancement_state(subject: dict[str, Any]) -> str:
+    categories = set(subject["redthread_export_readiness"].get("reason_categories", []))
+    if subject["redthread_export_readiness"].get("status") == "ready":
+        return "ready_for_redthread_evaluation"
+    if "missing_boundary_context" in categories:
+        return "needs_boundary_context"
+    if "missing_reviewer_observation" in categories:
+        return "needs_reviewer_observation"
+    if subject["redthread_export_readiness"].get("status") == "blocked":
+        return "blocked_by_sanitized_input_quality"
+    return "not_enough_evidence_to_advance"
+
+
+def build_advancement_summary(review: dict[str, Any]) -> dict[str, Any]:
+    subjects = []
+    for subject in review.get("subjects", []):
+        blockers = list(subject["redthread_export_readiness"].get("reason_categories", []))
+        state = _advancement_state(subject)
+        subjects.append({
+            "subject_id": subject["subject_id"],
+            "advancement_state": state,
+            "review_support_outcome": subject["review_support_outcome"],
+            "blockers": blockers,
+            "can_advance_to_redthread_evaluation": state == "ready_for_redthread_evaluation",
+            "not_a_confirmed_finding": True,
+            "redthread_final_gate_required": True,
+            "next_action": subject["review_support_outcome"].get("next_action"),
+            "explanation": "Ready for RedThread-owned evaluation." if state == "ready_for_redthread_evaluation" else f"Cannot advance yet because sanitized context still has: {', '.join(blockers) or 'unresolved evidence gaps'}.",
+        })
+    return {
+        "schema_version": ADVANCEMENT_SCHEMA_VERSION,
+        "summary": {
+            "subject_count": len(subjects),
+            "ready_for_redthread_evaluation_count": sum(1 for s in subjects if s["can_advance_to_redthread_evaluation"]),
+            "needs_boundary_context_count": sum(1 for s in subjects if s["advancement_state"] == "needs_boundary_context"),
+            "needs_reviewer_observation_count": sum(1 for s in subjects if "missing_reviewer_observation" in s["blockers"]),
+            "confirmed_finding_claimed": False,
+            "redthread_final_gate_required": True,
+        },
+        "subjects": subjects,
+    }
+
+
+def build_business_validation_plan(review: dict[str, Any], advancement: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": BUSINESS_VALIDATION_SCHEMA_VERSION,
+        "objective": "prove_structured_context_changes_release_review_usefulness_without_changing_final_gate_ownership",
+        "recommended_sample_size": 3,
+        "candidate_subject_ids": [s["subject_id"] for s in advancement.get("subjects", []) if s.get("can_advance_to_redthread_evaluation")][:3],
+        "decision_questions": [
+            "Did reviewer confidence increase from the sanitized packet?",
+            "Did the packet create a concrete change request?",
+            "Did missing boundary context block advancement?",
+            "Did the report reduce ambiguity compared with the baseline cautious review?",
+            "Would the team want this before each release?",
+        ],
+        "metrics": {
+            "clear_next_action_subject_count": len(advancement.get("subjects", [])),
+            "ready_for_redthread_evaluation_count": advancement.get("summary", {}).get("ready_for_redthread_evaluation_count", 0),
+            "needs_boundary_context_count": advancement.get("summary", {}).get("needs_boundary_context_count", 0),
+            "needs_reviewer_observation_count": advancement.get("summary", {}).get("needs_reviewer_observation_count", 0),
+        },
+        "ownership": {
+            "adopt_redthread": "sanitized evidence packaging, hypotheses, gaps, questions, and decision-support outcomes",
+            "reviewers": "sanitized human confidence signals",
+            "redthread": "final evaluation, confirmed findings, severity, promotion gates, and release decisions",
+        },
+        "forbidden_interpretations": [
+            "confirmed finding",
+            "severity rating",
+            "scanner result",
+            "live execution proof",
+            "release override",
+        ],
+    }
+
+
+def render_advancement_markdown(advancement: dict[str, Any]) -> str:
+    lines = [
+        "# Intent Review Advancement Summary",
+        "",
+        f"- Subjects: {advancement['summary']['subject_count']}",
+        f"- Ready for RedThread evaluation: {advancement['summary']['ready_for_redthread_evaluation_count']}",
+        f"- Need boundary context: {advancement['summary']['needs_boundary_context_count']}",
+        f"- Need reviewer observation: {advancement['summary']['needs_reviewer_observation_count']}",
+        "- Confirmed findings claimed: No",
+        "- RedThread final gate required: Yes",
+        "",
+        "| Subject | State | Next action | Blockers |",
+        "|---|---|---|---|",
+    ]
+    for s in advancement.get("subjects", []):
+        lines.append(f"| `{s['subject_id']}` | `{s['advancement_state']}` | `{s['next_action']}` | `{', '.join(s['blockers']) or 'none'}` |")
+    lines.append("")
+    return "\n".join(lines)
 
 
 def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
@@ -428,6 +612,8 @@ def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
                 "subject_id": s["subject_id"],
                 "intent_hypotheses": s["intent_hypotheses"],
                 "test_hypotheses": s["test_hypotheses"],
+                "review_support_outcome": s["review_support_outcome"],
+                "context_signals": s["context_signals"],
                 "reviewer_questions": s["reviewer_questions"],
                 "missing_evidence": s["missing_evidence"],
             }
@@ -526,6 +712,8 @@ def render_intent_review_markdown(review: dict[str, Any]) -> str:
         "## Summary",
         f"- Subjects reviewed: {len(review.get('subjects', []))}",
         f"- RedThread-ready subjects: {review['batch_summary']['redthread_ready_subject_count']}",
+        f"- Subjects with boundary context: {review['batch_summary'].get('subjects_with_boundary_context_count', 0)}",
+        f"- Subjects with reviewer observations: {review['batch_summary'].get('subjects_with_reviewer_observation_count', 0)}",
         "- Confirmed findings claimed: No",
         "- Live execution performed: No",
         "",
@@ -540,6 +728,9 @@ def render_intent_review_markdown(review: dict[str, Any]) -> str:
             f"- Likely intent: {intent['label']} ({intent['confidence']} confidence; hypothesis only)",
             f"- Workflow class: {workflow['workflow_class']}",
             f"- Relevance: read={workflow['read_relevance']}, write={workflow['write_relevance']}, auth={workflow['auth_relevance']}, boundary={workflow['boundary_relevance']}",
+            f"- Review-support outcome: {subject['review_support_outcome']['label']} — next action: {subject['review_support_outcome']['next_action']}",
+            f"- Boundary context present: {subject['context_signals']['boundary_context_present']} ({subject['context_signals']['boundary_area']})",
+            f"- Reviewer observation present: {subject['context_signals']['reviewer_observation_present']}",
             f"- Export readiness: {subject['redthread_export_readiness']['status']}",
             f"- Approved replay required: {subject['approved_execution_requirements']['approved_replay_required']}",
             f"- Boundary proof required: {subject['approved_execution_requirements']['boundary_proof_required']}",
@@ -613,10 +804,16 @@ def build_sanitized_intent_review(
     agent_mode: str = "deterministic",
     llm_review_output: str | Path | None = None,
     prepare_llm_prompt: bool = False,
+    boundary_rubric: str | Path | None = None,
+    reviewer_observations: str | Path | None = None,
 ) -> dict[str, Any]:
     batch_dir = Path(batch_dir)
     output_dir = Path(output_dir) if output_dir else batch_dir / "intent_review"
-    context = build_intent_review_context(batch_dir)
+    context = build_intent_review_context(
+        batch_dir,
+        boundary_rubric=boundary_rubric,
+        reviewer_observations=reviewer_observations,
+    )
     if agent_mode not in {"deterministic", "llm"}:
         raise ValueError("agent_mode must be deterministic or llm")
     if agent_mode == "llm":
@@ -637,12 +834,15 @@ def build_sanitized_intent_review(
     else:
         review = build_intent_review(context)
     export = build_redthread_evidence_export(review)
+    advancement = build_advancement_summary(review)
+    business_validation = build_business_validation_plan(review, advancement)
     schema_validation = validate_intent_review_contract(review, export)
     if not schema_validation["passed"]:
         raise ValueError(f"sanitized intent review schema validation failed: {schema_validation}")
     contract_preview = build_redthread_contract_preview(export)
     markdown = render_intent_review_markdown(review)
-    audit = _assert_safe_artifacts([context, review, export, schema_validation, contract_preview, markdown], fail_on_marker_hit)
+    advancement_markdown = render_advancement_markdown(advancement)
+    audit = _assert_safe_artifacts([context, review, export, advancement, business_validation, schema_validation, contract_preview, markdown, advancement_markdown], fail_on_marker_hit)
     context["privacy_attestation"]["marker_audit_passed"] = audit["passed"]
     review["privacy_attestation"]["marker_audit_passed"] = audit["passed"]
 
@@ -650,6 +850,9 @@ def build_sanitized_intent_review(
     _write_json(output_dir / "intent_review.json", review)
     _write_text(output_dir / "intent_review.md", markdown)
     _write_json(output_dir / "redthread_evidence_export.json", export)
+    _write_json(output_dir / "advancement_summary.json", advancement)
+    _write_text(output_dir / "advancement_summary.md", advancement_markdown)
+    _write_json(output_dir / "business_validation_plan.json", business_validation)
     _write_json(output_dir / "schema_validation.json", schema_validation)
     _write_json(output_dir / "redthread_evidence_contract_preview.json", contract_preview)
     _write_json(output_dir / "privacy_audit.json", audit)
@@ -664,6 +867,8 @@ def main() -> int:
     parser.add_argument("--agent-mode", choices=("deterministic", "llm"), default="deterministic")
     parser.add_argument("--llm-review-output")
     parser.add_argument("--prepare-llm-prompt", action="store_true", help="Write sanitized LLM prompt/context and exit without requiring model output.")
+    parser.add_argument("--boundary-rubric", help="Optional sanitized boundary context/rubric intake JSON.")
+    parser.add_argument("--reviewer-observations", help="Optional sanitized reviewer observations intake JSON.")
     args = parser.parse_args()
     result = build_sanitized_intent_review(
         args.batch_dir,
@@ -672,6 +877,8 @@ def main() -> int:
         agent_mode=args.agent_mode,
         llm_review_output=args.llm_review_output,
         prepare_llm_prompt=args.prepare_llm_prompt,
+        boundary_rubric=args.boundary_rubric,
+        reviewer_observations=args.reviewer_observations,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

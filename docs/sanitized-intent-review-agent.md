@@ -263,6 +263,8 @@ make test
 
 Manual testing guide: `docs/sanitized-intent-review-manual-test.md`.
 
+Next outcome-first plan: `docs/structured-reviewer-observation-and-boundary-context-plan.md`.
+
 ### Phase 4 — RedThread export v0
 
 Objective: produce `redthread_evidence_export.json` from the sanitized intent review.

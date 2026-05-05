@@ -23,6 +23,9 @@ runs/har_batches/latest/intent_review/intent_review_context.json
 runs/har_batches/latest/intent_review/intent_review.json
 runs/har_batches/latest/intent_review/intent_review.md
 runs/har_batches/latest/intent_review/redthread_evidence_export.json
+runs/har_batches/latest/intent_review/advancement_summary.json
+runs/har_batches/latest/intent_review/advancement_summary.md
+runs/har_batches/latest/intent_review/business_validation_plan.json
 runs/har_batches/latest/intent_review/schema_validation.json
 runs/har_batches/latest/intent_review/redthread_evidence_contract_preview.json
 runs/har_batches/latest/intent_review/privacy_audit.json
@@ -44,6 +47,19 @@ assert export['promotion_semantics']['release_gate_override'] is False
 print('deterministic intent review proof passed')
 PY
 ```
+
+## 1a. Phase 1–3 context intake proof
+
+```bash
+rm -rf runs/har_batches/latest/intent_review_with_context
+make evidence-intent-review \
+  HAR_BATCH_OUTPUT=runs/har_batches/latest \
+  INTENT_REVIEW_OUTPUT=runs/har_batches/latest/intent_review_with_context \
+  INTENT_REVIEW_BOUNDARY_RUBRIC=fixtures/sanitized_intent_review/boundary_rubric.example.json \
+  INTENT_REVIEW_REVIEWER_OBSERVATIONS=fixtures/sanitized_intent_review/reviewer_observations.example.json
+```
+
+Expected impact: proof subjects with reviewer observations should show more specific advisory intent labels, context signals, and reviewer questions. Subjects without reviewer observations should remain cautious. RedThread evaluation remains required before any security conclusion.
 
 ## 2. Prepare the sanitized LLM-agent prompt
 

@@ -115,6 +115,13 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertTrue(export["promotion_semantics"]["redthread_evaluation_required"])
             self.assertFalse(export["promotion_semantics"]["confirmed_security_finding_claimed"])
             self.assertFalse(export["promotion_semantics"]["release_gate_override"])
+            advancement = json.loads((out / "advancement_summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(advancement["schema_version"], "adopt_redthread.intent_review_advancement.v0")
+            self.assertEqual(advancement["summary"]["needs_boundary_context_count"], 1)
+            self.assertTrue(advancement["summary"]["redthread_final_gate_required"])
+            business_validation = json.loads((out / "business_validation_plan.json").read_text(encoding="utf-8"))
+            self.assertEqual(business_validation["schema_version"], "adopt_redthread.intent_review_business_validation.v0")
+            self.assertIn("redthread", business_validation["ownership"])
             schema_validation = json.loads((out / "schema_validation.json").read_text(encoding="utf-8"))
             self.assertTrue(schema_validation["passed"])
             contract_preview = json.loads((out / "redthread_evidence_contract_preview.json").read_text(encoding="utf-8"))
@@ -122,6 +129,58 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertTrue(contract_preview["promotion_recommendation"]["redthread_evaluation_required"])
             self.assertTrue(contract_preview["promotion_recommendation"]["not_proven"])
             self.assertIn("RedThread evaluation is required", markdown)
+
+    def test_context_intake_makes_proof_subject_more_specific(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            rubric = root / "boundary.json"
+            observations = root / "observations.json"
+            rubric.write_text(json.dumps({
+                "schema_version": "adopt_redthread.boundary_context_intake.v0",
+                "boundary_area": "authorization_boundary",
+                "final_evaluator": "redthread",
+            }), encoding="utf-8")
+            observations.write_text(json.dumps({
+                "schema_version": "adopt_redthread.reviewer_observations.v0",
+                "observations": [{
+                    "subject_id": "subject_001",
+                    "selection_reason": "Representative sanitized proof subject.",
+                    "observed_behavior_summary": "Read-oriented boundary-sensitive workflow.",
+                    "uncertainty_remaining": "RedThread final evaluation still required.",
+                    "boundary_area": "authorization_boundary",
+                    "likely_intent": "authorization_sensitive_record_review",
+                    "confidence": "medium",
+                    "reviewer_question": "Is this ready for RedThread-owned boundary evaluation?",
+                }],
+            }), encoding="utf-8")
+
+            result = build_sanitized_intent_review(
+                batch,
+                root / "out",
+                boundary_rubric=rubric,
+                reviewer_observations=observations,
+            )
+            out = Path(result["output_dir"])
+            review = json.loads((out / "intent_review.json").read_text(encoding="utf-8"))
+            markdown = (out / "intent_review.md").read_text(encoding="utf-8")
+            subject = review["subjects"][0]
+
+            self.assertEqual(review["batch_summary"]["subjects_with_boundary_context_count"], 1)
+            self.assertEqual(review["batch_summary"]["subjects_with_reviewer_observation_count"], 1)
+            self.assertEqual(subject["intent_hypotheses"][0]["label"], "authorization_sensitive_record_review")
+            self.assertTrue(subject["context_signals"]["boundary_context_present"])
+            self.assertTrue(subject["context_signals"]["reviewer_observation_present"])
+            self.assertNotIn("missing_boundary_context", subject["redthread_export_readiness"]["reason_categories"])
+            self.assertNotIn("missing_reviewer_observation", subject["redthread_export_readiness"]["reason_categories"])
+            advancement = json.loads((out / "advancement_summary.json").read_text(encoding="utf-8"))
+            business_validation = json.loads((out / "business_validation_plan.json").read_text(encoding="utf-8"))
+            self.assertTrue(subject["review_support_outcome"]["redthread_final_gate_required"])
+            self.assertTrue(subject["review_support_outcome"]["not_a_confirmed_finding"])
+            self.assertEqual(advancement["subjects"][0]["advancement_state"], "ready_for_redthread_evaluation")
+            self.assertTrue(advancement["subjects"][0]["can_advance_to_redthread_evaluation"])
+            self.assertEqual(business_validation["metrics"]["ready_for_redthread_evaluation_count"], 1)
+            self.assertIn("Review-support outcome", markdown)
 
     def test_schema_validation_rejects_release_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

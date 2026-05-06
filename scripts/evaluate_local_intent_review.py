@@ -61,8 +61,15 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
     schema = _read_json(local_dir / "schema_validation.json")
     export = _read_json(local_dir / "redthread_evidence_export.json")
     empty_diff = deterministic_md == local_md
+    deterministic_review = _read_json(deterministic_dir / "intent_review.json")
+    local_review = _read_json(local_dir / "intent_review.json")
+    observation_delta = deterministic_review.get("subjects", []) != local_review.get("subjects", [])
+    local_observation_flag = any(
+        bool(subject.get("local_model_observations", {}).get("useful_delta"))
+        for subject in local_review.get("subjects", [])
+    )
     forbidden_claim_count = int(privacy.get("forbidden_claim_language_hit_count", 0))
-    useful_delta_present = bool(local_status.get("used")) and not empty_diff
+    useful_delta_present = bool(local_status.get("used")) and (not empty_diff or local_observation_flag or observation_delta)
     return {
         "case_id": case["case_id"],
         "description": case["description"],
@@ -72,6 +79,8 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
         "local_llm_status": local_status.get("status", "unknown"),
         "empty_diff": empty_diff,
         "useful_delta_present": useful_delta_present,
+        "local_observation_delta_claimed": local_observation_flag,
+        "structured_subject_delta_present": observation_delta,
         "privacy_audit_passed": bool(privacy.get("passed")),
         "forbidden_claim_count": forbidden_claim_count,
         "redthread_evaluation_required": bool(export.get("promotion_semantics", {}).get("redthread_evaluation_required")),

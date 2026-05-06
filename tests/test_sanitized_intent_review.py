@@ -114,6 +114,9 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertFalse(subject["finding_semantics"]["confirmed_finding_claimed"])
             self.assertFalse(subject["finding_semantics"]["severity_claimed"])
             self.assertIn("missing_boundary_context", subject["redthread_export_readiness"]["reason_categories"])
+            self.assertIn("local_model_observations", subject)
+            self.assertFalse(subject["local_model_observations"]["useful_delta"])
+            self.assertIn("RedThread first check", markdown)
             self.assertTrue(export["promotion_semantics"]["redthread_evaluation_required"])
             self.assertFalse(export["promotion_semantics"]["confirmed_security_finding_claimed"])
             self.assertFalse(export["promotion_semantics"]["release_gate_override"])
@@ -215,6 +218,7 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertTrue((root / "out" / "llm_intent_review_prompt.json").exists())
             prompt = json.loads((root / "out" / "llm_intent_review_prompt.json").read_text(encoding="utf-8"))
             self.assertEqual(prompt["required_output_template"]["schema_version"], "adopt_redthread.sanitized_intent_review.v0")
+            self.assertIn("local_model_observations", prompt["required_output_template"]["subjects"][0])
             self.assertIn("Do not return sanitized_context as the top-level object.", prompt["output_rules"])
             self.assertFalse((root / "out" / "intent_review.json").exists())
 

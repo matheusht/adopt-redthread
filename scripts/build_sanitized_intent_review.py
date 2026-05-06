@@ -317,6 +317,17 @@ def _review_outcome(subject: dict[str, Any], missing: list[dict[str, Any]], expo
     }
 
 
+def _local_model_observations(subject: dict[str, Any], missing: list[dict[str, Any]], boundary_proof_required: bool) -> dict[str, Any]:
+    return {
+        "useful_delta": False,
+        "why_this_is_boundary_relevant": "not_provided_by_deterministic_review",
+        "strongest_supporting_signal": "not_provided_by_deterministic_review",
+        "remaining_uncertainty": "RedThread evaluation is required before any security conclusion.",
+        "redthread_first_check": "not_provided_by_deterministic_review",
+        "not_a_finding": True,
+    }
+
+
 def _review_subject(subject: dict[str, Any]) -> dict[str, Any]:
     workflow_class = _workflow_class(subject)
     missing = _missing_evidence(subject)
@@ -326,6 +337,7 @@ def _review_subject(subject: dict[str, Any]) -> dict[str, Any]:
     outcome = _review_outcome(subject, missing, export_status)
     boundary_context = subject.get("boundary_context", {})
     reviewer_observation = subject.get("reviewer_observation", {})
+    local_observations = _local_model_observations(subject, missing, boundary_proof_required)
     return {
         "subject_id": subject["subject_id"],
         "input_quality": {
@@ -398,6 +410,7 @@ def _review_subject(subject: dict[str, Any]) -> dict[str, Any]:
             "severity_claimed": False,
             "scanner_claimed": False,
         },
+        "local_model_observations": local_observations,
     }
 
 
@@ -616,6 +629,7 @@ def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
                 "test_hypotheses": s["test_hypotheses"],
                 "review_support_outcome": s["review_support_outcome"],
                 "context_signals": s["context_signals"],
+                "local_model_observations": s.get("local_model_observations", {}),
                 "reviewer_questions": s["reviewer_questions"],
                 "missing_evidence": s["missing_evidence"],
             }
@@ -739,6 +753,15 @@ def render_intent_review_markdown(review: dict[str, Any]) -> str:
             f"- Missing evidence: {', '.join(subject['redthread_export_readiness']['reason_categories']) or 'none'}",
             f"- Reviewer question: {subject['reviewer_questions'][0]['question']}",
         ])
+        observations = subject.get("local_model_observations", {})
+        if observations:
+            lines.extend([
+                f"- Local model observation delta: {observations.get('useful_delta', False)}",
+                f"- Why boundary-relevant: {observations.get('why_this_is_boundary_relevant', 'not_provided')}",
+                f"- Strongest supporting signal: {observations.get('strongest_supporting_signal', 'not_provided')}",
+                f"- Remaining uncertainty: {observations.get('remaining_uncertainty', 'not_provided')}",
+                f"- RedThread first check: {observations.get('redthread_first_check', 'not_provided')}",
+            ])
     lines.extend([
         "",
         "## Safety notes",
@@ -846,13 +869,15 @@ def _write_llm_prompt(output_dir: Path, context: dict[str, Any]) -> None:
     output_template = build_intent_review(context)
     prompt = {
         "role": "Sanitized Intent Review Agent",
-        "task": "Return one JSON object matching required_output_template. Use sanitized_context only to improve advisory intent labels, rationale, gaps, and reviewer questions when evidence supports it.",
+        "task": "Return one JSON object matching required_output_template. Use sanitized_context only to improve advisory intent labels, local_model_observations, gaps, and reviewer questions when evidence supports it.",
         "output_rules": [
             "Return ONLY JSON. Do not wrap in markdown fences.",
             "The top-level schema_version must be adopt_redthread.sanitized_intent_review.v0.",
             "Do not return sanitized_context as the top-level object.",
             "Keep the same subject IDs as sanitized_context.subjects.",
             "If unsure, preserve the template's cautious values rather than inventing facts.",
+            "Replace not_provided_by_deterministic_review values in local_model_observations when sanitized_context supports a specific advisory observation.",
+            "Set local_model_observations.useful_delta=true only when you add a materially useful observation beyond the template; otherwise keep false.",
             "Keep RedThread as the final evaluator; do not approve, block, or claim release decisions.",
         ],
         "forbidden": [

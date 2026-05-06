@@ -31,6 +31,7 @@ class LocalIntentReviewEvalTests(unittest.TestCase):
             context = build_intent_review_context(batch)
             review = build_intent_review(context)
             review["subjects"][0]["intent_hypotheses"][0]["label"] = "local_eval_delta"
+            review["subjects"][0]["local_model_observations"]["useful_delta"] = True
             llm_output = root / "llm_output.json"
             llm_output.write_text(json.dumps(review), encoding="utf-8")
 
@@ -40,6 +41,7 @@ class LocalIntentReviewEvalTests(unittest.TestCase):
             self.assertEqual(report["summary"]["fallback_count"], 0)
             self.assertEqual(report["summary"]["useful_delta_count"], 1)
             self.assertFalse(report["cases"][0]["empty_diff"])
+            self.assertTrue(report["cases"][0]["local_observation_delta_claimed"])
 
 
 if __name__ == "__main__":

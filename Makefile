@@ -21,7 +21,7 @@ APPROVED_REPLAY_EXECUTE ?=
 APPROVED_REPLAY_PLAN ?= $(APPROVED_REPLAY_OUTPUT)/approved_context_replay_plan.json
 APPROVED_REPLAY_RESULT ?= $(APPROVED_REPLAY_OUTPUT)/approved_context_replay_result.json
 
-.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix evidence-packet evidence-external-review-handoff evidence-external-review-sessions evidence-external-validation-readout evidence-freshness evidence-readiness evidence-external-review-distribution evidence-external-review-returns evidence-remediation-queue evidence-boundary-probe-plan evidence-boundary-execution-design evidence-boundary-probe-context evidence-boundary-context-request evidence-boundary-probe-result evidence-approved-context-replay evidence-approved-context-replay-approval-request evidence-har-batch evidence-har-batch-review-workflow evidence-intent-review evidence-observation-summary evidence-validation-rollup redthread-contract-proposal demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
+.PHONY: test demo-zapi demo-zapi-har demo-live-plan demo-hero-binding-truth check-zapi-reference demo-reviewed-write-reference evidence-report evidence-matrix evidence-packet evidence-external-review-handoff evidence-external-review-sessions evidence-external-validation-readout evidence-freshness evidence-readiness evidence-external-review-distribution evidence-external-review-returns evidence-remediation-queue evidence-boundary-probe-plan evidence-boundary-execution-design evidence-boundary-probe-context evidence-boundary-context-request evidence-boundary-probe-result evidence-approved-context-replay evidence-approved-context-replay-approval-request evidence-har-batch evidence-har-batch-review-workflow evidence-intent-review evidence-intent-review-local-llm evidence-observation-summary evidence-validation-rollup redthread-contract-proposal demo-bridge-pipeline demo-noui demo-noui-redthread demo-redthread-runtime demo-redthread-dryrun demo-adopt-actions demo-gate live-zapi-bridge demo-all
 
 test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
@@ -112,6 +112,10 @@ evidence-har-batch-review-workflow:
 evidence-intent-review:
 	@test -n "$(HAR_BATCH_OUTPUT)" || (echo "Usage: make evidence-intent-review HAR_BATCH_OUTPUT=runs/har_batches/latest [INTENT_REVIEW_OUTPUT=path]" && exit 1)
 	$(PYTHON) scripts/build_sanitized_intent_review.py --batch-dir $(HAR_BATCH_OUTPUT) $(if $(INTENT_REVIEW_OUTPUT),--output-dir $(INTENT_REVIEW_OUTPUT),) $(if $(INTENT_REVIEW_AGENT_MODE),--agent-mode $(INTENT_REVIEW_AGENT_MODE),) $(if $(INTENT_REVIEW_LLM_OUTPUT),--llm-review-output $(INTENT_REVIEW_LLM_OUTPUT),) $(if $(INTENT_REVIEW_PREPARE_LLM_PROMPT),--prepare-llm-prompt,) $(if $(INTENT_REVIEW_BOUNDARY_RUBRIC),--boundary-rubric $(INTENT_REVIEW_BOUNDARY_RUBRIC),) $(if $(INTENT_REVIEW_REVIEWER_OBSERVATIONS),--reviewer-observations $(INTENT_REVIEW_REVIEWER_OBSERVATIONS),) --fail-on-marker-hit
+
+evidence-intent-review-local-llm:
+	@test -n "$(INTENT_REVIEW_LOCAL_LLM_CMD)" || (echo "Usage: make evidence-intent-review-local-llm INTENT_REVIEW_LOCAL_LLM_CMD='ollama run llama3.1' HAR_BATCH_OUTPUT=runs/har_batches/latest" && exit 1)
+	$(MAKE) evidence-intent-review INTENT_REVIEW_AGENT_MODE=auto
 
 evidence-observation-summary:
 	$(PYTHON) scripts/summarize_reviewer_observation.py --observation $(OBSERVATION) --output-dir $(OBSERVATION_OUTPUT) --fail-on-marker-hit

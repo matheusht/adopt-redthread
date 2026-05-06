@@ -289,7 +289,7 @@ python3 -m unittest tests.test_sanitized_intent_review
 
 ### Phase 5 — Optional LLM mode behind guardrails
 
-Objective: support an optional offline LLM-output validation path without adding model calls or network execution.
+Objective: support local advisory reasoning and optional offline LLM-output validation without exposing raw artifacts or changing RedThread authority.
 
 Files likely changed:
 
@@ -299,11 +299,11 @@ Files likely changed:
 
 Acceptance criteria:
 
-- Default mode remains deterministic.
-- `--agent-mode llm` writes `llm_intent_review_prompt.json` from sanitized context only.
-- LLM mode requires `--llm-review-output` containing a schema-valid offline model output.
+- Default mode is `auto`: use `INTENT_REVIEW_LOCAL_LLM_CMD` when configured, otherwise fall back to deterministic review.
+- The local LLM command receives `llm_intent_review_prompt.json` on stdin only; no raw HAR, URL, header, cookie, body, auth value, ID, secret, app field name, or live endpoint is provided.
+- `local_llm_status.json` records whether local advisory reasoning was accepted or deterministic fallback was used.
+- `--agent-mode llm` still supports the explicit offline validation path with `--llm-review-output`.
 - LLM output is rejected if subject IDs do not match, if default live execution is allowed, or if finding/severity/scanner semantics are claimed.
-- No API calls are made by this repo in Phase 5.
 
 Verification:
 

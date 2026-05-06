@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -762,8 +764,7 @@ def _assert_safe_artifacts(payloads: list[dict[str, Any] | str], fail_on_marker_
     return audit
 
 
-def _load_llm_review(path: str | Path, context: dict[str, Any]) -> dict[str, Any]:
-    review = _read_json(Path(path))
+def _validate_llm_review(review: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
     if review.get("schema_version") != REVIEW_SCHEMA_VERSION:
         raise ValueError("LLM review output used an unsupported schema_version")
     expected_subject_ids = {str(subject["subject_id"]) for subject in context.get("subjects", [])}
@@ -778,6 +779,67 @@ def _load_llm_review(path: str | Path, context: dict[str, Any]) -> dict[str, Any
         if execution.get("default_live_execution_allowed"):
             raise ValueError("LLM review output attempted to allow default live execution")
     return review
+
+
+def _load_llm_review(path: str | Path, context: dict[str, Any]) -> dict[str, Any]:
+    return _validate_llm_review(_read_json(Path(path)), context)
+
+
+def _extract_json_object(text: str) -> dict[str, Any]:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        stripped = "\n".join(lines).strip()
+    return json.loads(stripped)
+
+
+def _run_local_llm_review(output_dir: Path, context: dict[str, Any], command: str | None) -> dict[str, Any]:
+    prompt_path = output_dir / "llm_intent_review_prompt.json"
+    raw_output_path = output_dir / "local_llm_raw_output.txt"
+    status: dict[str, Any] = {
+        "schema_version": "adopt_redthread.local_intent_review_runner.v0",
+        "backend": "local_command",
+        "command_configured": bool(command),
+        "used": False,
+        "fallback_to_deterministic": True,
+        "raw_artifact_access_allowed": False,
+    }
+    if not command:
+        status["status"] = "unavailable"
+        status["reason"] = "INTENT_REVIEW_LOCAL_LLM_CMD not configured"
+        return {"status": status}
+    try:
+        timeout = int(os.environ.get("INTENT_REVIEW_LOCAL_LLM_TIMEOUT_SECONDS", "120"))
+        completed = subprocess.run(
+            command,
+            input=prompt_path.read_text(encoding="utf-8"),
+            text=True,
+            shell=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+        raw_output_path.write_text(completed.stdout, encoding="utf-8")
+        status["returncode"] = completed.returncode
+        status["raw_output_path"] = str(raw_output_path)
+        if completed.returncode != 0:
+            status["status"] = "failed"
+            status["reason"] = "local command returned non-zero exit status"
+            return {"status": status}
+        review = _validate_llm_review(_extract_json_object(completed.stdout), context)
+        status["status"] = "accepted"
+        status["used"] = True
+        status["fallback_to_deterministic"] = False
+        return {"status": status, "review": review}
+    except Exception as exc:
+        status["status"] = "failed"
+        status["reason"] = exc.__class__.__name__
+        status["detail"] = str(exc)[:500]
+        return {"status": status}
 
 
 def _write_llm_prompt(output_dir: Path, context: dict[str, Any]) -> None:
@@ -814,10 +876,12 @@ def build_sanitized_intent_review(
         boundary_rubric=boundary_rubric,
         reviewer_observations=reviewer_observations,
     )
-    if agent_mode not in {"deterministic", "llm"}:
-        raise ValueError("agent_mode must be deterministic or llm")
-    if agent_mode == "llm":
+    local_llm_status: dict[str, Any] | None = None
+    if agent_mode not in {"auto", "deterministic", "llm"}:
+        raise ValueError("agent_mode must be auto, deterministic, or llm")
+    if agent_mode in {"auto", "llm"}:
         _write_llm_prompt(output_dir, context)
+    if agent_mode == "llm":
         if prepare_llm_prompt and not llm_review_output:
             _write_json(output_dir / "intent_review_context.json", context)
             return {
@@ -831,6 +895,10 @@ def build_sanitized_intent_review(
         if not llm_review_output:
             raise ValueError("--agent-mode llm requires --llm-review-output with a schema-valid offline model output")
         review = _load_llm_review(llm_review_output, context)
+    elif agent_mode == "auto":
+        local_result = _run_local_llm_review(output_dir, context, os.environ.get("INTENT_REVIEW_LOCAL_LLM_CMD"))
+        local_llm_status = local_result["status"]
+        review = local_result.get("review") or build_intent_review(context)
     else:
         review = build_intent_review(context)
     export = build_redthread_evidence_export(review)
@@ -842,7 +910,10 @@ def build_sanitized_intent_review(
     contract_preview = build_redthread_contract_preview(export)
     markdown = render_intent_review_markdown(review)
     advancement_markdown = render_advancement_markdown(advancement)
-    audit = _assert_safe_artifacts([context, review, export, advancement, business_validation, schema_validation, contract_preview, markdown, advancement_markdown], fail_on_marker_hit)
+    safety_payloads: list[dict[str, Any] | str] = [context, review, export, advancement, business_validation, schema_validation, contract_preview, markdown, advancement_markdown]
+    if local_llm_status:
+        safety_payloads.append(local_llm_status)
+    audit = _assert_safe_artifacts(safety_payloads, fail_on_marker_hit)
     context["privacy_attestation"]["marker_audit_passed"] = audit["passed"]
     review["privacy_attestation"]["marker_audit_passed"] = audit["passed"]
 
@@ -855,8 +926,13 @@ def build_sanitized_intent_review(
     _write_json(output_dir / "business_validation_plan.json", business_validation)
     _write_json(output_dir / "schema_validation.json", schema_validation)
     _write_json(output_dir / "redthread_evidence_contract_preview.json", contract_preview)
+    if local_llm_status:
+        _write_json(output_dir / "local_llm_status.json", local_llm_status)
     _write_json(output_dir / "privacy_audit.json", audit)
-    return {"output_dir": str(output_dir), "privacy_audit": audit, "subject_count": len(review["subjects"]), "agent_mode": agent_mode}
+    result = {"output_dir": str(output_dir), "privacy_audit": audit, "subject_count": len(review["subjects"]), "agent_mode": agent_mode}
+    if local_llm_status:
+        result["local_llm_status"] = local_llm_status
+    return result
 
 
 def main() -> int:
@@ -864,7 +940,7 @@ def main() -> int:
     parser.add_argument("--batch-dir", required=True)
     parser.add_argument("--output-dir")
     parser.add_argument("--fail-on-marker-hit", action="store_true")
-    parser.add_argument("--agent-mode", choices=("deterministic", "llm"), default="deterministic")
+    parser.add_argument("--agent-mode", choices=("auto", "deterministic", "llm"), default="auto")
     parser.add_argument("--llm-review-output")
     parser.add_argument("--prepare-llm-prompt", action="store_true", help="Write sanitized LLM prompt/context and exit without requiring model output.")
     parser.add_argument("--boundary-rubric", help="Optional sanitized boundary context/rubric intake JSON.")

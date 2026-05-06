@@ -1,6 +1,6 @@
 # Sanitized intent review manual test guide
 
-This guide validates the full sanitized intent review pipeline, including the optional offline LLM-agent path, without exposing raw HARs or running live endpoint requests.
+This guide validates the full sanitized intent review pipeline, including default-auto local LLM fallback and the optional offline LLM-agent path, without exposing raw HARs or running live endpoint requests.
 
 ## Preconditions
 
@@ -61,7 +61,36 @@ make evidence-intent-review \
 
 Expected impact: proof subjects with reviewer observations should show more specific advisory intent labels, context signals, and reviewer questions. Subjects without reviewer observations should remain cautious. RedThread evaluation remains required before any security conclusion.
 
-## 2. Prepare the sanitized LLM-agent prompt
+## 2. Default-auto local LLM proof
+
+`make evidence-intent-review` now uses default-auto mode. If `INTENT_REVIEW_LOCAL_LLM_CMD` is not configured or the local command fails, the pipeline falls back to deterministic review and writes `local_llm_status.json`.
+
+```bash
+rm -rf runs/har_batches/latest/intent_review_auto
+make evidence-intent-review \
+  HAR_BATCH_OUTPUT=runs/har_batches/latest \
+  INTENT_REVIEW_OUTPUT=runs/har_batches/latest/intent_review_auto
+```
+
+Expected fallback artifact:
+
+```text
+runs/har_batches/latest/intent_review_auto/local_llm_status.json
+```
+
+Optional local model run with one operator setting:
+
+```bash
+rm -rf runs/har_batches/latest/intent_review_local_llm
+make evidence-intent-review-local-llm \
+  HAR_BATCH_OUTPUT=runs/har_batches/latest \
+  INTENT_REVIEW_OUTPUT=runs/har_batches/latest/intent_review_local_llm \
+  INTENT_REVIEW_LOCAL_LLM_CMD='ollama run llama3.1'
+```
+
+The local command receives only `llm_intent_review_prompt.json` on stdin. Its JSON response must pass the same subject-ID, schema, privacy, and no-finding/no-severity/no-live-execution guardrails. If it fails in auto mode, deterministic output is used.
+
+## 3. Prepare the sanitized LLM-agent prompt
 
 ```bash
 rm -rf runs/har_batches/latest/intent_review_llm_manual
@@ -81,7 +110,7 @@ runs/har_batches/latest/intent_review_llm_manual/llm_intent_review_prompt.json
 
 No `intent_review.json` is expected yet because the model output has not been supplied.
 
-## 3. Run the LLM agent manually
+## 4. Run the LLM agent manually
 
 Give the LLM agent only this file:
 
@@ -113,7 +142,7 @@ print(out / 'llm_review_output.json')
 PY
 ```
 
-## 4. Validate LLM-agent output through the guarded pipeline
+## 5. Validate LLM-agent output through the guarded pipeline
 
 ```bash
 python3 scripts/build_sanitized_intent_review.py \
@@ -157,7 +186,7 @@ print('llm guarded intent review proof passed')
 PY
 ```
 
-## 5. Validate batch workflow integration
+## 6. Validate batch workflow integration
 
 ```bash
 rm -rf runs/har_batches/latest/review_workflow
@@ -174,7 +203,7 @@ runs/har_batches/latest/intent_review/schema_validation.json
 runs/har_batches/latest/intent_review/redthread_evidence_contract_preview.json
 ```
 
-## 6. Full validation before merging
+## 7. Full validation before merging
 
 ```bash
 python3 -m py_compile scripts/build_sanitized_intent_review.py scripts/build_har_batch_review_workflow.py

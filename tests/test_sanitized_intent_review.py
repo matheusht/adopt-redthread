@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.build_sanitized_intent_review import (
     build_intent_review,
@@ -212,6 +214,40 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertTrue((root / "out" / "intent_review_context.json").exists())
             self.assertTrue((root / "out" / "llm_intent_review_prompt.json").exists())
             self.assertFalse((root / "out" / "intent_review.json").exists())
+
+    def test_auto_mode_falls_back_to_deterministic_when_local_llm_unavailable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+
+            with patch.dict(os.environ, {}, clear=True):
+                result = build_sanitized_intent_review(batch, root / "out", agent_mode="auto")
+
+            self.assertEqual(result["agent_mode"], "auto")
+            self.assertEqual(result["local_llm_status"]["status"], "unavailable")
+            self.assertTrue(result["local_llm_status"]["fallback_to_deterministic"])
+            self.assertTrue((root / "out" / "llm_intent_review_prompt.json").exists())
+            self.assertTrue((root / "out" / "local_llm_status.json").exists())
+            review = json.loads((root / "out" / "intent_review.json").read_text(encoding="utf-8"))
+            self.assertEqual(review["subjects"][0]["intent_hypotheses"][0]["label"], "account_management")
+
+    def test_auto_mode_accepts_valid_local_llm_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            context = build_intent_review_context(batch)
+            llm_review = build_intent_review(context)
+            llm_review["subjects"][0]["intent_hypotheses"][0]["label"] = "local_model_advisory_intent"
+            llm_path = root / "llm_review.json"
+            llm_path.write_text(json.dumps(llm_review), encoding="utf-8")
+
+            with patch.dict(os.environ, {"INTENT_REVIEW_LOCAL_LLM_CMD": f"cat {llm_path}"}, clear=True):
+                result = build_sanitized_intent_review(batch, root / "out", agent_mode="auto")
+
+            self.assertEqual(result["local_llm_status"]["status"], "accepted")
+            self.assertFalse(result["local_llm_status"]["fallback_to_deterministic"])
+            review = json.loads((root / "out" / "intent_review.json").read_text(encoding="utf-8"))
+            self.assertEqual(review["subjects"][0]["intent_hypotheses"][0]["label"], "local_model_advisory_intent")
 
     def test_llm_mode_accepts_schema_valid_offline_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

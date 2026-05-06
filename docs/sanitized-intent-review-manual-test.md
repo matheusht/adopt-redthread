@@ -203,7 +203,30 @@ runs/har_batches/latest/intent_review/schema_validation.json
 runs/har_batches/latest/intent_review/redthread_evidence_contract_preview.json
 ```
 
-## 7. Full validation before merging
+## 7. Local LLM evaluation harness
+
+Use the developer evaluation harness to compare deterministic output against accepted local LLM output and report whether useful advisory deltas appear.
+
+```bash
+rm -rf runs/har_batches/owasp_shop/local_intent_review_eval
+make evidence-intent-review-local-llm-eval \
+  HAR_BATCH_OUTPUT=runs/har_batches/owasp_shop \
+  INTENT_REVIEW_EVAL_OUTPUT=runs/har_batches/owasp_shop/local_intent_review_eval \
+  INTENT_REVIEW_LOCAL_LLM_CMD='ollama run qwen2.5-coder:7b' \
+  INTENT_REVIEW_BOUNDARY_RUBRIC=fixtures/sanitized_intent_review/boundary_rubric.example.json \
+  INTENT_REVIEW_REVIEWER_OBSERVATIONS=fixtures/sanitized_intent_review/reviewer_observations.example.json
+```
+
+Expected report:
+
+```text
+runs/har_batches/owasp_shop/local_intent_review_eval/local_intent_review_eval.json
+runs/har_batches/owasp_shop/local_intent_review_eval/local_intent_review_eval.md
+```
+
+A successful technical run has accepted local status, no fallback, passing privacy/schema guardrails, and no forbidden claims. Product value is demonstrated by useful deltas on context-enriched cases, not by changing cautious baseline cases.
+
+## 8. Full validation before merging
 
 ```bash
 python3 -m py_compile scripts/build_sanitized_intent_review.py scripts/build_har_batch_review_workflow.py

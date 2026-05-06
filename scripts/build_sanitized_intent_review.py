@@ -843,9 +843,18 @@ def _run_local_llm_review(output_dir: Path, context: dict[str, Any], command: st
 
 
 def _write_llm_prompt(output_dir: Path, context: dict[str, Any]) -> None:
+    output_template = build_intent_review(context)
     prompt = {
         "role": "Sanitized Intent Review Agent",
-        "task": "Classify sanitized context into the adopt_redthread.sanitized_intent_review.v0 schema only.",
+        "task": "Return one JSON object matching required_output_template. Use sanitized_context only to improve advisory intent labels, rationale, gaps, and reviewer questions when evidence supports it.",
+        "output_rules": [
+            "Return ONLY JSON. Do not wrap in markdown fences.",
+            "The top-level schema_version must be adopt_redthread.sanitized_intent_review.v0.",
+            "Do not return sanitized_context as the top-level object.",
+            "Keep the same subject IDs as sanitized_context.subjects.",
+            "If unsure, preserve the template's cautious values rather than inventing facts.",
+            "Keep RedThread as the final evaluator; do not approve, block, or claim release decisions.",
+        ],
         "forbidden": [
             "raw HAR access",
             "raw URLs, paths, headers, cookies, bodies, auth values, IDs, secrets, or app field names",
@@ -853,6 +862,7 @@ def _write_llm_prompt(output_dir: Path, context: dict[str, Any]) -> None:
             "finding, severity, exploit, scanner, or release-gate claims",
         ],
         "required_schema_version": REVIEW_SCHEMA_VERSION,
+        "required_output_template": output_template,
         "sanitized_context": context,
     }
     _write_json(output_dir / "llm_intent_review_prompt.json", prompt)

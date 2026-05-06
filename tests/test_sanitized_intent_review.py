@@ -213,6 +213,9 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertEqual(result["status"], "llm_prompt_prepared")
             self.assertTrue((root / "out" / "intent_review_context.json").exists())
             self.assertTrue((root / "out" / "llm_intent_review_prompt.json").exists())
+            prompt = json.loads((root / "out" / "llm_intent_review_prompt.json").read_text(encoding="utf-8"))
+            self.assertEqual(prompt["required_output_template"]["schema_version"], "adopt_redthread.sanitized_intent_review.v0")
+            self.assertIn("Do not return sanitized_context as the top-level object.", prompt["output_rules"])
             self.assertFalse((root / "out" / "intent_review.json").exists())
 
     def test_auto_mode_falls_back_to_deterministic_when_local_llm_unavailable(self) -> None:

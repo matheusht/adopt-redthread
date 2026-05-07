@@ -23,6 +23,7 @@ ADVANCEMENT_SCHEMA_VERSION = "adopt_redthread.intent_review_advancement.v0"
 BUSINESS_VALIDATION_SCHEMA_VERSION = "adopt_redthread.intent_review_business_validation.v0"
 BOUNDARY_RUBRIC_SCHEMA_VERSION = "adopt_redthread.boundary_context_intake.v0"
 REVIEWER_OBSERVATIONS_SCHEMA_VERSION = "adopt_redthread.reviewer_observations.v0"
+EXECUTION_HANDOFF_SCHEMA_VERSION = "adopt_redthread.execution_handoff.v0"
 
 ALLOWED_SUBJECT_ARTIFACTS = {
     "workflow_summary.json",
@@ -32,6 +33,13 @@ ALLOWED_SUBJECT_ARTIFACTS = {
 }
 
 FORBIDDEN_CLAIM_LANGUAGE = ("critical severity", "high severity", "confirmed vulnerability", "exploitable")
+HANDOFF_RECOMMENDED_ACTIONS = {
+    "collect_boundary_context",
+    "collect_reviewer_observation",
+    "evaluate_sanitized_export",
+    "prepare_reviewed_replay_plan",
+    "redthread_triage",
+}
 
 REVIEW_REQUIRED_KEYS = {
     "schema_version",
@@ -574,6 +582,211 @@ def render_advancement_markdown(advancement: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _subject_observations(subject: dict[str, Any]) -> list[dict[str, Any]]:
+    subject_id = str(subject["subject_id"])
+    observations = [
+        {
+            "observation_id": f"{subject_id}_obs_001",
+            "type": "workflow_classification",
+            "summary": f"Sanitized workflow classified as {subject['workflow_classification']['workflow_class']} with boundary relevance {subject['workflow_classification']['boundary_relevance']}.",
+            "source_fields": ["workflow_classification.workflow_class", "workflow_classification.boundary_relevance"],
+        },
+        {
+            "observation_id": f"{subject_id}_obs_002",
+            "type": "operation_role_counts",
+            "summary": f"Sanitized role categories include {len(subject.get('endpoint_role_categories', []))} operation role record(s).",
+            "source_fields": ["endpoint_role_categories"],
+        },
+        {
+            "observation_id": f"{subject_id}_obs_003",
+            "type": "execution_requirement",
+            "summary": f"Approved replay required is {subject['approved_execution_requirements']['approved_replay_required']}; boundary proof required is {subject['approved_execution_requirements']['boundary_proof_required']}.",
+            "source_fields": ["approved_execution_requirements"],
+        },
+        {
+            "observation_id": f"{subject_id}_obs_004",
+            "type": "export_readiness",
+            "summary": f"RedThread export readiness is {subject['redthread_export_readiness']['status']}.",
+            "source_fields": ["redthread_export_readiness.status", "redthread_export_readiness.reason_categories"],
+        },
+    ]
+    if subject.get("missing_evidence"):
+        observations.append({
+            "observation_id": f"{subject_id}_obs_005",
+            "type": "missing_evidence",
+            "summary": "Sanitized review identified missing context: " + ", ".join(gap["category"] for gap in subject["missing_evidence"]),
+            "source_fields": ["missing_evidence"],
+        })
+    if subject.get("context_signals", {}).get("boundary_context_present"):
+        observations.append({
+            "observation_id": f"{subject_id}_obs_006",
+            "type": "boundary_context",
+            "summary": f"Sanitized boundary context is present for {subject['context_signals']['boundary_area']}.",
+            "source_fields": ["context_signals.boundary_context_present", "context_signals.boundary_area"],
+        })
+    if subject.get("context_signals", {}).get("reviewer_observation_present"):
+        observations.append({
+            "observation_id": f"{subject_id}_obs_007",
+            "type": "reviewer_observation",
+            "summary": "Sanitized reviewer observation is present.",
+            "source_fields": ["context_signals.reviewer_observation_present"],
+        })
+    return observations
+
+
+def _execution_candidate(subject: dict[str, Any], observations: list[dict[str, Any]]) -> dict[str, Any]:
+    subject_id = str(subject["subject_id"])
+    missing_categories = [gap["category"] for gap in subject.get("missing_evidence", [])]
+    approved = subject["approved_execution_requirements"]
+    boundary_required = bool(approved["boundary_proof_required"])
+    boundary_context_present = bool(subject["context_signals"]["boundary_context_present"])
+    reviewer_observation_present = bool(subject["context_signals"]["reviewer_observation_present"])
+    if boundary_required and not boundary_context_present:
+        intent = "authorization_boundary_read_review"
+        strength = "partial"
+        readiness = "needs_context"
+        action = "collect_boundary_context"
+        summary = "This appears to be a boundary-relevant workflow with insufficient sanitized boundary context for RedThread execution planning."
+    elif boundary_required and boundary_context_present:
+        intent = "authorization_boundary_review_candidate"
+        strength = "medium" if reviewer_observation_present else "partial"
+        readiness = "ready_for_redthread_review"
+        action = "evaluate_sanitized_export"
+        summary = "This is a boundary-relevant workflow candidate with sanitized boundary context ready for RedThread-owned evaluation."
+    elif approved["approved_replay_required"]:
+        intent = "reviewed_replay_candidate"
+        strength = "partial"
+        readiness = "needs_approval"
+        action = "prepare_reviewed_replay_plan"
+        summary = "This sanitized workflow may require approved non-production replay planning before RedThread evaluation."
+    else:
+        intent = "workflow_triage_candidate"
+        strength = "low" if missing_categories else "partial"
+        readiness = "needs_context" if missing_categories else "ready_for_redthread_review"
+        action = "collect_reviewer_observation" if missing_categories else "redthread_triage"
+        summary = "This sanitized workflow is suitable for RedThread triage, with any missing context resolved before execution."
+    return {
+        "candidate_id": f"{subject_id}_candidate_001",
+        "subject_id": subject_id,
+        "rank": 1,
+        "candidate_workflow_intent": intent,
+        "evidence_strength": strength,
+        "execution_readiness": readiness,
+        "recommended_redthread_action": action,
+        "operator_summary": summary,
+        "supporting_sanitized_observations": observations,
+        "missing_context": [
+            {"category": gap["category"], "next_action": gap["next_action"], "source_gap_id": gap["id"]}
+            for gap in subject.get("missing_evidence", [])
+        ],
+        "execution_constraints": {
+            "live_execution_allowed": False,
+            "approved_context_required": True,
+            "redthread_final_gate_required": True,
+        },
+        "redthread_decides": [
+            "whether sanitized context is sufficient",
+            "whether replay is approved",
+            "whether any finding exists",
+        ],
+        "forbidden_interpretation": [
+            "not a finding",
+            "not severity",
+            "not exploit proof",
+            "not release approval",
+        ],
+    }
+
+
+def build_redthread_execution_handoff(review: dict[str, Any]) -> dict[str, Any]:
+    candidates = [_execution_candidate(subject, _subject_observations(subject)) for subject in review.get("subjects", [])]
+    return {
+        "schema_version": EXECUTION_HANDOFF_SCHEMA_VERSION,
+        "source": {
+            "artifact_family": "sanitized_intent_review",
+            "raw_artifacts_included": False,
+            "source_review_id": review.get("review_id"),
+        },
+        "summary": {
+            "candidate_count": len(candidates),
+            "ready_for_redthread_review_count": sum(1 for c in candidates if c["execution_readiness"] == "ready_for_redthread_review"),
+            "needs_context_count": sum(1 for c in candidates if c["execution_readiness"] == "needs_context"),
+            "live_execution_allowed": False,
+            "redthread_final_gate_required": True,
+        },
+        "execution_candidates": candidates,
+    }
+
+
+def validate_execution_handoff(handoff: dict[str, Any], review: dict[str, Any]) -> dict[str, Any]:
+    errors: list[str] = []
+    if handoff.get("schema_version") != EXECUTION_HANDOFF_SCHEMA_VERSION:
+        errors.append("redthread_execution_handoff.schema_version")
+    subject_ids = {str(subject.get("subject_id")) for subject in review.get("subjects", [])}
+    for candidate in handoff.get("execution_candidates", []):
+        candidate_id = candidate.get("candidate_id", "unknown_candidate")
+        if str(candidate.get("subject_id")) not in subject_ids:
+            errors.append(f"candidate.{candidate_id}.subject_id")
+        constraints = candidate.get("execution_constraints", {})
+        if constraints.get("live_execution_allowed"):
+            errors.append(f"candidate.{candidate_id}.live_execution_allowed")
+        if not constraints.get("redthread_final_gate_required"):
+            errors.append(f"candidate.{candidate_id}.redthread_final_gate_required")
+        if candidate.get("recommended_redthread_action") not in HANDOFF_RECOMMENDED_ACTIONS:
+            errors.append(f"candidate.{candidate_id}.recommended_redthread_action")
+        if not candidate.get("supporting_sanitized_observations"):
+            errors.append(f"candidate.{candidate_id}.supporting_sanitized_observations")
+        for obs in candidate.get("supporting_sanitized_observations", []):
+            if not obs.get("observation_id"):
+                errors.append(f"candidate.{candidate_id}.observation_id")
+    return {
+        "schema_version": "adopt_redthread.execution_handoff_validation.v0",
+        "passed": not errors,
+        "error_count": len(errors),
+        "errors": errors,
+    }
+
+
+def render_execution_handoff_markdown(handoff: dict[str, Any]) -> str:
+    summary = handoff["summary"]
+    lines = [
+        "# RedThread Execution Handoff",
+        "",
+        "## Summary",
+        f"- Candidates: {summary['candidate_count']}",
+        f"- Ready for RedThread review: {summary['ready_for_redthread_review_count']}",
+        f"- Need context: {summary['needs_context_count']}",
+        "- Live execution allowed: No",
+        "- RedThread final gate required: Yes",
+        "",
+    ]
+    for candidate in handoff.get("execution_candidates", []):
+        lines.extend([
+            f"## Candidate {candidate['rank']} — {candidate['subject_id']}",
+            "",
+            "### Operator summary",
+            candidate["operator_summary"],
+            "",
+            "### Recommended RedThread action",
+            candidate["recommended_redthread_action"],
+            "",
+            "### Why",
+        ])
+        for observation in candidate.get("supporting_sanitized_observations", []):
+            lines.append(f"- `{observation['observation_id']}`: {observation['summary']}")
+        lines.extend(["", "### Missing context"])
+        if candidate.get("missing_context"):
+            for gap in candidate["missing_context"]:
+                lines.append(f"- `{gap['category']}`: {gap['next_action']}")
+        else:
+            lines.append("- none")
+        lines.extend(["", "### RedThread decides"])
+        for item in candidate.get("redthread_decides", []):
+            lines.append(f"- {item}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
     subjects = review.get("subjects", [])
     return {
@@ -938,6 +1151,10 @@ def build_sanitized_intent_review(
         review = build_intent_review(context)
     export = build_redthread_evidence_export(review)
     advancement = build_advancement_summary(review)
+    handoff = build_redthread_execution_handoff(review)
+    handoff_validation = validate_execution_handoff(handoff, review)
+    if not handoff_validation["passed"]:
+        raise ValueError(f"redthread execution handoff validation failed: {handoff_validation}")
     business_validation = build_business_validation_plan(review, advancement)
     schema_validation = validate_intent_review_contract(review, export)
     if not schema_validation["passed"]:
@@ -945,7 +1162,8 @@ def build_sanitized_intent_review(
     contract_preview = build_redthread_contract_preview(export)
     markdown = render_intent_review_markdown(review)
     advancement_markdown = render_advancement_markdown(advancement)
-    safety_payloads: list[dict[str, Any] | str] = [context, review, export, advancement, business_validation, schema_validation, contract_preview, markdown, advancement_markdown]
+    handoff_markdown = render_execution_handoff_markdown(handoff)
+    safety_payloads: list[dict[str, Any] | str] = [context, review, export, advancement, handoff, handoff_validation, business_validation, schema_validation, contract_preview, markdown, advancement_markdown, handoff_markdown]
     if local_llm_status:
         safety_payloads.append(local_llm_status)
     audit = _assert_safe_artifacts(safety_payloads, fail_on_marker_hit)
@@ -958,13 +1176,24 @@ def build_sanitized_intent_review(
     _write_json(output_dir / "redthread_evidence_export.json", export)
     _write_json(output_dir / "advancement_summary.json", advancement)
     _write_text(output_dir / "advancement_summary.md", advancement_markdown)
+    _write_json(output_dir / "redthread_execution_handoff.json", handoff)
+    _write_text(output_dir / "redthread_execution_handoff.md", handoff_markdown)
+    _write_json(output_dir / "redthread_execution_handoff_validation.json", handoff_validation)
     _write_json(output_dir / "business_validation_plan.json", business_validation)
     _write_json(output_dir / "schema_validation.json", schema_validation)
     _write_json(output_dir / "redthread_evidence_contract_preview.json", contract_preview)
     if local_llm_status:
         _write_json(output_dir / "local_llm_status.json", local_llm_status)
     _write_json(output_dir / "privacy_audit.json", audit)
-    result = {"output_dir": str(output_dir), "privacy_audit": audit, "subject_count": len(review["subjects"]), "agent_mode": agent_mode}
+    result = {
+        "output_dir": str(output_dir),
+        "privacy_audit": audit,
+        "subject_count": len(review["subjects"]),
+        "agent_mode": agent_mode,
+        "execution_handoff_path": str(output_dir / "redthread_execution_handoff.json"),
+        "execution_candidate_count": handoff["summary"]["candidate_count"],
+        "ready_for_redthread_review_count": handoff["summary"]["ready_for_redthread_review_count"],
+    }
     if local_llm_status:
         result["local_llm_status"] = local_llm_status
     return result

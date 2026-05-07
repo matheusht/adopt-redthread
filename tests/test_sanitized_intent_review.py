@@ -11,7 +11,9 @@ from scripts.build_sanitized_intent_review import (
     build_intent_review,
     build_intent_review_context,
     build_redthread_evidence_export,
+    build_redthread_execution_handoff,
     build_sanitized_intent_review,
+    validate_execution_handoff,
     validate_intent_review_contract,
 )
 
@@ -134,6 +136,20 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertTrue(contract_preview["promotion_recommendation"]["redthread_evaluation_required"])
             self.assertTrue(contract_preview["promotion_recommendation"]["not_proven"])
             self.assertIn("RedThread evaluation is required", markdown)
+            handoff = json.loads((out / "redthread_execution_handoff.json").read_text(encoding="utf-8"))
+            handoff_markdown = (out / "redthread_execution_handoff.md").read_text(encoding="utf-8")
+            handoff_validation = json.loads((out / "redthread_execution_handoff_validation.json").read_text(encoding="utf-8"))
+            candidate = handoff["execution_candidates"][0]
+            self.assertEqual(handoff["schema_version"], "adopt_redthread.execution_handoff.v0")
+            self.assertEqual(handoff["summary"]["candidate_count"], 1)
+            self.assertEqual(candidate["candidate_workflow_intent"], "authorization_boundary_read_review")
+            self.assertEqual(candidate["execution_readiness"], "needs_context")
+            self.assertEqual(candidate["recommended_redthread_action"], "collect_boundary_context")
+            self.assertTrue(candidate["supporting_sanitized_observations"])
+            self.assertFalse(candidate["execution_constraints"]["live_execution_allowed"])
+            self.assertTrue(candidate["execution_constraints"]["redthread_final_gate_required"])
+            self.assertTrue(handoff_validation["passed"])
+            self.assertIn("Recommended RedThread action", handoff_markdown)
 
     def test_context_intake_makes_proof_subject_more_specific(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -186,6 +202,25 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertTrue(advancement["subjects"][0]["can_advance_to_redthread_evaluation"])
             self.assertEqual(business_validation["metrics"]["ready_for_redthread_evaluation_count"], 1)
             self.assertIn("Review-support outcome", markdown)
+            handoff = json.loads((out / "redthread_execution_handoff.json").read_text(encoding="utf-8"))
+            candidate = handoff["execution_candidates"][0]
+            self.assertEqual(candidate["candidate_workflow_intent"], "authorization_boundary_review_candidate")
+            self.assertEqual(candidate["execution_readiness"], "ready_for_redthread_review")
+            self.assertEqual(candidate["recommended_redthread_action"], "evaluate_sanitized_export")
+
+    def test_execution_handoff_validation_requires_observation_citations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            context = build_intent_review_context(batch)
+            review = build_intent_review(context)
+            handoff = build_redthread_execution_handoff(review)
+            handoff["execution_candidates"][0]["supporting_sanitized_observations"] = []
+
+            validation = validate_execution_handoff(handoff, review)
+
+            self.assertFalse(validation["passed"])
+            self.assertIn("candidate.subject_001_candidate_001.supporting_sanitized_observations", validation["errors"])
 
     def test_schema_validation_rejects_release_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

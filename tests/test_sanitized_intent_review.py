@@ -12,8 +12,11 @@ from scripts.build_sanitized_intent_review import (
     build_intent_review_context,
     build_redthread_evidence_export,
     build_redthread_execution_handoff,
+    build_redthread_importability_report,
+    build_redthread_intent_evidence,
     build_sanitized_intent_review,
     validate_execution_handoff,
+    validate_redthread_intent_evidence,
     validate_intent_review_contract,
 )
 
@@ -142,6 +145,9 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             handoff = json.loads((out / "redthread_execution_handoff.json").read_text(encoding="utf-8"))
             handoff_markdown = (out / "redthread_execution_handoff.md").read_text(encoding="utf-8")
             handoff_validation = json.loads((out / "redthread_execution_handoff_validation.json").read_text(encoding="utf-8"))
+            intent_evidence = json.loads((out / "redthread_intent_evidence.json").read_text(encoding="utf-8"))
+            intent_evidence_validation = json.loads((out / "redthread_intent_evidence_validation.json").read_text(encoding="utf-8"))
+            importability_report = json.loads((out / "redthread_importability_report.json").read_text(encoding="utf-8"))
             candidate = handoff["execution_candidates"][0]
             self.assertEqual(handoff["schema_version"], "adopt_redthread.execution_handoff.v0")
             self.assertEqual(handoff["summary"]["candidate_count"], 1)
@@ -155,6 +161,20 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertTrue(handoff_validation["privacy_audit_passed"])
             self.assertIn("observation_citations_required", handoff_validation["validated_rules"])
             self.assertIn("Recommended RedThread action", handoff_markdown)
+            self.assertEqual(intent_evidence["schema_version"], "redthread.intent_evidence.v1")
+            self.assertFalse(intent_evidence["source"]["raw_artifacts_included"])
+            self.assertTrue(intent_evidence["privacy"]["sanitized"])
+            self.assertFalse(intent_evidence["privacy"]["raw_har_included"])
+            self.assertTrue(intent_evidence["intent"]["not_a_finding"])
+            self.assertTrue(intent_evidence["evidence"])
+            self.assertTrue(intent_evidence["evidence"][0]["source_observation_id"])
+            self.assertTrue(intent_evidence["evidence"][0]["limitations"])
+            self.assertTrue(intent_evidence["attack_plan"]["steps"])
+            self.assertFalse(intent_evidence["attack_plan"]["steps"][0]["requires_raw_payload"])
+            self.assertFalse(intent_evidence["attack_plan"]["steps"][0]["requires_live_execution"])
+            self.assertTrue(intent_evidence_validation["importable"])
+            self.assertTrue(importability_report["candidate_workflow_created"])
+            self.assertEqual(importability_report["redthread_consumption_contract"]["import_as"], "candidate_evidence_not_finding")
 
     def test_context_intake_makes_proof_subject_more_specific(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -246,6 +266,33 @@ class SanitizedIntentReviewTests(unittest.TestCase):
 
             self.assertFalse(validation["passed"])
             self.assertIn("candidate.subject_001_candidate_001.supporting_sanitized_observations", validation["errors"])
+
+    def test_redthread_intent_evidence_validation_rejects_unsafe_import_package(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            context = build_intent_review_context(batch)
+            review = build_intent_review(context)
+            handoff = build_redthread_execution_handoff(review)
+            package = build_redthread_intent_evidence(review, handoff)
+            package["privacy"]["raw_har_included"] = True
+            package["intent"]["not_a_finding"] = False
+            package["evidence"][0]["limitations"] = []
+            package["attack_plan"]["steps"][0]["success_condition"] = ""
+            package["redthread_import"]["judge_agent_required"] = False
+            package["redthread_import"]["eligible_for_regression"] = True
+
+            validation = validate_redthread_intent_evidence(package)
+            report = build_redthread_importability_report(package, validation)
+
+            self.assertFalse(validation["importable"])
+            self.assertFalse(report["importable"])
+            self.assertIn("privacy.raw_har_included", validation["errors"])
+            self.assertIn("intent.not_a_finding", validation["errors"])
+            self.assertIn("evidence.ev_001_001.limitations", validation["errors"])
+            self.assertIn("attack_plan.step_001_001.success_condition", validation["errors"])
+            self.assertIn("redthread_import.judge_agent_required", validation["errors"])
+            self.assertIn("redthread_import.eligible_for_regression", validation["errors"])
 
     def test_schema_validation_rejects_release_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

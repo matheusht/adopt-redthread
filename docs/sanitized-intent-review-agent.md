@@ -494,6 +494,116 @@ This separates two questions:
 1. Did the local model add a useful advisory delta?
 2. Did the deterministic handoff give RedThread an actionable, safe next-step candidate?
 
+### Phase 10 — RedThread intent evidence package
+
+Objective: create a primary RedThread-importable artifact instead of another advisory-only review output.
+
+Generated artifacts:
+
+- `redthread_intent_evidence.json`
+- `redthread_intent_evidence.md`
+- `redthread_intent_evidence_validation.json`
+- `redthread_importability_report.json`
+- `redthread_importability_report.md`
+
+`redthread_intent_evidence.json` uses schema version `redthread.intent_evidence.v1` and is built deterministically from validated sanitized intent review plus validated execution handoff. It includes:
+
+- `source`: adopt-redthread provenance and source review/handoff references;
+- `privacy`: explicit false flags for raw HARs, URLs, headers, cookies, bodies, payloads, and secrets;
+- `intent`: target behavior and authority-boundary hypothesis with `not_a_finding: true`;
+- `evidence`: RedThread evidence items mapped back to sanitized observation IDs;
+- `attack_plan`: RedThread-owned candidate workflow steps, not payloads;
+- `redthread_import`: import semantics requiring human review and JudgeAgent confirmation;
+- `forbidden_interpretation`: explicit boundary statements that the package is not a finding, severity, exploit proof, release approval, or live execution authorization.
+
+The package is intended to answer: “Can RedThread consume this as candidate evidence without trusting it as a finding?”
+
+### Phase 11 — Evidence package validator
+
+Objective: reject unsafe or non-importable evidence packages before RedThread import.
+
+Validation rejects packages when:
+
+- unsupported schema version is used;
+- `source.raw_artifacts_included` is true;
+- privacy does not assert `sanitized: true`;
+- any raw artifact privacy flag is true;
+- authority boundary is missing;
+- `intent.not_a_finding` is not true;
+- an evidence item lacks a source sanitized observation ID;
+- an evidence item lacks limitations;
+- evidence strength is outside `weak | moderate | strong`;
+- JudgeAgent is not required;
+- package is marked eligible for regression;
+- package import mode is not `candidate_evidence_not_finding`;
+- attack plan authorizes live execution;
+- attack plan includes payloads;
+- an attack step lacks expected signal, success condition, or supporting evidence IDs;
+- an attack step references unknown evidence IDs;
+- package text contains forbidden finding/severity/exploit/scanner/release/live-execution language;
+- package fails marker/raw-field privacy audit.
+
+`redthread_intent_evidence_validation.json` reports:
+
+- `valid`
+- `importable`
+- `privacy_safe`
+- `execution_ready`
+- `finding_claim_detected`
+- `regression_ready`
+- `judge_agent_required`
+- `candidate_workflow_created`
+- `blocked_reason`
+- `errors`
+- `warnings`
+
+### Phase 12 — Attack-plan candidates, not payloads
+
+Objective: give RedThread execution intent without exporting raw payloads or authorizing replay.
+
+Each attack-plan step includes:
+
+- stable step ID;
+- subject ID;
+- action statement;
+- expected signal;
+- success condition;
+- `requires_raw_payload: false`;
+- `requires_live_execution: false`;
+- supporting evidence IDs;
+- RedThread-owned decisions.
+
+The action text is intentionally high-level, for example collecting approved boundary context or preparing RedThread-owned replay planning. RedThread remains responsible for generating probes, executing approved workflows, judging results, assigning severity, confirming findings, and promoting regression tests.
+
+### Phase 13 — Golden fixture/importability harness
+
+Objective: prove the generated package is consumable as RedThread candidate evidence.
+
+`redthread_importability_report.json` is the local contract harness. It reports:
+
+- `importable`
+- `privacy_safe`
+- `execution_ready`
+- `judge_required`
+- `candidate_workflow_created`
+- `blocked_reason`
+- RedThread consumption contract metadata
+- evidence and attack-step counts
+
+The golden path for `cartao_filtered.har` is:
+
+```text
+cartao_filtered.har
+→ sanitized HAR batch
+→ sanitized intent review
+→ execution handoff
+→ redthread_intent_evidence.json
+→ redthread_intent_evidence_validation.json
+→ redthread_importability_report.json
+```
+
+Success means the package is importable, privacy-safe, creates at least one candidate workflow, cites sanitized evidence, preserves provenance, requires JudgeAgent, and still claims no finding/severity/exploit/release decision.
+
 ### Phase 6 — Batch review workflow integration
 
 Objective: integrate the intent review into the existing HAR batch review workflow.

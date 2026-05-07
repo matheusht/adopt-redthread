@@ -24,6 +24,9 @@ BUSINESS_VALIDATION_SCHEMA_VERSION = "adopt_redthread.intent_review_business_val
 BOUNDARY_RUBRIC_SCHEMA_VERSION = "adopt_redthread.boundary_context_intake.v0"
 REVIEWER_OBSERVATIONS_SCHEMA_VERSION = "adopt_redthread.reviewer_observations.v0"
 EXECUTION_HANDOFF_SCHEMA_VERSION = "adopt_redthread.execution_handoff.v0"
+INTENT_EVIDENCE_SCHEMA_VERSION = "redthread.intent_evidence.v1"
+INTENT_EVIDENCE_VALIDATION_SCHEMA_VERSION = "redthread.intent_evidence_validation.v1"
+IMPORTABILITY_REPORT_SCHEMA_VERSION = "redthread.importability_report.v1"
 
 ALLOWED_SUBJECT_ARTIFACTS = {
     "workflow_summary.json",
@@ -66,6 +69,22 @@ HANDOFF_FORBIDDEN_LANGUAGE = (
     "live execution allowed",
     "is vulnerable",
 )
+INTENT_EVIDENCE_FORBIDDEN_LANGUAGE = HANDOFF_FORBIDDEN_LANGUAGE + (
+    "severity",
+    "exploit proof",
+    "scanner finding",
+    "regression ready",
+    "finding confirmed",
+)
+INTENT_EVIDENCE_REQUIRED_PRIVACY_FALSE_FLAGS = {
+    "raw_har_included",
+    "raw_urls_included",
+    "raw_headers_included",
+    "raw_cookies_included",
+    "raw_bodies_included",
+    "secrets_included",
+    "raw_payloads_included",
+}
 
 REVIEW_REQUIRED_KEYS = {
     "schema_version",
@@ -861,6 +880,280 @@ def render_execution_handoff_markdown(handoff: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _intent_evidence_strength(candidate: dict[str, Any]) -> str:
+    return {
+        "low": "weak",
+        "partial": "weak",
+        "medium": "moderate",
+        "high": "strong",
+    }.get(str(candidate.get("evidence_strength", "weak")), "weak")
+
+
+def _intent_evidence_items(candidate: dict[str, Any], package_rank: int) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for index, observation in enumerate(candidate.get("supporting_sanitized_observations", []), start=1):
+        items.append({
+            "id": f"ev_{package_rank:03d}_{index:03d}",
+            "source_observation_id": observation.get("observation_id"),
+            "subject_id": candidate.get("subject_id"),
+            "type": "behavioral_signal",
+            "strength": _intent_evidence_strength(candidate),
+            "summary": observation.get("summary", "sanitized observation available"),
+            "supports": [f"step_{package_rank:03d}_001"],
+            "limitations": [
+                "sanitized observation only",
+                "RedThread JudgeAgent must evaluate before any finding",
+            ] + [gap.get("category", "missing_context") for gap in candidate.get("missing_context", [])],
+        })
+    return items
+
+
+def _intent_attack_step(candidate: dict[str, Any], package_rank: int) -> dict[str, Any]:
+    action = "evaluate sanitized workflow evidence inside RedThread before any replay planning"
+    if candidate.get("recommended_redthread_action") == "collect_boundary_context":
+        action = "collect approved boundary context before RedThread-owned authorization-boundary evaluation"
+    elif candidate.get("recommended_redthread_action") == "collect_reviewer_observation":
+        action = "collect reviewer observation summary before RedThread-owned evaluation"
+    elif candidate.get("recommended_redthread_action") == "evaluate_sanitized_export":
+        action = "evaluate authorization-boundary read behavior using RedThread-controlled replay planning after approved context is supplied"
+    elif candidate.get("recommended_redthread_action") == "prepare_reviewed_replay_plan":
+        action = "prepare a RedThread-reviewed replay plan without authorizing live execution"
+    return {
+        "id": f"step_{package_rank:03d}_001",
+        "subject_id": candidate.get("subject_id"),
+        "action": action,
+        "expected_signal": "RedThread determines whether the sanitized workflow evidence is meaningful enough for JudgeAgent evaluation",
+        "success_condition": "JudgeAgent completes final evaluation; adopt-redthread makes no finding claim",
+        "requires_raw_payload": False,
+        "requires_live_execution": False,
+        "supporting_evidence_ids": [item["id"] for item in _intent_evidence_items(candidate, package_rank)],
+        "redthread_decides": candidate.get("redthread_decides", []),
+    }
+
+
+def build_redthread_intent_evidence(review: dict[str, Any], handoff: dict[str, Any]) -> dict[str, Any]:
+    candidates = handoff.get("execution_candidates", [])
+    evidence = [item for package_rank, candidate in enumerate(candidates, start=1) for item in _intent_evidence_items(candidate, package_rank)]
+    steps = [_intent_attack_step(candidate, package_rank) for package_rank, candidate in enumerate(candidates, start=1)]
+    needs_context = any(candidate.get("execution_readiness") != "ready_for_redthread_review" for candidate in candidates)
+    return {
+        "schema_version": INTENT_EVIDENCE_SCHEMA_VERSION,
+        "source": {
+            "tool": "adopt-redthread",
+            "input_type": "sanitized_intent_review",
+            "source_review_id": review.get("review_id"),
+            "source_handoff_schema_version": handoff.get("schema_version"),
+            "raw_artifacts_included": False,
+        },
+        "privacy": {
+            "sanitized": True,
+            "raw_har_included": False,
+            "raw_urls_included": False,
+            "raw_headers_included": False,
+            "raw_cookies_included": False,
+            "raw_bodies_included": False,
+            "raw_payloads_included": False,
+            "secrets_included": False,
+        },
+        "intent": {
+            "target_behavior": candidates[0].get("candidate_workflow_intent", "redthread_sanitized_evidence_review") if candidates else "redthread_sanitized_evidence_review",
+            "risk_hypothesis": "hypothesis_only",
+            "authority_boundary": "unknown_or_sanitized_boundary_area" if needs_context else "sanitized_boundary_context_supplied",
+            "not_a_finding": True,
+        },
+        "evidence": evidence,
+        "attack_plan": {
+            "objective": "prepare_redthread_owned_boundary_evaluation",
+            "steps": steps,
+            "payloads_included": False,
+            "live_execution_allowed": False,
+        },
+        "redthread_import": {
+            "recommended_workflow_type": "attack_judge_defend_validate",
+            "requires_human_review": True,
+            "judge_agent_required": True,
+            "eligible_for_regression": False,
+            "candidate_workflow_count": len(steps),
+            "import_as": "candidate_evidence_not_finding",
+        },
+        "forbidden_interpretation": [
+            "not a finding",
+            "not severity",
+            "not exploit proof",
+            "not release approval",
+            "not live execution authorization",
+        ],
+    }
+
+
+def validate_redthread_intent_evidence(package: dict[str, Any]) -> dict[str, Any]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    if package.get("schema_version") != INTENT_EVIDENCE_SCHEMA_VERSION:
+        errors.append("redthread_intent_evidence.schema_version")
+    if package.get("source", {}).get("raw_artifacts_included"):
+        errors.append("source.raw_artifacts_included")
+    privacy = package.get("privacy", {})
+    if not privacy.get("sanitized"):
+        errors.append("privacy.sanitized")
+    for flag in sorted(INTENT_EVIDENCE_REQUIRED_PRIVACY_FALSE_FLAGS):
+        if privacy.get(flag):
+            errors.append(f"privacy.{flag}")
+    intent = package.get("intent", {})
+    if not intent.get("authority_boundary"):
+        errors.append("intent.authority_boundary")
+    if not intent.get("not_a_finding"):
+        errors.append("intent.not_a_finding")
+    evidence_ids: set[str] = set()
+    for item in package.get("evidence", []):
+        item_id = str(item.get("id", "unknown_evidence"))
+        if item_id in evidence_ids:
+            errors.append(f"evidence.{item_id}.duplicate_id")
+        evidence_ids.add(item_id)
+        if not item.get("source_observation_id"):
+            errors.append(f"evidence.{item_id}.source_observation_id")
+        if item.get("strength") not in {"weak", "moderate", "strong"}:
+            errors.append(f"evidence.{item_id}.strength")
+        if not item.get("limitations"):
+            errors.append(f"evidence.{item_id}.limitations")
+    import_block = package.get("redthread_import", {})
+    if not import_block.get("judge_agent_required"):
+        errors.append("redthread_import.judge_agent_required")
+    if import_block.get("eligible_for_regression"):
+        errors.append("redthread_import.eligible_for_regression")
+    if import_block.get("import_as") != "candidate_evidence_not_finding":
+        errors.append("redthread_import.import_as")
+    attack_plan = package.get("attack_plan", {})
+    if attack_plan.get("live_execution_allowed"):
+        errors.append("attack_plan.live_execution_allowed")
+    if attack_plan.get("payloads_included"):
+        errors.append("attack_plan.payloads_included")
+    for step in attack_plan.get("steps", []):
+        step_id = str(step.get("id", "unknown_step"))
+        if not step.get("expected_signal"):
+            errors.append(f"attack_plan.{step_id}.expected_signal")
+        if not step.get("success_condition"):
+            errors.append(f"attack_plan.{step_id}.success_condition")
+        if step.get("requires_raw_payload"):
+            errors.append(f"attack_plan.{step_id}.requires_raw_payload")
+        if step.get("requires_live_execution"):
+            errors.append(f"attack_plan.{step_id}.requires_live_execution")
+        if not step.get("supporting_evidence_ids"):
+            errors.append(f"attack_plan.{step_id}.supporting_evidence_ids")
+        for evidence_id in step.get("supporting_evidence_ids", []):
+            if evidence_id not in evidence_ids:
+                errors.append(f"attack_plan.{step_id}.unknown_evidence_id.{evidence_id}")
+    scan_payload = {
+        key: value
+        for key, value in package.items()
+        if key != "forbidden_interpretation"
+    }
+    lower = json.dumps(scan_payload, sort_keys=True).casefold()
+    for phrase in INTENT_EVIDENCE_FORBIDDEN_LANGUAGE:
+        if phrase in lower:
+            errors.append(f"forbidden_language.{phrase.replace(' ', '_')}")
+    audit = marker_audit(json.dumps(package, sort_keys=True))
+    if not audit.get("passed"):
+        errors.append("privacy_marker_audit")
+    importable = not errors
+    execution_ready = importable and bool(package.get("attack_plan", {}).get("steps"))
+    if not package.get("evidence"):
+        warnings.append("no_evidence_items")
+    return {
+        "schema_version": INTENT_EVIDENCE_VALIDATION_SCHEMA_VERSION,
+        "valid": importable,
+        "importable": importable,
+        "privacy_safe": bool(audit.get("passed")) and not any(privacy.get(flag) for flag in INTENT_EVIDENCE_REQUIRED_PRIVACY_FALSE_FLAGS),
+        "execution_ready": execution_ready,
+        "finding_claim_detected": any(error.startswith("forbidden_language") for error in errors),
+        "regression_ready": False,
+        "judge_agent_required": bool(import_block.get("judge_agent_required")),
+        "candidate_workflow_created": bool(package.get("attack_plan", {}).get("steps")),
+        "blocked_reason": None if importable else errors[0],
+        "error_count": len(errors),
+        "errors": errors,
+        "warnings": warnings,
+        "raw_field_hit_count": int(audit.get("raw_field_hit_count", 0)),
+        "marker_hit_count": int(audit.get("marker_hit_count", 0)),
+    }
+
+
+def build_redthread_importability_report(package: dict[str, Any], validation: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": IMPORTABILITY_REPORT_SCHEMA_VERSION,
+        "source_schema_version": package.get("schema_version"),
+        "importable": bool(validation.get("importable")),
+        "privacy_safe": bool(validation.get("privacy_safe")),
+        "execution_ready": bool(validation.get("execution_ready")),
+        "judge_required": bool(validation.get("judge_agent_required")),
+        "candidate_workflow_created": bool(validation.get("candidate_workflow_created")),
+        "blocked_reason": validation.get("blocked_reason"),
+        "redthread_consumption_contract": {
+            "import_as": package.get("redthread_import", {}).get("import_as"),
+            "recommended_workflow_type": package.get("redthread_import", {}).get("recommended_workflow_type"),
+            "redthread_owns_execution": True,
+            "redthread_owns_findings": True,
+            "judge_agent_required": True,
+        },
+        "metrics": {
+            "evidence_count": len(package.get("evidence", [])),
+            "attack_step_count": len(package.get("attack_plan", {}).get("steps", [])),
+            "validation_error_count": int(validation.get("error_count", 0)),
+        },
+    }
+
+
+def render_redthread_intent_evidence_markdown(package: dict[str, Any], validation: dict[str, Any], report: dict[str, Any]) -> str:
+    lines = [
+        "# RedThread Intent Evidence Package",
+        "",
+        "## Importability",
+        f"- Importable: {report['importable']}",
+        f"- Privacy safe: {report['privacy_safe']}",
+        f"- Execution ready: {report['execution_ready']}",
+        f"- JudgeAgent required: {report['judge_required']}",
+        f"- Candidate workflow created: {report['candidate_workflow_created']}",
+        f"- Blocked reason: {report['blocked_reason'] or 'none'}",
+        "",
+        "## Intent",
+        f"- Target behavior: `{package['intent']['target_behavior']}`",
+        f"- Risk hypothesis: `{package['intent']['risk_hypothesis']}`",
+        f"- Authority boundary: `{package['intent']['authority_boundary']}`",
+        "- Finding claimed: No",
+        "- Severity claimed: No",
+        "- Live execution authorized: No",
+        "",
+        "## Evidence",
+    ]
+    for item in package.get("evidence", []):
+        lines.append(f"- `{item['id']}` from `{item['source_observation_id']}` ({item['strength']}): {item['summary']}")
+        lines.append(f"  - Limitations: {', '.join(item.get('limitations', []))}")
+    lines.extend(["", "## RedThread attack-plan candidates"])
+    for step in package.get("attack_plan", {}).get("steps", []):
+        lines.append(f"- `{step['id']}`: {step['action']}")
+        lines.append(f"  - Expected signal: {step['expected_signal']}")
+        lines.append(f"  - Success condition: {step['success_condition']}")
+        lines.append(f"  - Supporting evidence: {', '.join(step.get('supporting_evidence_ids', []))}")
+    lines.extend(["", "## Validation", f"- Passed: {validation['valid']}", f"- Errors: {validation['error_count']}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_importability_report_markdown(report: dict[str, Any]) -> str:
+    return "\n".join([
+        "# RedThread Importability Report",
+        "",
+        f"- Importable: {report['importable']}",
+        f"- Privacy safe: {report['privacy_safe']}",
+        f"- Execution ready: {report['execution_ready']}",
+        f"- Judge required: {report['judge_required']}",
+        f"- Candidate workflow created: {report['candidate_workflow_created']}",
+        f"- Blocked reason: {report['blocked_reason'] or 'none'}",
+        f"- Evidence count: {report['metrics']['evidence_count']}",
+        f"- Attack step count: {report['metrics']['attack_step_count']}",
+        "",
+    ])
+
+
 def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
     subjects = review.get("subjects", [])
     return {
@@ -930,6 +1223,16 @@ def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
             "live_execution_allowed": False,
             "raw_artifacts_included": False,
             "status": "deterministic_handoff_generated_after_review_validation",
+        },
+        "intent_evidence_package": {
+            "artifact_name": "redthread_intent_evidence.json",
+            "schema_version": INTENT_EVIDENCE_SCHEMA_VERSION,
+            "validation_artifact_name": "redthread_intent_evidence_validation.json",
+            "importability_report_artifact_name": "redthread_importability_report.json",
+            "redthread_import_contract": "candidate_evidence_not_finding",
+            "judge_agent_required": True,
+            "live_execution_allowed": False,
+            "raw_artifacts_included": False,
         },
         "execution_requirements": [
             {
@@ -1270,6 +1573,11 @@ def build_sanitized_intent_review(
     handoff_validation = validate_execution_handoff(handoff, review)
     if not handoff_validation["passed"]:
         raise ValueError(f"redthread execution handoff validation failed: {handoff_validation}")
+    intent_evidence = build_redthread_intent_evidence(review, handoff)
+    intent_evidence_validation = validate_redthread_intent_evidence(intent_evidence)
+    if not intent_evidence_validation["importable"]:
+        raise ValueError(f"redthread intent evidence validation failed: {intent_evidence_validation}")
+    importability_report = build_redthread_importability_report(intent_evidence, intent_evidence_validation)
     business_validation = build_business_validation_plan(review, advancement)
     schema_validation = validate_intent_review_contract(review, export)
     if not schema_validation["passed"]:
@@ -1278,7 +1586,9 @@ def build_sanitized_intent_review(
     markdown = render_intent_review_markdown(review)
     advancement_markdown = render_advancement_markdown(advancement)
     handoff_markdown = render_execution_handoff_markdown(handoff)
-    safety_payloads: list[dict[str, Any] | str] = [context, review, export, advancement, handoff, handoff_validation, business_validation, schema_validation, contract_preview, markdown, advancement_markdown, handoff_markdown]
+    intent_evidence_markdown = render_redthread_intent_evidence_markdown(intent_evidence, intent_evidence_validation, importability_report)
+    importability_markdown = render_importability_report_markdown(importability_report)
+    safety_payloads: list[dict[str, Any] | str] = [context, review, export, advancement, handoff, handoff_validation, intent_evidence, intent_evidence_validation, importability_report, business_validation, schema_validation, contract_preview, markdown, advancement_markdown, handoff_markdown, intent_evidence_markdown, importability_markdown]
     if local_llm_status:
         safety_payloads.append(local_llm_status)
     audit = _assert_safe_artifacts(safety_payloads, fail_on_marker_hit)
@@ -1294,6 +1604,11 @@ def build_sanitized_intent_review(
     _write_json(output_dir / "redthread_execution_handoff.json", handoff)
     _write_text(output_dir / "redthread_execution_handoff.md", handoff_markdown)
     _write_json(output_dir / "redthread_execution_handoff_validation.json", handoff_validation)
+    _write_json(output_dir / "redthread_intent_evidence.json", intent_evidence)
+    _write_text(output_dir / "redthread_intent_evidence.md", intent_evidence_markdown)
+    _write_json(output_dir / "redthread_intent_evidence_validation.json", intent_evidence_validation)
+    _write_json(output_dir / "redthread_importability_report.json", importability_report)
+    _write_text(output_dir / "redthread_importability_report.md", importability_markdown)
     _write_json(output_dir / "business_validation_plan.json", business_validation)
     _write_json(output_dir / "schema_validation.json", schema_validation)
     _write_json(output_dir / "redthread_evidence_contract_preview.json", contract_preview)
@@ -1308,6 +1623,9 @@ def build_sanitized_intent_review(
         "execution_handoff_path": str(output_dir / "redthread_execution_handoff.json"),
         "execution_candidate_count": handoff["summary"]["candidate_count"],
         "ready_for_redthread_review_count": handoff["summary"]["ready_for_redthread_review_count"],
+        "redthread_intent_evidence_path": str(output_dir / "redthread_intent_evidence.json"),
+        "redthread_importable": importability_report["importable"],
+        "candidate_workflow_created": importability_report["candidate_workflow_created"],
     }
     if local_llm_status:
         result["local_llm_status"] = local_llm_status

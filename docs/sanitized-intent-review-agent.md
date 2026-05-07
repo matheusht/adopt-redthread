@@ -1,6 +1,6 @@
 # Sanitized Intent Review Agent
 
-Schema versions: `adopt_redthread.sanitized_intent_review_context.v0`, `adopt_redthread.sanitized_intent_review.v0`, `adopt_redthread.redthread_evidence_export.v0`
+Schema versions: `adopt_redthread.sanitized_intent_review_context.v0`, `adopt_redthread.sanitized_intent_review.v0`, `adopt_redthread.redthread_evidence_export.v0`, `adopt_redthread.execution_handoff.v0`
 
 Status: Phase 1-8 local implementation target.
 
@@ -23,6 +23,7 @@ sanitized batch artifacts
   -> intent_review.json
   -> intent_review.md
   -> redthread_evidence_export.json
+  -> redthread_execution_handoff.json/md
 ```
 
 The agent reads only these sanitized inputs:
@@ -97,6 +98,8 @@ intent_review.json              intent_review.md
         v
 redthread_evidence_export.json
         |
+        +--> redthread_execution_handoff.json/md
+        |       (deterministic execution candidates; no live execution authorization)
         v
 RedThread evaluation / judge / gate semantics
 ```
@@ -153,6 +156,63 @@ Required top-level fields:
 
 The export must say RedThread evaluation is required. It must not claim a local final decision, confirmed finding, severity, or release override.
 
+The export includes an `execution_handoff` pointer/summary with:
+
+- `artifact_name: redthread_execution_handoff.json`
+- candidate count
+- `redthread_final_gate_required: true`
+- `live_execution_allowed: false`
+- `raw_artifacts_included: false`
+
+This pointer is planning metadata only. It is not a live attack authorization.
+
+### `redthread_execution_handoff.json`
+
+Deterministic RedThread execution handoff generated after sanitized review validation.
+
+Required top-level fields:
+
+- `schema_version: adopt_redthread.execution_handoff.v0`
+- `source`
+- `summary`
+- `execution_candidates`
+
+Each candidate contains:
+
+- `candidate_id`
+- `subject_id`
+- `rank`
+- `candidate_workflow_intent`
+- `evidence_strength`
+- `execution_readiness`
+- `recommended_redthread_action`
+- `operator_summary`
+- `supporting_sanitized_observations`
+- `missing_context`
+- `execution_constraints`
+- `redthread_decides`
+- `forbidden_interpretation`
+
+Every candidate must cite at least one sanitized observation ID. Recommended actions are constrained to:
+
+- `collect_boundary_context`
+- `collect_reviewer_observation`
+- `evaluate_sanitized_export`
+- `prepare_reviewed_replay_plan`
+- `redthread_triage`
+
+The handoff is deliberately deterministic in this phase. Local LLM output may enrich only `subjects[].local_model_observations` in `intent_review.json`; it must not author `redthread_execution_handoff` or `execution_candidates` directly.
+
+### `redthread_execution_handoff.md`
+
+Operator-facing companion that answers:
+
+1. what workflow RedThread should consider next;
+2. why, citing sanitized observation IDs;
+3. what context is missing;
+4. whether the candidate is ready for RedThread review;
+5. what RedThread, not adopt-redthread, must decide.
+
 ## Safety and privacy invariants
 
 - LLM receives sanitized artifacts only.
@@ -163,7 +223,9 @@ The export must say RedThread evaluation is required. It must not claim a local 
 - No scanner, exploit, severity, vulnerability, or confirmed-finding language from the intent agent.
 - RedThread owns final evaluation semantics.
 - Agent outputs are schema-valid and marker-audited.
-- Every conclusion is labeled as hypothesis, evidence gap, reviewer question, export-ready evidence, or approved-execution requirement.
+- Every execution handoff candidate cites sanitized observation IDs.
+- The local model does not author execution handoff candidates; candidate planning remains deterministic until a stricter candidate validator exists.
+- Every conclusion is labeled as hypothesis, evidence gap, reviewer question, export-ready evidence, approved-execution requirement, or RedThread execution candidate.
 - Confirmed finding is always false in this layer.
 
 ## Failure modes and mitigations
@@ -310,6 +372,57 @@ Verification:
 ```bash
 python3 -m unittest tests.test_sanitized_intent_review
 ```
+
+### Current execution handoff implementation slice — phases 4-6
+
+This slice extends the deterministic handoff added in phases 1-3.
+
+#### Phase 4 — Build-output integration
+
+Objective: make the handoff a first-class output of `build_sanitized_intent_review()`.
+
+Implemented behavior:
+
+- builds `redthread_execution_handoff.json` after intent review and advancement summary;
+- validates the handoff before writing final artifacts;
+- writes `redthread_execution_handoff.md` for operator review;
+- writes `redthread_execution_handoff_validation.json`;
+- includes handoff payloads in the privacy audit;
+- returns `execution_handoff_path`, `execution_candidate_count`, and `ready_for_redthread_review_count` from the CLI/API result.
+
+Acceptance criteria:
+
+- every subject has a deterministic execution candidate;
+- every candidate has sanitized observation citations;
+- handoff validation passes before artifacts are written;
+- live execution remains disabled and RedThread final gate remains required.
+
+#### Phase 5 — RedThread export pointer
+
+Objective: make `redthread_evidence_export.json` tell RedThread where to find the handoff without embedding attack execution authority.
+
+Implemented behavior:
+
+- adds `execution_handoff` summary metadata to the export;
+- records `artifact_name: redthread_execution_handoff.json`;
+- records candidate count and safety constraints;
+- keeps `live_execution_allowed: false`;
+- keeps `redthread_final_gate_required: true`.
+
+This is a pointer and planning summary only. It does not authorize replay, mutation, live attack execution, release promotion, or a confirmed finding.
+
+#### Phase 6 — Local LLM handoff contract boundary
+
+Objective: ensure optional local LLM reasoning cannot become the handoff author.
+
+Implemented behavior:
+
+- `llm_intent_review_prompt.json` now states that execution handoff candidates are generated deterministically after review validation;
+- the local model is told not to return `redthread_execution_handoff` or `execution_candidates`;
+- allowed LLM enrichment remains restricted to `subjects[].local_model_observations`;
+- handoff candidate recommendations still require deterministic sanitized observation IDs.
+
+Future work may allow LLM-suggested candidate wording only after a stricter validator requires observation citations, rejects unsafe semantics, and compares subject IDs.
 
 ### Phase 6 — Batch review workflow integration
 

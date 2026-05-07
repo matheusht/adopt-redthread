@@ -848,6 +848,15 @@ def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
             }
             for s in subjects
         ],
+        "execution_handoff": {
+            "artifact_name": "redthread_execution_handoff.json",
+            "schema_version": EXECUTION_HANDOFF_SCHEMA_VERSION,
+            "candidate_count": len(subjects),
+            "redthread_final_gate_required": True,
+            "live_execution_allowed": False,
+            "raw_artifacts_included": False,
+            "status": "deterministic_handoff_generated_after_review_validation",
+        },
         "execution_requirements": [
             {
                 "subject_id": s["subject_id"],
@@ -1007,7 +1016,27 @@ def _validate_llm_review(review: dict[str, Any], context: dict[str, Any]) -> dic
     actual_subject_ids = {str(subject.get("subject_id")) for subject in review.get("subjects", [])}
     if actual_subject_ids != expected_subject_ids:
         raise ValueError("LLM review output subject set does not match sanitized context")
+    required_subject_keys = {
+        "subject_id",
+        "workflow_classification",
+        "endpoint_role_categories",
+        "intent_hypotheses",
+        "test_hypotheses",
+        "missing_evidence",
+        "reviewer_questions",
+        "redthread_export_readiness",
+        "approved_execution_requirements",
+        "finding_semantics",
+    }
+    required_workflow_keys = {"workflow_class", "read_relevance", "write_relevance", "auth_relevance", "boundary_relevance", "side_effect_risk"}
     for subject in review.get("subjects", []):
+        missing_subject_keys = required_subject_keys - set(subject)
+        if missing_subject_keys:
+            raise ValueError(f"LLM review subject missing required keys: {sorted(missing_subject_keys)}")
+        workflow = subject.get("workflow_classification", {})
+        missing_workflow_keys = required_workflow_keys - set(workflow)
+        if missing_workflow_keys:
+            raise ValueError(f"LLM review workflow_classification missing required keys: {sorted(missing_workflow_keys)}")
         finding = subject.get("finding_semantics", {})
         if finding.get("confirmed_finding_claimed") or finding.get("severity_claimed") or finding.get("scanner_claimed"):
             raise ValueError("LLM review output attempted to claim finding, severity, or scanner semantics")
@@ -1082,7 +1111,7 @@ def _write_llm_prompt(output_dir: Path, context: dict[str, Any]) -> None:
     output_template = build_intent_review(context)
     prompt = {
         "role": "Sanitized Intent Review Agent",
-        "task": "Return one JSON object matching required_output_template. Use sanitized_context only to improve advisory intent labels, local_model_observations, gaps, and reviewer questions when evidence supports it.",
+        "task": "Return one JSON object matching required_output_template. Use sanitized_context only to improve advisory intent labels, local_model_observations, gaps, and reviewer questions when evidence supports it. RedThread execution handoff candidates are generated deterministically after this review is validated.",
         "output_rules": [
             "Return ONLY JSON. Do not wrap in markdown fences.",
             "The top-level schema_version must be adopt_redthread.sanitized_intent_review.v0.",
@@ -1092,6 +1121,7 @@ def _write_llm_prompt(output_dir: Path, context: dict[str, Any]) -> None:
             "Replace not_provided_by_deterministic_review values in local_model_observations when sanitized_context supports a specific advisory observation.",
             "Set local_model_observations.useful_delta=true only when you add a materially useful observation beyond the template; otherwise keep false.",
             "Keep RedThread as the final evaluator; do not approve, block, or claim release decisions.",
+            "Do not author redthread_execution_handoff or execution_candidates in this response; use local_model_observations only for bounded advisory reasoning.",
         ],
         "forbidden": [
             "raw HAR access",
@@ -1101,6 +1131,17 @@ def _write_llm_prompt(output_dir: Path, context: dict[str, Any]) -> None:
         ],
         "required_schema_version": REVIEW_SCHEMA_VERSION,
         "required_output_template": output_template,
+        "execution_handoff_policy": {
+            "generated_by": "adopt-redthread deterministic builder after review validation",
+            "local_model_may_author_candidates": False,
+            "local_model_allowed_enrichment_field": "subjects[].local_model_observations",
+            "candidate_requirements": [
+                "candidate recommendations must cite sanitized observation IDs",
+                "live execution remains false",
+                "RedThread final gate remains required",
+                "no finding, severity, exploit proof, scanner, or release decision claims"
+            ],
+        },
         "sanitized_context": context,
     }
     _write_json(output_dir / "llm_intent_review_prompt.json", prompt)

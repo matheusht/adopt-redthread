@@ -120,6 +120,9 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertFalse(subject["local_model_observations"]["useful_delta"])
             self.assertIn("RedThread first check", markdown)
             self.assertTrue(export["promotion_semantics"]["redthread_evaluation_required"])
+            self.assertEqual(export["execution_handoff"]["artifact_name"], "redthread_execution_handoff.json")
+            self.assertEqual(export["execution_handoff"]["candidate_count"], 1)
+            self.assertFalse(export["execution_handoff"]["live_execution_allowed"])
             self.assertFalse(export["promotion_semantics"]["confirmed_security_finding_claimed"])
             self.assertFalse(export["promotion_semantics"]["release_gate_override"])
             advancement = json.loads((out / "advancement_summary.json").read_text(encoding="utf-8"))
@@ -255,6 +258,8 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertEqual(prompt["required_output_template"]["schema_version"], "adopt_redthread.sanitized_intent_review.v0")
             self.assertIn("local_model_observations", prompt["required_output_template"]["subjects"][0])
             self.assertIn("Do not return sanitized_context as the top-level object.", prompt["output_rules"])
+            self.assertFalse(prompt["execution_handoff_policy"]["local_model_may_author_candidates"])
+            self.assertEqual(prompt["execution_handoff_policy"]["local_model_allowed_enrichment_field"], "subjects[].local_model_observations")
             self.assertFalse((root / "out" / "intent_review.json").exists())
 
     def test_auto_mode_falls_back_to_deterministic_when_local_llm_unavailable(self) -> None:
@@ -290,6 +295,25 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertFalse(result["local_llm_status"]["fallback_to_deterministic"])
             review = json.loads((root / "out" / "intent_review.json").read_text(encoding="utf-8"))
             self.assertEqual(review["subjects"][0]["intent_hypotheses"][0]["label"], "local_model_advisory_intent")
+
+    def test_auto_mode_rejects_structurally_incomplete_local_llm_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            context = build_intent_review_context(batch)
+            llm_review = build_intent_review(context)
+            del llm_review["subjects"][0]["workflow_classification"]["workflow_class"]
+            llm_path = root / "llm_review.json"
+            llm_path.write_text(json.dumps(llm_review), encoding="utf-8")
+
+            with patch.dict(os.environ, {"INTENT_REVIEW_LOCAL_LLM_CMD": f"cat {llm_path}"}, clear=True):
+                result = build_sanitized_intent_review(batch, root / "out", agent_mode="auto")
+
+            self.assertEqual(result["local_llm_status"]["status"], "failed")
+            self.assertTrue(result["local_llm_status"]["fallback_to_deterministic"])
+            review = json.loads((root / "out" / "intent_review.json").read_text(encoding="utf-8"))
+            self.assertEqual(review["subjects"][0]["workflow_classification"]["workflow_class"], "mixed")
+            self.assertTrue((root / "out" / "redthread_execution_handoff.json").exists())
 
     def test_llm_mode_accepts_schema_valid_offline_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

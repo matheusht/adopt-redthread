@@ -152,6 +152,8 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertFalse(candidate["execution_constraints"]["live_execution_allowed"])
             self.assertTrue(candidate["execution_constraints"]["redthread_final_gate_required"])
             self.assertTrue(handoff_validation["passed"])
+            self.assertTrue(handoff_validation["privacy_audit_passed"])
+            self.assertIn("observation_citations_required", handoff_validation["validated_rules"])
             self.assertIn("Recommended RedThread action", handoff_markdown)
 
     def test_context_intake_makes_proof_subject_more_specific(self) -> None:
@@ -210,6 +212,26 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertEqual(candidate["candidate_workflow_intent"], "authorization_boundary_review_candidate")
             self.assertEqual(candidate["execution_readiness"], "ready_for_redthread_review")
             self.assertEqual(candidate["recommended_redthread_action"], "evaluate_sanitized_export")
+
+    def test_execution_handoff_validation_rejects_unsafe_semantics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            context = build_intent_review_context(batch)
+            review = build_intent_review(context)
+            handoff = build_redthread_execution_handoff(review)
+            candidate = handoff["execution_candidates"][0]
+            candidate["execution_constraints"]["live_execution_allowed"] = True
+            candidate["recommended_redthread_action"] = "execute_live_attack"
+            candidate["operator_summary"] = "confirmed vulnerability with high severity"
+
+            validation = validate_execution_handoff(handoff, review)
+
+            self.assertFalse(validation["passed"])
+            self.assertIn("candidate.subject_001_candidate_001.live_execution_allowed", validation["errors"])
+            self.assertIn("candidate.subject_001_candidate_001.recommended_redthread_action", validation["errors"])
+            self.assertIn("candidate.subject_001_candidate_001.forbidden_language.confirmed_vulnerability", validation["errors"])
+            self.assertIn("candidate.subject_001_candidate_001.forbidden_language.high_severity", validation["errors"])
 
     def test_execution_handoff_validation_requires_observation_citations(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -424,6 +424,76 @@ Implemented behavior:
 
 Future work may allow LLM-suggested candidate wording only after a stricter validator requires observation citations, rejects unsafe semantics, and compares subject IDs.
 
+#### Phase 7 — Handoff validation rules
+
+Objective: reject unsafe or malformed RedThread execution handoffs before export.
+
+Implemented validation checks:
+
+- top-level schema version is `adopt_redthread.execution_handoff.v0`;
+- source declares `raw_artifacts_included: false`;
+- summary declares `live_execution_allowed: false`;
+- summary declares `redthread_final_gate_required: true`;
+- candidate subject IDs match reviewed subjects;
+- candidate IDs are unique;
+- every candidate includes all required keys;
+- every candidate uses an allowed `recommended_redthread_action` enum;
+- every candidate has at least one `supporting_sanitized_observations[].observation_id`;
+- every candidate keeps `execution_constraints.live_execution_allowed: false`;
+- every candidate keeps `execution_constraints.redthread_final_gate_required: true`;
+- every candidate keeps `execution_constraints.approved_context_required: true`;
+- candidate planning text is scanned for forbidden overclaim language such as confirmed vulnerability, severity, scanner result, release approval, exploit confirmation, or live execution authorization;
+- the handoff payload passes the same marker/raw-field audit used by sanitized review artifacts.
+
+The validator writes `redthread_execution_handoff_validation.json` with:
+
+- `passed`
+- `error_count`
+- `errors`
+- `candidate_count`
+- `privacy_audit_passed`
+- `raw_field_hit_count`
+- `marker_hit_count`
+- `allowed_recommended_actions`
+- `validated_rules`
+
+#### Phase 8 — Operator Markdown UX
+
+Objective: make `redthread_execution_handoff.md` the quickest operator-facing artifact for deciding what RedThread should do next.
+
+The Markdown is organized as:
+
+- summary counts;
+- live execution and RedThread final-gate safety flags;
+- one candidate section per subject;
+- operator summary;
+- recommended RedThread action;
+- supporting sanitized observation citations;
+- missing context;
+- RedThread-owned decisions.
+
+The Markdown intentionally uses action enums like `collect_boundary_context`, `evaluate_sanitized_export`, and `prepare_reviewed_replay_plan` so operators can map the recommendation directly to RedThread workflow preparation without reading raw HARs or treating the output as a finding.
+
+#### Phase 9 — Evaluation harness metrics
+
+Objective: measure whether the pipeline produces useful RedThread handoff structure, not merely schema-valid local LLM output.
+
+`local_intent_review_eval.json` now records per-case handoff metrics:
+
+- `execution_candidate_present`
+- `next_redthread_action_clear`
+- `missing_context_clear`
+- `candidate_has_observation_citations`
+- `handoff_validation_passed`
+- `handoff_useful`
+
+The summary records counts for those metrics. `handoff_useful` requires candidate presence, clear next action, explicit missing-context field, observation citations, passing handoff validation, RedThread final gate enabled, and live execution disabled.
+
+This separates two questions:
+
+1. Did the local model add a useful advisory delta?
+2. Did the deterministic handoff give RedThread an actionable, safe next-step candidate?
+
 ### Phase 6 — Batch review workflow integration
 
 Objective: integrate the intent review into the existing HAR batch review workflow.

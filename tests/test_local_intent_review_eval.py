@@ -22,6 +22,11 @@ class LocalIntentReviewEvalTests(unittest.TestCase):
             self.assertEqual(report["summary"]["case_count"], 1)
             self.assertEqual(report["summary"]["fallback_count"], 1)
             self.assertEqual(report["summary"]["privacy_failure_count"], 0)
+            self.assertEqual(report["summary"]["handoff_useful_count"], 1)
+            self.assertTrue(report["cases"][0]["execution_candidate_present"])
+            self.assertTrue(report["cases"][0]["next_redthread_action_clear"])
+            self.assertTrue(report["cases"][0]["missing_context_clear"])
+            self.assertTrue(report["cases"][0]["candidate_has_observation_citations"])
             self.assertTrue((root / "eval" / "local_intent_review_eval.md").exists())
 
     def test_eval_reports_useful_delta_from_valid_local_output(self) -> None:
@@ -42,6 +47,7 @@ class LocalIntentReviewEvalTests(unittest.TestCase):
             self.assertEqual(report["summary"]["useful_delta_count"], 1)
             self.assertFalse(report["cases"][0]["empty_diff"])
             self.assertTrue(report["cases"][0]["local_observation_delta_claimed"])
+            self.assertTrue(report["cases"][0]["handoff_useful"])
 
 
 if __name__ == "__main__":

@@ -40,6 +40,32 @@ HANDOFF_RECOMMENDED_ACTIONS = {
     "prepare_reviewed_replay_plan",
     "redthread_triage",
 }
+HANDOFF_REQUIRED_CANDIDATE_KEYS = {
+    "candidate_id",
+    "subject_id",
+    "rank",
+    "candidate_workflow_intent",
+    "evidence_strength",
+    "execution_readiness",
+    "recommended_redthread_action",
+    "operator_summary",
+    "supporting_sanitized_observations",
+    "missing_context",
+    "execution_constraints",
+    "redthread_decides",
+    "forbidden_interpretation",
+}
+HANDOFF_FORBIDDEN_LANGUAGE = (
+    "confirmed finding",
+    "confirmed vulnerability",
+    "critical severity",
+    "high severity",
+    "exploit confirmed",
+    "scanner result",
+    "release approved",
+    "live execution allowed",
+    "is vulnerable",
+)
 
 REVIEW_REQUIRED_KEYS = {
     "schema_version",
@@ -718,13 +744,36 @@ def build_redthread_execution_handoff(review: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _candidate_text_forbidden_scan(candidate: dict[str, Any]) -> str:
+    scan_payload = {
+        key: value
+        for key, value in candidate.items()
+        if key not in {"forbidden_interpretation", "redthread_decides"}
+    }
+    return json.dumps(scan_payload, sort_keys=True).casefold()
+
+
 def validate_execution_handoff(handoff: dict[str, Any], review: dict[str, Any]) -> dict[str, Any]:
     errors: list[str] = []
     if handoff.get("schema_version") != EXECUTION_HANDOFF_SCHEMA_VERSION:
         errors.append("redthread_execution_handoff.schema_version")
+    if handoff.get("source", {}).get("raw_artifacts_included"):
+        errors.append("redthread_execution_handoff.source.raw_artifacts_included")
+    summary = handoff.get("summary", {})
+    if summary.get("live_execution_allowed"):
+        errors.append("redthread_execution_handoff.summary.live_execution_allowed")
+    if not summary.get("redthread_final_gate_required"):
+        errors.append("redthread_execution_handoff.summary.redthread_final_gate_required")
     subject_ids = {str(subject.get("subject_id")) for subject in review.get("subjects", [])}
+    candidate_ids: set[str] = set()
     for candidate in handoff.get("execution_candidates", []):
-        candidate_id = candidate.get("candidate_id", "unknown_candidate")
+        candidate_id = str(candidate.get("candidate_id", "unknown_candidate"))
+        if candidate_id in candidate_ids:
+            errors.append(f"candidate.{candidate_id}.duplicate_candidate_id")
+        candidate_ids.add(candidate_id)
+        missing_keys = HANDOFF_REQUIRED_CANDIDATE_KEYS - set(candidate)
+        for key in sorted(missing_keys):
+            errors.append(f"candidate.{candidate_id}.missing.{key}")
         if str(candidate.get("subject_id")) not in subject_ids:
             errors.append(f"candidate.{candidate_id}.subject_id")
         constraints = candidate.get("execution_constraints", {})
@@ -732,6 +781,8 @@ def validate_execution_handoff(handoff: dict[str, Any], review: dict[str, Any]) 
             errors.append(f"candidate.{candidate_id}.live_execution_allowed")
         if not constraints.get("redthread_final_gate_required"):
             errors.append(f"candidate.{candidate_id}.redthread_final_gate_required")
+        if not constraints.get("approved_context_required"):
+            errors.append(f"candidate.{candidate_id}.approved_context_required")
         if candidate.get("recommended_redthread_action") not in HANDOFF_RECOMMENDED_ACTIONS:
             errors.append(f"candidate.{candidate_id}.recommended_redthread_action")
         if not candidate.get("supporting_sanitized_observations"):
@@ -739,11 +790,34 @@ def validate_execution_handoff(handoff: dict[str, Any], review: dict[str, Any]) 
         for obs in candidate.get("supporting_sanitized_observations", []):
             if not obs.get("observation_id"):
                 errors.append(f"candidate.{candidate_id}.observation_id")
+        lower = _candidate_text_forbidden_scan(candidate)
+        for phrase in HANDOFF_FORBIDDEN_LANGUAGE:
+            if phrase in lower:
+                errors.append(f"candidate.{candidate_id}.forbidden_language.{phrase.replace(' ', '_')}")
+    audit = marker_audit(json.dumps(handoff, sort_keys=True))
+    if not audit.get("passed"):
+        errors.append("redthread_execution_handoff.privacy_audit")
     return {
         "schema_version": "adopt_redthread.execution_handoff_validation.v0",
         "passed": not errors,
         "error_count": len(errors),
         "errors": errors,
+        "candidate_count": len(handoff.get("execution_candidates", [])),
+        "privacy_audit_passed": bool(audit.get("passed")),
+        "raw_field_hit_count": int(audit.get("raw_field_hit_count", 0)),
+        "marker_hit_count": int(audit.get("marker_hit_count", 0)),
+        "allowed_recommended_actions": sorted(HANDOFF_RECOMMENDED_ACTIONS),
+        "validated_rules": [
+            "schema_version",
+            "summary_safety_flags",
+            "subject_id_set",
+            "candidate_required_keys",
+            "recommended_action_enum",
+            "observation_citations_required",
+            "execution_constraints",
+            "forbidden_language",
+            "privacy_marker_audit",
+        ],
     }
 
 

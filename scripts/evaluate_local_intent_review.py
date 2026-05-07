@@ -60,6 +60,9 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
     privacy = _read_json(local_dir / "privacy_audit.json")
     schema = _read_json(local_dir / "schema_validation.json")
     export = _read_json(local_dir / "redthread_evidence_export.json")
+    handoff = _read_json(local_dir / "redthread_execution_handoff.json")
+    handoff_validation = _read_json(local_dir / "redthread_execution_handoff_validation.json")
+    candidates = handoff.get("execution_candidates", [])
     empty_diff = deterministic_md == local_md
     deterministic_review = _read_json(deterministic_dir / "intent_review.json")
     local_review = _read_json(local_dir / "intent_review.json")
@@ -69,6 +72,19 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
         for subject in local_review.get("subjects", [])
     )
     forbidden_claim_count = int(privacy.get("forbidden_claim_language_hit_count", 0))
+    execution_candidate_present = bool(candidates)
+    candidate_has_observation_citations = bool(candidates) and all(bool(c.get("supporting_sanitized_observations")) for c in candidates)
+    next_redthread_action_clear = bool(candidates) and all(bool(c.get("recommended_redthread_action")) for c in candidates)
+    missing_context_clear = bool(candidates) and all("missing_context" in c for c in candidates)
+    handoff_useful = (
+        execution_candidate_present
+        and candidate_has_observation_citations
+        and next_redthread_action_clear
+        and missing_context_clear
+        and bool(handoff_validation.get("passed"))
+        and bool(handoff.get("summary", {}).get("redthread_final_gate_required"))
+        and not bool(handoff.get("summary", {}).get("live_execution_allowed"))
+    )
     useful_delta_present = bool(local_status.get("used")) and (not empty_diff or local_observation_flag or observation_delta)
     return {
         "case_id": case["case_id"],
@@ -82,6 +98,12 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
         "local_observation_delta_claimed": local_observation_flag,
         "structured_subject_delta_present": observation_delta,
         "privacy_audit_passed": bool(privacy.get("passed")),
+        "execution_candidate_present": execution_candidate_present,
+        "next_redthread_action_clear": next_redthread_action_clear,
+        "missing_context_clear": missing_context_clear,
+        "candidate_has_observation_citations": candidate_has_observation_citations,
+        "handoff_validation_passed": bool(handoff_validation.get("passed")),
+        "handoff_useful": handoff_useful,
         "forbidden_claim_count": forbidden_claim_count,
         "redthread_evaluation_required": bool(export.get("promotion_semantics", {}).get("redthread_evaluation_required")),
         "confirmed_finding_claimed": bool(export.get("promotion_semantics", {}).get("confirmed_security_finding_claimed")),
@@ -104,13 +126,14 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Empty diffs: {report['summary']['empty_diff_count']}",
         f"- Privacy failures: {report['summary']['privacy_failure_count']}",
         f"- Forbidden claims: {report['summary']['forbidden_claim_count']}",
+        f"- Useful handoffs: {report['summary']['handoff_useful_count']}",
         "",
-        "| Case | Local status | Fallback | Empty diff | Useful delta | Privacy |",
-        "|---|---|---:|---:|---:|---:|",
+        "| Case | Local status | Fallback | Empty diff | Useful delta | Handoff useful | Privacy |",
+        "|---|---|---:|---:|---:|---:|---:|",
     ]
     for case in report.get("cases", []):
         lines.append(
-            f"| `{case['case_id']}` | `{case['local_llm_status']}` | {case['fallback_used']} | {case['empty_diff']} | {case['useful_delta_present']} | {case['privacy_audit_passed']} |"
+            f"| `{case['case_id']}` | `{case['local_llm_status']}` | {case['fallback_used']} | {case['empty_diff']} | {case['useful_delta_present']} | {case['handoff_useful']} | {case['privacy_audit_passed']} |"
         )
     lines.extend([
         "",
@@ -165,6 +188,11 @@ def evaluate_local_intent_review(
         "empty_diff_count": sum(1 for c in cases if c["empty_diff"]),
         "privacy_failure_count": sum(1 for c in cases if not c["privacy_audit_passed"]),
         "forbidden_claim_count": sum(int(c["forbidden_claim_count"]) for c in cases),
+        "execution_candidate_present_count": sum(1 for c in cases if c["execution_candidate_present"]),
+        "next_redthread_action_clear_count": sum(1 for c in cases if c["next_redthread_action_clear"]),
+        "missing_context_clear_count": sum(1 for c in cases if c["missing_context_clear"]),
+        "candidate_has_observation_citations_count": sum(1 for c in cases if c["candidate_has_observation_citations"]),
+        "handoff_useful_count": sum(1 for c in cases if c["handoff_useful"]),
     }
     report = {
         "schema_version": EVAL_SCHEMA_VERSION,

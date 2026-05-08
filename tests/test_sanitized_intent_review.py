@@ -12,6 +12,8 @@ from scripts.build_sanitized_intent_review import (
     build_intent_review_context,
     build_redthread_evidence_export,
     build_redthread_execution_handoff,
+    build_product_proof_report,
+    build_redthread_candidate_workflow_import,
     build_redthread_importability_report,
     build_redthread_intent_evidence,
     build_sanitized_intent_review,
@@ -307,6 +309,28 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertIn("attack_plan.step_001_001.success_condition", validation["errors"])
             self.assertIn("redthread_import.judge_agent_required", validation["errors"])
             self.assertIn("redthread_import.eligible_for_regression", validation["errors"])
+
+    def test_candidate_workflow_import_blocks_invalid_intent_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root)
+            context = build_intent_review_context(batch)
+            review = build_intent_review(context)
+            handoff = build_redthread_execution_handoff(review)
+            package = build_redthread_intent_evidence(review, handoff)
+            package["attack_plan"]["steps"][0]["requires_live_execution"] = True
+
+            validation = validate_redthread_intent_evidence(package)
+            importability = build_redthread_importability_report(package, validation)
+            workflow_import = build_redthread_candidate_workflow_import(package, validation)
+            proof = build_product_proof_report(package, validation, importability, workflow_import)
+
+            self.assertFalse(validation["importable"])
+            self.assertEqual(workflow_import["import_status"], "blocked")
+            self.assertEqual(workflow_import["candidate_workflow_count"], 0)
+            self.assertFalse(proof["passed"])
+            self.assertFalse(workflow_import["adopt_redthread_claims"]["finding_created"])
+            self.assertFalse(workflow_import["adopt_redthread_claims"]["live_execution_authorized"])
 
     def test_schema_validation_rejects_release_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

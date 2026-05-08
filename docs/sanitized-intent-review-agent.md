@@ -678,6 +678,54 @@ The product proof passes only when all of the following are true:
 
 For `cartao_filtered.har`, success is no longer that a review exists. Success is that the pipeline creates an importable candidate workflow package with cited sanitized evidence and a passing product proof while preserving all RedThread ownership boundaries.
 
+### Phase 17 — Import contract negative proof
+
+Objective: prove unsafe packages do not create candidate workflows.
+
+The local candidate workflow import contract now has explicit blocked behavior:
+
+- invalid intent evidence produces `import_status: blocked`;
+- invalid intent evidence creates zero candidate workflows;
+- blocked imports still record that adopt-redthread created no finding, assigned no severity, authorized no live execution, and promoted no regression;
+- product proof fails when the import contract blocks.
+
+Tests mutate otherwise-valid packages to require live execution and assert that validation, import, and product proof all block safely.
+
+### Phase 18 — Evaluation metrics for RedThread import value
+
+Objective: make the evaluation harness measure RedThread import value, not only local model deltas or handoff presence.
+
+`local_intent_review_eval.json` now includes per-case metrics:
+
+- `redthread_intent_evidence_importable`
+- `redthread_intent_evidence_validation_passed`
+- `candidate_workflow_created`
+- `workflow_import_safe`
+- `product_proof_passed`
+- `judge_required`
+
+The summary includes counts for each metric. This makes default-auto local model evaluation answer two separate questions:
+
+1. Did the local model add a useful bounded advisory delta?
+2. Did the deterministic pipeline still produce importable, safe RedThread candidate workflow input?
+
+A local model can fail or fall back while the deterministic RedThread import proof still passes.
+
+### Phase 19 — Cartao product-proof rerun
+
+Objective: keep `cartao_filtered.har` as the golden product-value fixture for importability.
+
+The current product proof target is:
+
+```text
+redthread_importable: true
+candidate_workflow_created: true
+product_proof_passed: true
+privacy_audit.passed: true
+```
+
+The operator handoff for the current sanitized `cartao` batch recommends collecting approved boundary context before RedThread-owned authorization-boundary evaluation. That is intentionally not a finding and not live execution authorization. It is a RedThread-importable next action with cited sanitized evidence.
+
 ### Phase 6 — Batch review workflow integration
 
 Objective: integrate the intent review into the existing HAR batch review workflow.

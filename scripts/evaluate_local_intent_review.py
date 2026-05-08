@@ -62,6 +62,10 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
     export = _read_json(local_dir / "redthread_evidence_export.json")
     handoff = _read_json(local_dir / "redthread_execution_handoff.json")
     handoff_validation = _read_json(local_dir / "redthread_execution_handoff_validation.json")
+    intent_evidence_validation = _read_json(local_dir / "redthread_intent_evidence_validation.json")
+    importability = _read_json(local_dir / "redthread_importability_report.json")
+    workflow_import = _read_json(local_dir / "redthread_candidate_workflow_import.json")
+    product_proof = _read_json(local_dir / "redthread_product_proof.json")
     candidates = handoff.get("execution_candidates", [])
     empty_diff = deterministic_md == local_md
     deterministic_review = _read_json(deterministic_dir / "intent_review.json")
@@ -85,6 +89,19 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
         and bool(handoff.get("summary", {}).get("redthread_final_gate_required"))
         and not bool(handoff.get("summary", {}).get("live_execution_allowed"))
     )
+    redthread_importable = bool(importability.get("importable"))
+    candidate_workflow_created = bool(workflow_import.get("candidate_workflow_count", 0))
+    product_proof_passed = bool(product_proof.get("passed"))
+    judge_required = bool(importability.get("judge_required")) and all(
+        bool(workflow.get("judge_agent_required"))
+        for workflow in workflow_import.get("candidate_workflows", [])
+    )
+    workflow_import_safe = (
+        workflow_import.get("import_status") == "imported_as_candidate_workflows"
+        and not workflow_import.get("adopt_redthread_claims", {}).get("finding_created")
+        and not workflow_import.get("adopt_redthread_claims", {}).get("severity_assigned")
+        and not workflow_import.get("adopt_redthread_claims", {}).get("live_execution_authorized")
+    )
     useful_delta_present = bool(local_status.get("used")) and (not empty_diff or local_observation_flag or observation_delta)
     return {
         "case_id": case["case_id"],
@@ -104,6 +121,12 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
         "candidate_has_observation_citations": candidate_has_observation_citations,
         "handoff_validation_passed": bool(handoff_validation.get("passed")),
         "handoff_useful": handoff_useful,
+        "redthread_intent_evidence_importable": redthread_importable,
+        "redthread_intent_evidence_validation_passed": bool(intent_evidence_validation.get("valid")),
+        "candidate_workflow_created": candidate_workflow_created,
+        "workflow_import_safe": workflow_import_safe,
+        "product_proof_passed": product_proof_passed,
+        "judge_required": judge_required,
         "forbidden_claim_count": forbidden_claim_count,
         "redthread_evaluation_required": bool(export.get("promotion_semantics", {}).get("redthread_evaluation_required")),
         "confirmed_finding_claimed": bool(export.get("promotion_semantics", {}).get("confirmed_security_finding_claimed")),
@@ -127,13 +150,16 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Privacy failures: {report['summary']['privacy_failure_count']}",
         f"- Forbidden claims: {report['summary']['forbidden_claim_count']}",
         f"- Useful handoffs: {report['summary']['handoff_useful_count']}",
+        f"- RedThread importable cases: {report['summary']['redthread_importable_count']}",
+        f"- Candidate workflow cases: {report['summary']['candidate_workflow_created_count']}",
+        f"- Product proof passed: {report['summary']['product_proof_passed_count']}",
         "",
-        "| Case | Local status | Fallback | Empty diff | Useful delta | Handoff useful | Privacy |",
-        "|---|---|---:|---:|---:|---:|---:|",
+        "| Case | Local status | Fallback | Empty diff | Useful delta | Handoff useful | Importable | Product proof | Privacy |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for case in report.get("cases", []):
         lines.append(
-            f"| `{case['case_id']}` | `{case['local_llm_status']}` | {case['fallback_used']} | {case['empty_diff']} | {case['useful_delta_present']} | {case['handoff_useful']} | {case['privacy_audit_passed']} |"
+            f"| `{case['case_id']}` | `{case['local_llm_status']}` | {case['fallback_used']} | {case['empty_diff']} | {case['useful_delta_present']} | {case['handoff_useful']} | {case['redthread_intent_evidence_importable']} | {case['product_proof_passed']} | {case['privacy_audit_passed']} |"
         )
     lines.extend([
         "",
@@ -193,6 +219,12 @@ def evaluate_local_intent_review(
         "missing_context_clear_count": sum(1 for c in cases if c["missing_context_clear"]),
         "candidate_has_observation_citations_count": sum(1 for c in cases if c["candidate_has_observation_citations"]),
         "handoff_useful_count": sum(1 for c in cases if c["handoff_useful"]),
+        "redthread_importable_count": sum(1 for c in cases if c["redthread_intent_evidence_importable"]),
+        "intent_evidence_validation_passed_count": sum(1 for c in cases if c["redthread_intent_evidence_validation_passed"]),
+        "candidate_workflow_created_count": sum(1 for c in cases if c["candidate_workflow_created"]),
+        "workflow_import_safe_count": sum(1 for c in cases if c["workflow_import_safe"]),
+        "product_proof_passed_count": sum(1 for c in cases if c["product_proof_passed"]),
+        "judge_required_count": sum(1 for c in cases if c["judge_required"]),
     }
     report = {
         "schema_version": EVAL_SCHEMA_VERSION,

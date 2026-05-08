@@ -148,6 +148,9 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             intent_evidence = json.loads((out / "redthread_intent_evidence.json").read_text(encoding="utf-8"))
             intent_evidence_validation = json.loads((out / "redthread_intent_evidence_validation.json").read_text(encoding="utf-8"))
             importability_report = json.loads((out / "redthread_importability_report.json").read_text(encoding="utf-8"))
+            workflow_import = json.loads((out / "redthread_candidate_workflow_import.json").read_text(encoding="utf-8"))
+            product_proof = json.loads((out / "redthread_product_proof.json").read_text(encoding="utf-8"))
+            operator_handoff = (out / "redthread_operator_handoff.md").read_text(encoding="utf-8")
             candidate = handoff["execution_candidates"][0]
             self.assertEqual(handoff["schema_version"], "adopt_redthread.execution_handoff.v0")
             self.assertEqual(handoff["summary"]["candidate_count"], 1)
@@ -175,6 +178,17 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertTrue(intent_evidence_validation["importable"])
             self.assertTrue(importability_report["candidate_workflow_created"])
             self.assertEqual(importability_report["redthread_consumption_contract"]["import_as"], "candidate_evidence_not_finding")
+            self.assertEqual(workflow_import["schema_version"], "redthread.candidate_workflow_import.v1")
+            self.assertEqual(workflow_import["import_status"], "imported_as_candidate_workflows")
+            self.assertEqual(workflow_import["candidate_workflow_count"], 1)
+            self.assertFalse(workflow_import["adopt_redthread_claims"]["finding_created"])
+            self.assertFalse(workflow_import["candidate_workflows"][0]["live_execution_allowed"])
+            self.assertTrue(workflow_import["candidate_workflows"][0]["judge_agent_required"])
+            self.assertEqual(product_proof["schema_version"], "redthread.intent_evidence_product_proof.v1")
+            self.assertTrue(product_proof["passed"])
+            self.assertTrue(product_proof["metrics"]["candidate_workflow_created"])
+            self.assertIn("What should RedThread try next?", operator_handoff)
+            self.assertIn("What is explicitly not claimed?", operator_handoff)
 
     def test_context_intake_makes_proof_subject_more_specific(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

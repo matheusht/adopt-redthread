@@ -27,6 +27,8 @@ EXECUTION_HANDOFF_SCHEMA_VERSION = "adopt_redthread.execution_handoff.v0"
 INTENT_EVIDENCE_SCHEMA_VERSION = "redthread.intent_evidence.v1"
 INTENT_EVIDENCE_VALIDATION_SCHEMA_VERSION = "redthread.intent_evidence_validation.v1"
 IMPORTABILITY_REPORT_SCHEMA_VERSION = "redthread.importability_report.v1"
+CANDIDATE_WORKFLOW_IMPORT_SCHEMA_VERSION = "redthread.candidate_workflow_import.v1"
+PRODUCT_PROOF_SCHEMA_VERSION = "redthread.intent_evidence_product_proof.v1"
 
 ALLOWED_SUBJECT_ARTIFACTS = {
     "workflow_summary.json",
@@ -1154,6 +1156,171 @@ def render_importability_report_markdown(report: dict[str, Any]) -> str:
     ])
 
 
+def build_redthread_candidate_workflow_import(package: dict[str, Any], validation: dict[str, Any]) -> dict[str, Any]:
+    importable = bool(validation.get("importable"))
+    workflows = []
+    for index, step in enumerate(package.get("attack_plan", {}).get("steps", []), start=1):
+        workflows.append({
+            "workflow_id": f"candidate_workflow_{index:03d}",
+            "source_step_id": step.get("id"),
+            "subject_id": step.get("subject_id"),
+            "status": "candidate_created" if importable else "blocked",
+            "workflow_type": package.get("redthread_import", {}).get("recommended_workflow_type"),
+            "import_as": "candidate_evidence_not_finding",
+            "source_evidence_ids": step.get("supporting_evidence_ids", []),
+            "expected_signal": step.get("expected_signal"),
+            "success_condition": step.get("success_condition"),
+            "requires_human_review": True,
+            "judge_agent_required": True,
+            "live_execution_allowed": False,
+            "finding_created": False,
+            "severity_assigned": False,
+            "regression_promoted": False,
+            "blocked_reason": None if importable else validation.get("blocked_reason"),
+        })
+    return {
+        "schema_version": CANDIDATE_WORKFLOW_IMPORT_SCHEMA_VERSION,
+        "source_schema_version": package.get("schema_version"),
+        "import_status": "imported_as_candidate_workflows" if importable and workflows else "blocked",
+        "candidate_workflow_count": len(workflows) if importable else 0,
+        "blocked_reason": None if importable else validation.get("blocked_reason"),
+        "redthread_ownership": {
+            "execution": True,
+            "judgment": True,
+            "findings": True,
+            "severity": True,
+            "regression_promotion": True,
+        },
+        "adopt_redthread_claims": {
+            "finding_created": False,
+            "severity_assigned": False,
+            "live_execution_authorized": False,
+            "regression_promoted": False,
+        },
+        "candidate_workflows": workflows if importable else [],
+    }
+
+
+def build_product_proof_report(
+    package: dict[str, Any],
+    validation: dict[str, Any],
+    importability: dict[str, Any],
+    workflow_import: dict[str, Any],
+) -> dict[str, Any]:
+    metrics = {
+        "importable": bool(importability.get("importable")),
+        "privacy_safe": bool(importability.get("privacy_safe")),
+        "execution_ready": bool(importability.get("execution_ready")),
+        "judge_required": bool(importability.get("judge_required")),
+        "candidate_workflow_created": bool(workflow_import.get("candidate_workflow_count", 0)),
+        "evidence_count": len(package.get("evidence", [])),
+        "attack_step_count": len(package.get("attack_plan", {}).get("steps", [])),
+        "validation_error_count": int(validation.get("error_count", 0)),
+        "raw_field_hit_count": int(validation.get("raw_field_hit_count", 0)),
+        "marker_hit_count": int(validation.get("marker_hit_count", 0)),
+        "finding_claimed": False,
+        "severity_claimed": False,
+        "live_execution_authorized": False,
+    }
+    passed = all([
+        metrics["importable"],
+        metrics["privacy_safe"],
+        metrics["execution_ready"],
+        metrics["judge_required"],
+        metrics["candidate_workflow_created"],
+        metrics["evidence_count"] > 0,
+        metrics["attack_step_count"] > 0,
+        metrics["validation_error_count"] == 0,
+        metrics["raw_field_hit_count"] == 0,
+        metrics["marker_hit_count"] == 0,
+        not metrics["finding_claimed"],
+        not metrics["severity_claimed"],
+        not metrics["live_execution_authorized"],
+    ])
+    return {
+        "schema_version": PRODUCT_PROOF_SCHEMA_VERSION,
+        "passed": passed,
+        "status": "redthread_import_contract_proven" if passed else "blocked_before_redthread_import",
+        "metrics": metrics,
+        "success_criteria": [
+            "privacy_safe_importable_evidence_package",
+            "candidate_workflow_created_without_finding",
+            "sanitized_evidence_citations_preserved",
+            "judge_agent_required",
+            "no_live_execution_authorization",
+        ],
+        "blocked_reason": None if passed else importability.get("blocked_reason") or validation.get("blocked_reason"),
+    }
+
+
+def render_candidate_workflow_import_markdown(workflow_import: dict[str, Any]) -> str:
+    lines = [
+        "# RedThread Candidate Workflow Import",
+        "",
+        f"- Import status: {workflow_import['import_status']}",
+        f"- Candidate workflows: {workflow_import['candidate_workflow_count']}",
+        f"- Blocked reason: {workflow_import['blocked_reason'] or 'none'}",
+        "- Imported as findings: No",
+        "- Severity assigned: No",
+        "- Live execution authorized: No",
+        "",
+    ]
+    for workflow in workflow_import.get("candidate_workflows", []):
+        lines.extend([
+            f"## {workflow['workflow_id']}",
+            f"- Source step: `{workflow['source_step_id']}`",
+            f"- Subject: `{workflow['subject_id']}`",
+            f"- Workflow type: `{workflow['workflow_type']}`",
+            f"- Source evidence: {', '.join(workflow.get('source_evidence_ids', []))}",
+            f"- Expected signal: {workflow['expected_signal']}",
+            f"- Success condition: {workflow['success_condition']}",
+            "- JudgeAgent required: Yes",
+            "",
+        ])
+    return "\n".join(lines)
+
+
+def render_operator_handoff_markdown(
+    package: dict[str, Any],
+    importability: dict[str, Any],
+    workflow_import: dict[str, Any],
+    proof: dict[str, Any],
+) -> str:
+    first_step = (package.get("attack_plan", {}).get("steps") or [{}])[0]
+    evidence_ids = [item.get("id") for item in package.get("evidence", [])]
+    return "\n".join([
+        "# RedThread Operator Handoff",
+        "",
+        "## 1. What should RedThread try next?",
+        first_step.get("action", "No candidate workflow available."),
+        "",
+        "## 2. Why?",
+        f"The sanitized package is importable={importability['importable']}, privacy_safe={importability['privacy_safe']}, and candidate_workflow_created={workflow_import.get('candidate_workflow_count', 0) > 0}.",
+        "",
+        "## 3. What evidence supports it?",
+        ", ".join(evidence_ids) if evidence_ids else "No sanitized evidence items available.",
+        "",
+        "## 4. What context or approval is missing?",
+        package.get("intent", {}).get("authority_boundary", "unknown_or_sanitized_boundary_area"),
+        "",
+        "## 5. What is explicitly not claimed?",
+        "No finding, severity, exploit proof, release approval, regression promotion, or live execution authorization is claimed by adopt-redthread.",
+        "",
+        "## Product proof",
+        f"- Passed: {proof['passed']}",
+        f"- Status: {proof['status']}",
+        "",
+    ])
+
+
+def render_product_proof_markdown(proof: dict[str, Any]) -> str:
+    lines = ["# RedThread Intent Evidence Product Proof", "", f"- Passed: {proof['passed']}", f"- Status: {proof['status']}", f"- Blocked reason: {proof['blocked_reason'] or 'none'}", "", "## Metrics"]
+    for key, value in proof.get("metrics", {}).items():
+        lines.append(f"- {key}: `{value}`")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
     subjects = review.get("subjects", [])
     return {
@@ -1578,6 +1745,8 @@ def build_sanitized_intent_review(
     if not intent_evidence_validation["importable"]:
         raise ValueError(f"redthread intent evidence validation failed: {intent_evidence_validation}")
     importability_report = build_redthread_importability_report(intent_evidence, intent_evidence_validation)
+    candidate_workflow_import = build_redthread_candidate_workflow_import(intent_evidence, intent_evidence_validation)
+    product_proof = build_product_proof_report(intent_evidence, intent_evidence_validation, importability_report, candidate_workflow_import)
     business_validation = build_business_validation_plan(review, advancement)
     schema_validation = validate_intent_review_contract(review, export)
     if not schema_validation["passed"]:
@@ -1588,7 +1757,10 @@ def build_sanitized_intent_review(
     handoff_markdown = render_execution_handoff_markdown(handoff)
     intent_evidence_markdown = render_redthread_intent_evidence_markdown(intent_evidence, intent_evidence_validation, importability_report)
     importability_markdown = render_importability_report_markdown(importability_report)
-    safety_payloads: list[dict[str, Any] | str] = [context, review, export, advancement, handoff, handoff_validation, intent_evidence, intent_evidence_validation, importability_report, business_validation, schema_validation, contract_preview, markdown, advancement_markdown, handoff_markdown, intent_evidence_markdown, importability_markdown]
+    candidate_workflow_markdown = render_candidate_workflow_import_markdown(candidate_workflow_import)
+    product_proof_markdown = render_product_proof_markdown(product_proof)
+    operator_handoff_markdown = render_operator_handoff_markdown(intent_evidence, importability_report, candidate_workflow_import, product_proof)
+    safety_payloads: list[dict[str, Any] | str] = [context, review, export, advancement, handoff, handoff_validation, intent_evidence, intent_evidence_validation, importability_report, candidate_workflow_import, product_proof, business_validation, schema_validation, contract_preview, markdown, advancement_markdown, handoff_markdown, intent_evidence_markdown, importability_markdown, candidate_workflow_markdown, product_proof_markdown, operator_handoff_markdown]
     if local_llm_status:
         safety_payloads.append(local_llm_status)
     audit = _assert_safe_artifacts(safety_payloads, fail_on_marker_hit)
@@ -1609,6 +1781,11 @@ def build_sanitized_intent_review(
     _write_json(output_dir / "redthread_intent_evidence_validation.json", intent_evidence_validation)
     _write_json(output_dir / "redthread_importability_report.json", importability_report)
     _write_text(output_dir / "redthread_importability_report.md", importability_markdown)
+    _write_json(output_dir / "redthread_candidate_workflow_import.json", candidate_workflow_import)
+    _write_text(output_dir / "redthread_candidate_workflow_import.md", candidate_workflow_markdown)
+    _write_json(output_dir / "redthread_product_proof.json", product_proof)
+    _write_text(output_dir / "redthread_product_proof.md", product_proof_markdown)
+    _write_text(output_dir / "redthread_operator_handoff.md", operator_handoff_markdown)
     _write_json(output_dir / "business_validation_plan.json", business_validation)
     _write_json(output_dir / "schema_validation.json", schema_validation)
     _write_json(output_dir / "redthread_evidence_contract_preview.json", contract_preview)
@@ -1626,6 +1803,8 @@ def build_sanitized_intent_review(
         "redthread_intent_evidence_path": str(output_dir / "redthread_intent_evidence.json"),
         "redthread_importable": importability_report["importable"],
         "candidate_workflow_created": importability_report["candidate_workflow_created"],
+        "candidate_workflow_import_path": str(output_dir / "redthread_candidate_workflow_import.json"),
+        "product_proof_passed": product_proof["passed"],
     }
     if local_llm_status:
         result["local_llm_status"] = local_llm_status

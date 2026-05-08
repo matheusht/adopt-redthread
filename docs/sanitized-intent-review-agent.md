@@ -604,6 +604,80 @@ cartao_filtered.har
 
 Success means the package is importable, privacy-safe, creates at least one candidate workflow, cites sanitized evidence, preserves provenance, requires JudgeAgent, and still claims no finding/severity/exploit/release decision.
 
+### Phase 14 — RedThread candidate workflow import contract
+
+Objective: prove RedThread can consume the evidence package as candidate workflow input without treating it as a finding.
+
+Generated artifacts:
+
+- `redthread_candidate_workflow_import.json`
+- `redthread_candidate_workflow_import.md`
+
+The import contract is a strict local stand-in for RedThread-side importer behavior. It only creates candidate workflows when `redthread_intent_evidence_validation.json.importable` is true. Each imported candidate workflow preserves:
+
+- source step ID;
+- subject ID;
+- source evidence IDs;
+- expected signal;
+- success condition;
+- workflow type;
+- import mode `candidate_evidence_not_finding`.
+
+It also hard-codes the ownership boundary:
+
+- RedThread owns execution;
+- RedThread owns judgment;
+- RedThread owns findings;
+- RedThread owns severity;
+- RedThread owns regression promotion.
+
+The import artifact explicitly records that adopt-redthread created no finding, assigned no severity, authorized no live execution, and promoted no regression test.
+
+### Phase 15 — Operator handoff report
+
+Objective: give operators a single human-first handoff that can be read quickly before RedThread import.
+
+Generated artifact:
+
+- `redthread_operator_handoff.md`
+
+It answers:
+
+1. What should RedThread try next?
+2. Why?
+3. What evidence supports it?
+4. What context or approval is missing?
+5. What is explicitly not claimed?
+
+This report is intentionally derived from the validated intent evidence package and candidate workflow import contract. It does not introduce new claims or free-form model-authored execution instructions.
+
+### Phase 16 — Product proof report
+
+Objective: measure real impact: whether sanitized evidence became importable RedThread candidate workflow input.
+
+Generated artifacts:
+
+- `redthread_product_proof.json`
+- `redthread_product_proof.md`
+
+The product proof passes only when all of the following are true:
+
+- package is importable;
+- package is privacy-safe;
+- package is execution-ready for RedThread-owned handling;
+- JudgeAgent is required;
+- at least one candidate workflow is created;
+- at least one sanitized evidence item exists;
+- at least one attack-plan candidate step exists;
+- validation error count is zero;
+- raw-field hit count is zero;
+- marker hit count is zero;
+- no finding is claimed;
+- no severity is claimed;
+- no live execution is authorized.
+
+For `cartao_filtered.har`, success is no longer that a review exists. Success is that the pipeline creates an importable candidate workflow package with cited sanitized evidence and a passing product proof while preserving all RedThread ownership boundaries.
+
 ### Phase 6 — Batch review workflow integration
 
 Objective: integrate the intent review into the existing HAR batch review workflow.

@@ -1,42 +1,83 @@
-# adopt-redthread
+# threadgate
 
-> Turn discovered agent/tool surfaces into sanitized security evidence RedThread can attack, replay, and judge.
+> From HAR to high-signal pentest context.
 
-adopt-redthread is the bridge between an agent-builder plane and the RedThread security assurance engine.
+threadgate is a context compiler for authenticated app security testing.
 
-It does one focused job:
+It turns sensitive runtime evidence — HAR captures, ZAPI exports, NoUI/MCP tool manifests, and action catalogs — into sanitized, structured context packages for RedThread or another specialized pentest agent.
+
+It is not only a gate between a builder plane and RedThread. Its stronger role is to give a downstream pentesting agent superpowers: endpoint inventory, workflow order, auth boundaries, write/destructive hints, tenant/user clues, missing-context questions, and attack-surface hypotheses without dumping raw HAR secrets into a prompt or report.
 
 ```text
-discovery artifact
-  -> sanitized app/tool/workflow context
-  -> normalized replay fixtures
-  -> bridge-owned safe replay evidence
-  -> RedThread replay / dry-run evidence
-  -> reviewer-facing approve / review / block decision
+network HAR / runtime evidence
+  -> sanitizer and source-grounded context builder
+  -> endpoint, workflow, auth, and attack-surface map
+  -> optional opt-in auth/write bundle
+  -> structured pentest context package
+  -> RedThread or specialized pentest-agent handoff
 ```
 
-This repo is not trying to be a broad scanner. It is not a fake autonomous pentest platform. It is a local/reference implementation for turning ZAPI, HAR, NoUI, MCP, and Adopt-style action artifacts into evidence a reviewer can inspect before trusting or publishing an agent workflow.
+## What threadgate does
 
-## The core idea
+threadgate prepares the battlefield.
 
-RedThread is the standalone security engine:
+A raw HAR or runtime capture can contain the app map a pentester needs:
 
-- generate attacks,
-- execute/replay target behavior,
-- score with a judge,
-- synthesize defense candidates,
-- validate with replay,
-- preserve promotion evidence.
+- endpoints,
+- methods,
+- workflow sequence,
+- object IDs,
+- auth requirements,
+- tenant/user boundaries,
+- read/write/destructive behavior,
+- response-binding clues,
+- missing context needed for safe replay.
 
-This repo gives RedThread better application context without polluting RedThread with product-specific parsing.
+But raw HARs are sensitive. They may include cookies, auth headers, session values, request bodies, response bodies, PII, and production identifiers.
 
-In plain English:
+threadgate's job is to compile that runtime evidence into a safe, useful package:
 
-> The builder plane discovers and builds tool surfaces. adopt-redthread sanitizes and packages those surfaces. RedThread evaluates normalized security inputs. adopt-redthread combines local workflow evidence and RedThread evidence into `approve`, `review`, or `block`.
+- sanitized endpoint inventory,
+- workflow map,
+- auth/write diagnostics,
+- attack-surface hypotheses,
+- missing-context questions,
+- safety policy,
+- reviewer packet,
+- pentest-agent brief,
+- RedThread import hints.
+
+The package gives the downstream agent high-signal context. The downstream agent still owns execution and validation.
+
+## What threadgate is not
+
+threadgate is not:
+
+- an autonomous pentester,
+- a scanner replacement,
+- an exploit engine,
+- a severity engine,
+- a confirmed-finding validator,
+- a production release authority,
+- a place to store raw secrets or raw HAR values.
+
+It produces source-grounded context and handoff artifacts. It does not claim confirmed vulnerabilities by itself.
+
+## Responsibility split
+
+| Layer | Owns | Does not own |
+|---|---|---|
+| threadgate | runtime artifact ingestion, sanitization, endpoint/workflow/auth context, attack-surface hypotheses, missing-context questions, safety policy, handoff package | exploitation, confirmed findings, severity, defense, regression, final promotion |
+| RedThread / pentest agent | scoped execution, probe selection, exploit validation, JudgeAgent confirmation, findings, severity, defense/remediation, regression, final gate semantics | raw product-specific parsing or default secret handling |
+| Builder plane | discovery, generated tools/actions, workflow authoring, draft/test/publish UX | security verdict truth |
+
+Best rule:
+
+> threadgate packages the truth from runtime evidence. RedThread or the pentest agent proves what is exploitable.
 
 ## Current status
 
-This is a working prototype bridge.
+This is a working prototype bridge with a new pivot toward pentest-context packaging.
 
 What works today:
 
@@ -61,121 +102,117 @@ What works today:
 - run an offline-only HAR evidence batch with sanitized aggregate blocker/gap summaries,
 - produce reviewer-facing evidence packets, readiness ledgers, remediation queues, and external review handoff artifacts.
 
+New direction being implemented:
+
+- canonical pentest context package v0,
+- attack-surface hypotheses marked as hypotheses, not findings,
+- RedThread / pentest-agent handoff files,
+- optional auth/write bundle contracts kept separate from default safe outputs,
+- stronger privacy audit and no-overclaim semantics.
+
 What is not live yet:
 
-- direct pull from real Adopt services,
+- full canonical `pentest_context_package_v0` as the primary output for every lane,
 - broad support for all NoUI/MCP output families,
-- full session-aware authenticated replay beyond approved header reuse,
-- broad reviewed write coverage beyond the first deterministic reference lane,
-- fully automatic live RedThread attack execution against real Adopt-managed sessions,
+- direct pull from real Adopt services,
+- autonomous pentest execution inside this repo,
+- confirmed findings or severity from this repo,
 - production-grade publish gating,
 - RedThread owning final live workflow execution for Adopt-managed sessions.
 
 Honest status:
 
-- **yes:** the bridge prototype runs end to end,
-- **no:** this is not a full production integration or universal safety proof.
-
-## Why this repo exists
-
-`redthread/` should stay generic and upstream-safe.
-
-RedThread owns reusable security logic:
-
-- attack algorithms,
-- JudgeAgent scoring,
-- replay and promotion gates,
-- defense synthesis,
-- agentic-security controls,
-- telemetry and evidence semantics.
-
-This repo owns integration glue:
-
-- ZAPI ingestion,
-- HAR filtering,
-- NoUI/MCP tool-shape mapping,
-- Adopt action mapping,
-- sanitized context packaging,
-- replay-pack generation,
-- local workflow replay demos,
-- reviewer-facing bridge reports,
-- prototype pre-publish gate decisions.
-
-Rule of thumb:
-
-> Generic assurance belongs in RedThread. Product/discovery-specific adaptation belongs here.
+- **yes:** threadgate can already ingest, normalize, replay, and hand off evidence,
+- **yes:** the pivot makes context packaging the primary product shape,
+- **no:** threadgate does not prove vulnerabilities or execute a full pentest by itself.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    A[App / Website / Agent Builder] --> B[ZAPI / HAR / NoUI / MCP / Action artifacts]
-    B --> C[Bridge adapters]
-    C --> D[Sanitized context package]
-    C --> E[Normalized fixtures and workflow plans]
-    E --> F[Bridge-owned safe replay evidence]
-    E --> G[RedThread replay and dry-run inputs]
-    G --> H[RedThread evidence]
-    F --> I[Local bridge gate]
-    H --> I
-    I --> J[Approve / Review / Block]
+    A[HAR / ZAPI / NoUI / MCP / Action artifacts] --> B[Source adapter]
+    B --> C[Sanitizer + privacy audit]
+    C --> D[Context map builder]
+    D --> E[Endpoint inventory]
+    D --> F[Workflow map]
+    D --> G[Auth and write diagnostics]
+    D --> H[Attack-surface hypotheses]
+    D --> I[Missing-context questions]
+    E --> J[Pentest context package]
+    F --> J
+    G --> J
+    H --> J
+    I --> J
+    J --> K[Reviewer packet]
+    J --> L[Pentest-agent brief]
+    J --> M[RedThread import hint]
+    L --> N[RedThread / specialized pentest agent]
+    M --> N
+    N --> O[Execution, validation, findings, severity, defense]
 ```
 
-### Ownership split
+## Canonical package shape
 
-| Layer | Owns | Does not own yet |
-|---|---|---|
-| Builder plane | discovery, tool generation, action/workflow authoring | security verdict truth |
-| adopt-redthread | normalization, sanitization, context packaging, local evidence, handoff | generic attack engine or production enforcement |
-| RedThread | attack, judge, replay, defense, promotion evidence | product-specific parsing or final bridge business decision |
+Target v0 package:
+
+```text
+pentest_context_package/
+  manifest.json
+  package_summary.json
+  privacy_audit.json
+  safety_policy.json
+  endpoint_inventory.json
+  workflow_map.json
+  attack_surface_hypotheses.json
+  auth_requirements.json
+  missing_context.json
+  pentest_agent_brief.md
+  reviewer_packet.md
+  redthread_import_hint.json
+
+  auth_bundles/                  # optional, ignored/redacted by default
+    approved_auth_bundle.example.json
+    approved_write_bundle.example.json
+```
+
+JSON is the contract for downstream agents and tests. Markdown is a generated human review view.
+
+Every attack-surface hypothesis should be treated as:
+
+```text
+not_a_finding: true
+requires_judge_confirmation: true
+```
 
 ## Evidence model
 
-The project treats `approve`, `review`, and `block` as different useful outcomes.
+threadgate can still emit local `approve`, `review`, and `block` style decisions for bridge demos and reviewer workflows.
 
 | Decision | Meaning today | What it proves | What it does not prove |
 |---|---|---|---|
-| `approve` | Tested path matched the safe evidence envelope. | The specific replayed workflow passed its current checks. | The whole app is safe. |
-| `review` | Evidence exists, but risk requires human review. | The bridge preserved risk semantics instead of forcing a happy path. | Silent publish is allowed. |
+| `approve` | Tested path matched the current safe evidence envelope. | The specific replayed workflow passed current checks. | The whole app is safe. |
+| `review` | Evidence exists, but risk requires human review. | The system preserved risk semantics instead of forcing a happy path. | Silent publish or mutation is allowed. |
 | `block` | Required evidence/context is missing or replay failed. | The system can fail closed and explain why. | The app is bad. |
 
-A `review` or `block` result is not a demo failure. For write-capable, auth-bound, tenant-sensitive workflows, conservative outcomes are the point.
-
-## Main use case
-
-Use this repo before trusting or publishing an agent/tool workflow.
-
-It helps answer:
-
-- What endpoints, tools, and workflows were discovered?
-- Which operations are read-only, mutating, destructive, auth-bound, or tenant-sensitive?
-- What replay evidence exists?
-- What did RedThread evaluate?
-- Why did the gate approve, review, or block?
-- What context is missing before safe execution?
-- What is not proven yet?
-
-Best current wedge:
-
-> Evidence-backed workflow assurance for generated or discovered agent tools before publish.
+In the pivot, these are local evidence states. Final confirmed findings, severity, regression, and promotion belong downstream.
 
 ## Supported input lanes
 
-### ZAPI / HAR
+### HAR / ZAPI
 
-The bridge can ingest:
+threadgate can ingest:
 
 - catalog-style ZAPI JSON with endpoint metadata,
 - HAR-shaped browser captures,
 - local `.har` folders through the offline batch harness.
 
-The HAR lane is conservative. It filters noisy browser traffic, drops obvious static/third-party noise, dedupes app-like API calls, and emits normalized fixture bundles.
+The HAR lane is conservative. It filters noisy browser traffic, drops obvious static/third-party noise, dedupes app-like API calls, and emits normalized fixture/context artifacts.
 
-Raw HAR files can contain cookies, tokens, IDs, request bodies, response bodies, and private messages. Keep raw HARs out of git.
+Raw HAR files can contain cookies, tokens, IDs, request bodies, response bodies, and private messages. Keep raw HARs out of git and out of prompts.
 
 ### NoUI / MCP
 
-The bridge supports one real NoUI output shape today:
+threadgate supports one real NoUI output shape today:
 
 ```text
 manifest.json
@@ -191,15 +228,38 @@ This adds useful runtime/tool context:
 - response surface,
 - tool-callable operation semantics.
 
-### Adopt actions
+### Action catalogs
 
-Adopt-style action catalogs are mapped into RedThread-friendly targets while preserving:
+Action catalogs are mapped into RedThread-friendly and pentest-agent-friendly targets while preserving:
 
 - read/write classification,
 - approval requirement,
 - destructive potential,
 - tenant scope,
 - action semantics.
+
+## Opt-in auth and write bundles
+
+Default context packages must not contain raw auth secrets.
+
+Auth and write context can be useful for realistic testing, but only as explicit opt-in bundles:
+
+| Bundle | Purpose | Default state |
+|---|---|---|
+| `none` | sanitized context only | default |
+| `approved_auth_bundle` | authenticated read/context tests | opt-in |
+| `approved_write_bundle` | non-production reviewed writes | separate opt-in |
+| `blocked_destructive_bundle` | destructive action denied | default for destructive ops |
+
+Rules:
+
+- default package contains no raw auth secrets,
+- auth bundles are separate from the default package,
+- write bundles are separate from read/auth bundles,
+- allowed hosts and environments must be pinned,
+- expiry and scope metadata are required,
+- bundle values must not appear in Markdown, committed JSON reports, logs, LLM prompts, or git,
+- destructive operations remain blocked unless a future explicit destructive-test policy exists.
 
 ## Quickstart
 
@@ -218,7 +278,7 @@ make demo-all
 This runs the basic fixture flow:
 
 1. ingest sample ZAPI discovery,
-2. ingest sample Adopt actions,
+2. ingest sample action data,
 3. generate replay plans,
 4. generate pre-publish gate verdicts.
 
@@ -230,28 +290,6 @@ python3 scripts/run_bridge_pipeline.py \
   --kind zapi_har \
   --output runs/sample_har_pipeline
 ```
-
-### Run the reviewed-write reference demo
-
-```bash
-make demo-reviewed-write-reference
-```
-
-Expected result: `review`, not `approve`.
-
-That is correct because reviewed write paths require human approval and non-production context.
-
-### Run evidence matrix
-
-```bash
-make evidence-matrix
-```
-
-The matrix should preserve three different states:
-
-- `approve` for deterministic safe-read binding evidence,
-- `review` for deterministic reviewed-write evidence,
-- `block` when required context is missing.
 
 ### Run offline HAR evidence batch
 
@@ -346,7 +384,7 @@ Most `runs/` artifacts are local and should not be committed unless they are cur
 
 ```text
 adapters/
-  adopt_actions/       Adopt action/tool mapping
+  adopt_actions/       action/tool mapping
   bridge/              shared bridge helpers
   live_replay/         bounded safe/reviewed replay helpers
   noui/                NoUI/MCP adaptation
@@ -362,8 +400,6 @@ tests/                 zero-dependency local tests
 
 ## Safety boundaries
 
-Do not run or commit unsafe artifacts.
-
 Never commit:
 
 - raw HARs,
@@ -375,12 +411,12 @@ Never commit:
 - production write contexts,
 - local `runs/`, `logs/`, or approval-context files unless explicitly sanitized.
 
-Do not run:
+Do not run from this repo by default:
 
 - production writes,
 - destructive operations,
 - broad authenticated replay with copied session cookies,
-- automatic RedThread live attacks against real sessions,
+- autonomous exploitation against real sessions,
 - hidden retries that mutate state,
 - replay against unknown third-party targets.
 
@@ -400,40 +436,42 @@ Replay evaluation and dry-run execution use the sibling RedThread virtualenv by 
 ../redthread/.venv/bin/python
 ```
 
-That keeps this bridge lightweight while still exercising real RedThread runtime seams.
+That keeps threadgate lightweight while still exercising real RedThread runtime seams.
 
 ## Current direction
 
 Primary direction:
 
-> Make the reviewer-facing evidence path unmistakably clear.
+> Build the runtime-evidence-to-pentest-context bridge.
 
-The next useful improvements are not broad platform expansion. They are better proof artifacts:
+Next useful work:
 
-- clearer evidence reports,
-- stable approve/review/block examples,
-- sanitized reviewer packets,
-- stronger reason taxonomy,
-- better RedThread context fields,
-- approved-context replay proof for one endpoint at a time,
-- reviewer validation that confirms the artifact is understandable without a walkthrough.
+- make `pentest_context_package_v0` the primary output,
+- ensure every hypothesis cites sanitized evidence IDs,
+- keep every hypothesis marked as not a finding,
+- add stronger privacy audits,
+- add opt-in auth/write bundle validation,
+- generate a better pentest-agent handoff,
+- prove RedThread or another agent can import the package and produce better scoped tests.
 
 Defer:
 
-- generic scanner aggregation,
+- broad autonomous exploitation,
 - production enforcement,
-- broad autonomous live attacks,
-- direct Adopt service pulls,
-- large NoUI coverage expansion,
+- generic scanner aggregation,
+- direct service pulls,
+- confirmed finding/severity claims inside threadgate,
 - moving product-specific parsing into RedThread.
 
 ## Docs map
 
 Start here:
 
+- `docs/pentest-context-bridge-pivot.md` — approved pivot decision and product contract.
+- `docs/pentest-context-bridge-implementation-plan.md` — phased implementation plan for package v0 and handoff.
 - `docs/project-direction.md` — current direction, scope, proof standard, and proven/not-proven boundary.
 - `docs/architecture.md` — integration architecture and ownership split.
-- `docs/strategy.md` — why RedThread stays standalone and adopt-redthread stays the bridge.
+- `docs/strategy.md` — why RedThread stays standalone and threadgate stays the bridge.
 - `docs/reviewed-write-reference-demo.md` — deterministic reviewed-write reference demo.
 - `docs/zapi-reference-demo.md` — real ATP Tennis ZAPI reference demo and `review` evidence standard.
 - `docs/reviewer-validation-loop.md` — cold-review protocol and multi-review validation rollup.
@@ -442,14 +480,17 @@ Start here:
 
 ## What good looks like
 
-A reviewer should be able to open one evidence report or matrix and answer:
+A downstream pentest agent or RedThread run should be able to consume the context package and answer:
 
-- what input was tested,
-- what workflow ran,
-- what RedThread evaluated,
-- what was approved, reviewed, or blocked,
-- why that decision happened,
-- what context is missing,
-- what is not proven.
+- what endpoints exist,
+- how workflows are sequenced,
+- which operations need auth or write approval,
+- which boundaries look tenant/user-sensitive,
+- what attack-surface hypotheses are worth testing,
+- what evidence supports each hypothesis,
+- what context is missing before safe execution,
+- what is not proven yet.
 
-That is the bar for this repo.
+A human reviewer should be able to inspect the generated packet without seeing raw secrets.
+
+That is the bar for threadgate.

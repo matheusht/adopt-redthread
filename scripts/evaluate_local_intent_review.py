@@ -66,6 +66,8 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
     importability = _read_json(local_dir / "redthread_importability_report.json")
     workflow_import = _read_json(local_dir / "redthread_candidate_workflow_import.json")
     product_proof = _read_json(local_dir / "redthread_product_proof.json")
+    pentest_validation = _read_json(local_dir / "pentest_context_package_v0" / "pentest_context_package_validation.json")
+    pentest_handoff = _read_json(local_dir / "pentest_context_package_v0" / "pentest_agent_handoff.json")
     candidates = handoff.get("execution_candidates", [])
     empty_diff = deterministic_md == local_md
     deterministic_review = _read_json(deterministic_dir / "intent_review.json")
@@ -102,6 +104,20 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
         and not workflow_import.get("adopt_redthread_claims", {}).get("severity_assigned")
         and not workflow_import.get("adopt_redthread_claims", {}).get("live_execution_authorized")
     )
+    pentest_objectives = pentest_handoff.get("candidate_objectives", [])
+    pentest_context_package_valid = bool(pentest_validation.get("valid"))
+    pentest_context_privacy_safe = bool(pentest_validation.get("privacy_safe"))
+    pentest_handoff_objectives_count = len(pentest_objectives)
+    pentest_objectives_with_citations = sum(1 for objective in pentest_objectives if objective.get("evidence_ids"))
+    pentest_handoff_safe = (
+        pentest_context_package_valid
+        and pentest_context_privacy_safe
+        and pentest_handoff_objectives_count > 0
+        and pentest_handoff_objectives_count == pentest_objectives_with_citations
+        and all(objective.get("not_a_finding") for objective in pentest_objectives)
+        and all(objective.get("requires_judge_confirmation") for objective in pentest_objectives)
+        and "execute_live_without_opt_in_bundle" in pentest_handoff.get("forbidden_actions", [])
+    )
     useful_delta_present = bool(local_status.get("used")) and (not empty_diff or local_observation_flag or observation_delta)
     return {
         "case_id": case["case_id"],
@@ -127,6 +143,11 @@ def _summarize_case(case: dict[str, Any], deterministic_dir: Path, local_dir: Pa
         "workflow_import_safe": workflow_import_safe,
         "product_proof_passed": product_proof_passed,
         "judge_required": judge_required,
+        "pentest_context_package_valid": pentest_context_package_valid,
+        "pentest_context_privacy_safe": pentest_context_privacy_safe,
+        "pentest_handoff_objectives_count": pentest_handoff_objectives_count,
+        "pentest_objectives_with_citations": pentest_objectives_with_citations,
+        "pentest_handoff_safe": pentest_handoff_safe,
         "forbidden_claim_count": forbidden_claim_count,
         "redthread_evaluation_required": bool(export.get("promotion_semantics", {}).get("redthread_evaluation_required")),
         "confirmed_finding_claimed": bool(export.get("promotion_semantics", {}).get("confirmed_security_finding_claimed")),
@@ -153,6 +174,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- RedThread importable cases: {report['summary']['redthread_importable_count']}",
         f"- Candidate workflow cases: {report['summary']['candidate_workflow_created_count']}",
         f"- Product proof passed: {report['summary']['product_proof_passed_count']}",
+        f"- Pentest packages valid: {report['summary']['pentest_context_package_valid_count']}",
+        f"- Pentest handoffs safe: {report['summary']['pentest_handoff_safe_count']}",
         "",
         "| Case | Local status | Fallback | Empty diff | Useful delta | Handoff useful | Importable | Product proof | Privacy |",
         "|---|---|---:|---:|---:|---:|---:|---:|---:|",
@@ -225,6 +248,11 @@ def evaluate_local_intent_review(
         "workflow_import_safe_count": sum(1 for c in cases if c["workflow_import_safe"]),
         "product_proof_passed_count": sum(1 for c in cases if c["product_proof_passed"]),
         "judge_required_count": sum(1 for c in cases if c["judge_required"]),
+        "pentest_context_package_valid_count": sum(1 for c in cases if c["pentest_context_package_valid"]),
+        "pentest_context_privacy_safe_count": sum(1 for c in cases if c["pentest_context_privacy_safe"]),
+        "pentest_handoff_safe_count": sum(1 for c in cases if c["pentest_handoff_safe"]),
+        "pentest_handoff_objectives_count": sum(int(c["pentest_handoff_objectives_count"]) for c in cases),
+        "pentest_objectives_with_citations_count": sum(int(c["pentest_objectives_with_citations"]) for c in cases),
     }
     report = {
         "schema_version": EVAL_SCHEMA_VERSION,

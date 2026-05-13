@@ -13,6 +13,8 @@ from scripts.build_sanitized_intent_review import (
     build_redthread_evidence_export,
     build_redthread_execution_handoff,
     build_product_proof_report,
+    build_pentest_agent_handoff,
+    build_pentest_context_package,
     build_redthread_candidate_workflow_import,
     build_redthread_importability_report,
     build_redthread_intent_evidence,
@@ -20,6 +22,9 @@ from scripts.build_sanitized_intent_review import (
     validate_execution_handoff,
     validate_redthread_intent_evidence,
     validate_intent_review_contract,
+    validate_pentest_context_package,
+    validate_approved_auth_bundle,
+    validate_approved_write_bundle,
 )
 
 
@@ -90,6 +95,98 @@ class SanitizedIntentReviewTests(unittest.TestCase):
         (review_dir / "phase_1_reviewer_packet.json").write_text(json.dumps({"phase": "phase_1_reviewer_validation"}), encoding="utf-8")
         return batch
 
+    def _valid_auth_bundle(self) -> dict[str, object]:
+        return {
+            "schema_version": "adopt_redthread.approved_auth_bundle.v0",
+            "bundle_id": "auth_bundle_test_001",
+            "approved": True,
+            "approval": {
+                "approved_by_role": "security_reviewer",
+                "approved_at": "2026-05-05T00:00:00Z",
+                "expires_at": "2026-05-06T00:00:00Z",
+                "environment": "non_production",
+                "scope": {
+                    "subject_ids": ["subject_001"],
+                    "workflow_ids": ["workflow_subject_001_candidate_001"],
+                    "endpoint_ids": ["endpoint_subject_001_candidate_001"],
+                    "allowed_actions": ["authenticated_read_probe"],
+                },
+            },
+            "credential_references": {
+                "storage": "external_reference_only",
+                "values_included": False,
+                "references": [
+                    {
+                        "reference_id": "credential_ref_001",
+                        "reference_type": "env_var",
+                        "handle": "ADOPT_REDTHREAD_TEST_AUTH_HANDLE",
+                        "purpose": "approved_runtime_credential_reference",
+                    }
+                ],
+            },
+            "rendering_policy": {
+                "markdown_rendering_allowed": False,
+                "llm_prompt_inclusion_allowed": False,
+                "log_value_allowed": False,
+            },
+            "safety": {
+                "judge_agent_required": True,
+                "state_changing_actions_allowed": False,
+                "write_bundle_required_for_state_change": True,
+            },
+        }
+
+    def _valid_write_bundle(self) -> dict[str, object]:
+        return {
+            "schema_version": "adopt_redthread.approved_write_bundle.v0",
+            "bundle_id": "write_bundle_test_001",
+            "approved": True,
+            "auth_bundle_embedded": False,
+            "approval": {
+                "approved_by_role": "security_reviewer",
+                "approved_at": "2026-05-05T00:00:00Z",
+                "expires_at": "2026-05-06T00:00:00Z",
+                "environment": "non_production",
+                "scope": {
+                    "subject_ids": ["subject_001"],
+                    "workflow_ids": ["workflow_subject_001_candidate_001"],
+                },
+            },
+            "write_policy": {
+                "allowed_operation_classes": ["idempotent_check", "reversible_non_destructive_write"],
+                "forbidden_operation_classes": [
+                    "bulk_export",
+                    "delete",
+                    "external_notification",
+                    "payment",
+                    "privilege_change",
+                    "production_mutation",
+                ],
+            },
+            "rendering_policy": {
+                "markdown_rendering_allowed": False,
+                "llm_prompt_inclusion_allowed": False,
+                "log_value_allowed": False,
+            },
+            "safety": {
+                "dry_run_required_by_default": True,
+                "destructive_operations_allowed": False,
+                "live_execution_authorized_by_bundle": False,
+                "requires_runtime_confirmation": True,
+                "rollback_or_cleanup_notes": "Downstream operator must document cleanup before any approved runtime action.",
+            },
+        }
+
+    def _pentest_package_for_validation(self, root: Path) -> dict[str, object]:
+        batch = self._write_batch(root)
+        context = build_intent_review_context(batch)
+        review = build_intent_review(context)
+        handoff = build_redthread_execution_handoff(review)
+        intent_evidence = build_redthread_intent_evidence(review, handoff)
+        intent_validation = validate_redthread_intent_evidence(intent_evidence)
+        workflow_import = build_redthread_candidate_workflow_import(intent_evidence, intent_validation)
+        return build_pentest_context_package(review, handoff, intent_evidence, workflow_import)
+
     def test_context_builder_uses_sanitized_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             batch = self._write_batch(Path(tmp))
@@ -128,6 +225,17 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertEqual(export["execution_handoff"]["artifact_name"], "redthread_execution_handoff.json")
             self.assertEqual(export["execution_handoff"]["candidate_count"], 1)
             self.assertFalse(export["execution_handoff"]["live_execution_allowed"])
+            package_dir = out / "pentest_context_package_v0"
+            self.assertTrue(package_dir.exists())
+            package = json.loads((package_dir / "pentest_context_package.json").read_text(encoding="utf-8"))
+            handoff = json.loads((package_dir / "pentest_agent_handoff.json").read_text(encoding="utf-8"))
+            validation = json.loads((package_dir / "pentest_context_package_validation.json").read_text(encoding="utf-8"))
+            self.assertTrue(validation["valid"])
+            self.assertEqual(package["schema_version"], "adopt_redthread.pentest_context_package.v0")
+            self.assertFalse(package["privacy"]["auth_values_included"])
+            self.assertTrue(package["safety_policy"]["judge_agent_required"])
+            self.assertTrue(package["attack_surface_hypotheses"][0]["not_a_finding"])
+            self.assertTrue(handoff["candidate_objectives"][0]["requires_judge_confirmation"])
             self.assertFalse(export["promotion_semantics"]["confirmed_security_finding_claimed"])
             self.assertFalse(export["promotion_semantics"]["release_gate_override"])
             advancement = json.loads((out / "advancement_summary.json").read_text(encoding="utf-8"))
@@ -331,6 +439,147 @@ class SanitizedIntentReviewTests(unittest.TestCase):
             self.assertFalse(proof["passed"])
             self.assertFalse(workflow_import["adopt_redthread_claims"]["finding_created"])
             self.assertFalse(workflow_import["adopt_redthread_claims"]["live_execution_authorized"])
+
+    def test_pentest_context_package_preserves_bridge_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self._write_batch(Path(tmp))
+            context = build_intent_review_context(batch)
+            review = build_intent_review(context)
+            handoff = build_redthread_execution_handoff(review)
+            intent_evidence = build_redthread_intent_evidence(review, handoff)
+            intent_validation = validate_redthread_intent_evidence(intent_evidence)
+            workflow_import = build_redthread_candidate_workflow_import(intent_evidence, intent_validation)
+            package = build_pentest_context_package(review, handoff, intent_evidence, workflow_import)
+            agent_handoff = build_pentest_agent_handoff(package)
+            validation = validate_pentest_context_package(package, agent_handoff)
+
+            self.assertTrue(validation["valid"])
+            self.assertEqual(package["package_summary"]["endpoint_count"], 1)
+            self.assertFalse(package["safety_policy"]["default_live_execution_allowed"])
+            self.assertFalse(package["privacy"]["raw_har_included"])
+            self.assertFalse(package["privacy"]["auth_values_included"])
+            self.assertEqual(agent_handoff["auth_bundle_policy"]["approved_auth_bundle_schema_version"], "adopt_redthread.approved_auth_bundle.v0")
+            self.assertIn("execute_live_without_opt_in_bundle", agent_handoff["forbidden_actions"])
+            self.assertTrue(agent_handoff["candidate_objectives"][0]["evidence_ids"])
+
+    def test_pentest_context_validation_rejects_overclaim_and_auth_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = self._write_batch(Path(tmp))
+            context = build_intent_review_context(batch)
+            review = build_intent_review(context)
+            handoff = build_redthread_execution_handoff(review)
+            intent_evidence = build_redthread_intent_evidence(review, handoff)
+            intent_validation = validate_redthread_intent_evidence(intent_evidence)
+            workflow_import = build_redthread_candidate_workflow_import(intent_evidence, intent_validation)
+            package = build_pentest_context_package(review, handoff, intent_evidence, workflow_import)
+            agent_handoff = build_pentest_agent_handoff(package)
+            package["privacy"]["auth_values_included"] = True
+            package["manifest"]["auth_bundle_included"] = True
+            package["approved_auth_bundle"] = {}
+            package["safety_policy"]["judge_agent_required"] = False
+            package["attack_surface_hypotheses"][0]["summary"] = "confirmed vulnerability in sanitized workflow"
+            agent_handoff["candidate_objectives"][0]["summary"] = "high severity issue"
+
+            validation = validate_pentest_context_package(package, agent_handoff)
+
+            self.assertFalse(validation["valid"])
+            self.assertIn("privacy.auth_values_included", validation["errors"])
+            self.assertIn("manifest.auth_bundle_included", validation["errors"])
+            self.assertIn("package.auth_bundle_embedded", validation["errors"])
+            self.assertIn("safety_policy.judge_agent_required", validation["errors"])
+            self.assertTrue(any("forbidden_language" in error for error in validation["errors"]))
+
+    def test_approved_auth_bundle_validation_accepts_references_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            package = self._pentest_package_for_validation(Path(tmp) / "pkg")
+
+            validation = validate_approved_auth_bundle(self._valid_auth_bundle(), package)
+
+            self.assertTrue(validation["valid"])
+            self.assertTrue(validation["privacy_safe"])
+            self.assertEqual(validation["credential_reference_count"], 1)
+            self.assertFalse(validation["bundle_values_renderable"])
+            self.assertFalse(validation["live_execution_authorized"])
+            self.assertFalse(validation["state_changing_actions_allowed"])
+
+    def test_approved_auth_bundle_validation_rejects_literals_and_unbounded_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            package = self._pentest_package_for_validation(Path(tmp) / "pkg")
+            bundle = self._valid_auth_bundle()
+            bundle["approval"]["scope"]["subject_ids"] = ["*"]  # type: ignore[index]
+            bundle["approval"]["expires_at"] = ""  # type: ignore[index]
+            bundle["credential_references"]["references"][0]["value"] = "Bearer example-token"  # type: ignore[index]
+
+            validation = validate_approved_auth_bundle(bundle, package)
+
+            self.assertFalse(validation["valid"])
+            self.assertIn("auth_bundle.approval.expires_at", validation["errors"])
+            self.assertIn("auth_bundle.scope.subject_ids.unbounded", validation["errors"])
+            self.assertTrue(any("forbidden_auth_value_key" in error for error in validation["errors"]))
+            self.assertGreater(validation["marker_hit_count"], 0)
+
+    def test_approved_write_bundle_validation_accepts_bounded_non_destructive_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            package = self._pentest_package_for_validation(Path(tmp) / "pkg")
+
+            validation = validate_approved_write_bundle(self._valid_write_bundle(), package)
+
+            self.assertTrue(validation["valid"])
+            self.assertTrue(validation["privacy_safe"])
+            self.assertEqual(validation["allowed_operation_class_count"], 2)
+            self.assertTrue(validation["dry_run_required_by_default"])
+            self.assertTrue(validation["requires_runtime_confirmation"])
+            self.assertFalse(validation["destructive_operations_allowed"])
+            self.assertFalse(validation["live_execution_authorized"])
+
+    def test_approved_write_bundle_validation_rejects_destructive_or_embedded_auth_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            package = self._pentest_package_for_validation(Path(tmp) / "pkg")
+            bundle = self._valid_write_bundle()
+            bundle["auth_bundle_embedded"] = True
+            bundle["approval"]["scope"]["workflow_ids"] = ["all"]  # type: ignore[index]
+            bundle["write_policy"]["allowed_operation_classes"] = ["delete"]  # type: ignore[index]
+            bundle["write_policy"]["forbidden_operation_classes"] = []  # type: ignore[index]
+            bundle["safety"]["destructive_operations_allowed"] = True  # type: ignore[index]
+            bundle["credential_references"] = {"references": []}
+
+            validation = validate_approved_write_bundle(bundle, package)
+
+            self.assertFalse(validation["valid"])
+            self.assertIn("write_bundle.auth_bundle_embedded", validation["errors"])
+            self.assertIn("write_bundle.auth_material_embedded", validation["errors"])
+            self.assertIn("write_bundle.scope.workflow_ids.unbounded", validation["errors"])
+            self.assertIn("write_bundle.write_policy.allowed_operation_classes.unsupported.delete", validation["errors"])
+            self.assertIn("write_bundle.safety.destructive_operations_allowed", validation["errors"])
+
+    def test_build_validates_opt_in_bundles_without_copying_values_into_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            batch = self._write_batch(root / "source")
+            auth_path = root / "approved_auth_bundle.json"
+            write_path = root / "approved_write_bundle.json"
+            auth_path.write_text(json.dumps(self._valid_auth_bundle()), encoding="utf-8")
+            write_path.write_text(json.dumps(self._valid_write_bundle()), encoding="utf-8")
+
+            result = build_sanitized_intent_review(
+                batch,
+                root / "out",
+                approved_auth_bundle=auth_path,
+                approved_write_bundle=write_path,
+            )
+
+            self.assertTrue(result["approved_auth_bundle_valid"])
+            self.assertTrue(result["approved_write_bundle_valid"])
+            bundle_dir = root / "out" / "opt_in_bundle_validations"
+            summary = json.loads((bundle_dir / "auth_write_bundle_validation_summary.json").read_text(encoding="utf-8"))
+            auth_validation = json.loads((bundle_dir / "approved_auth_bundle_validation.json").read_text(encoding="utf-8"))
+            self.assertTrue(summary["ready_for_downstream_opt_in_review"])
+            self.assertTrue(auth_validation["valid"])
+            output_text = "\n".join(path.read_text(encoding="utf-8") for path in (root / "out").rglob("*.json"))
+            output_text += "\n" + "\n".join(path.read_text(encoding="utf-8") for path in (root / "out").rglob("*.md"))
+            self.assertNotIn("ADOPT_REDTHREAD_TEST_AUTH_HANDLE", output_text)
+            self.assertFalse((root / "out" / "pentest_context_package_v0" / "approved_auth_bundle.json").exists())
+            self.assertFalse((root / "out" / "pentest_context_package_v0" / "approved_write_bundle.json").exists())
 
     def test_schema_validation_rejects_release_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

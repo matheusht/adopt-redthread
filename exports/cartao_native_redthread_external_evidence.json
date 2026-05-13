@@ -1,0 +1,208 @@
+{
+  "evidence_mode": "weak_imported_evidence",
+  "items": [
+    {
+      "candidate_probe_seed": null,
+      "creates_defense_claim": false,
+      "creates_promotion_claim": false,
+      "creates_regression_case": false,
+      "description": "Sanitized workflow classified as boundary_relevant with boundary relevance medium.",
+      "detector_hint_context": {
+        "adopt_redthread_schema": "redthread.intent_evidence.v1",
+        "limitations": [
+          "sanitized observation only",
+          "RedThread JudgeAgent must evaluate before any finding",
+          "missing_boundary_context",
+          "missing_reviewer_observation"
+        ],
+        "source_observation_id": "subject_001_obs_001",
+        "strength": "weak"
+      },
+      "evidence_label": "imported_weak_evidence",
+      "evidence_mode": "weak_imported_evidence",
+      "evidence_strength": "weak_imported_evidence",
+      "is_confirmed_finding": false,
+      "not_scored_reason": "weak_imported_evidence",
+      "promotion_impact": "none",
+      "raw": {},
+      "requires_judge_confirmation": true,
+      "source": "adopt-redthread",
+      "source_id": "ev_001_001",
+      "title": "adopt-redthread sanitized evidence ev_001_001"
+    },
+    {
+      "candidate_probe_seed": null,
+      "creates_defense_claim": false,
+      "creates_promotion_claim": false,
+      "creates_regression_case": false,
+      "description": "Sanitized role categories include 1 operation role record(s).",
+      "detector_hint_context": {
+        "adopt_redthread_schema": "redthread.intent_evidence.v1",
+        "limitations": [
+          "sanitized observation only",
+          "RedThread JudgeAgent must evaluate before any finding",
+          "missing_boundary_context",
+          "missing_reviewer_observation"
+        ],
+        "source_observation_id": "subject_001_obs_002",
+        "strength": "weak"
+      },
+      "evidence_label": "imported_weak_evidence",
+      "evidence_mode": "weak_imported_evidence",
+      "evidence_strength": "weak_imported_evidence",
+      "is_confirmed_finding": false,
+      "not_scored_reason": "weak_imported_evidence",
+      "promotion_impact": "none",
+      "raw": {},
+      "requires_judge_confirmation": true,
+      "source": "adopt-redthread",
+      "source_id": "ev_001_002",
+      "title": "adopt-redthread sanitized evidence ev_001_002"
+    },
+    {
+      "candidate_probe_seed": null,
+      "creates_defense_claim": false,
+      "creates_promotion_claim": false,
+      "creates_regression_case": false,
+      "description": "Approved replay required is False; boundary proof required is True.",
+      "detector_hint_context": {
+        "adopt_redthread_schema": "redthread.intent_evidence.v1",
+        "limitations": [
+          "sanitized observation only",
+          "RedThread JudgeAgent must evaluate before any finding",
+          "missing_boundary_context",
+          "missing_reviewer_observation"
+        ],
+        "source_observation_id": "subject_001_obs_003",
+        "strength": "weak"
+      },
+      "evidence_label": "imported_weak_evidence",
+      "evidence_mode": "weak_imported_evidence",
+      "evidence_strength": "weak_imported_evidence",
+      "is_confirmed_finding": false,
+      "not_scored_reason": "weak_imported_evidence",
+      "promotion_impact": "none",
+      "raw": {},
+      "requires_judge_confirmation": true,
+      "source": "adopt-redthread",
+      "source_id": "ev_001_003",
+      "title": "adopt-redthread sanitized evidence ev_001_003"
+    },
+    {
+      "candidate_probe_seed": null,
+      "creates_defense_claim": false,
+      "creates_promotion_claim": false,
+      "creates_regression_case": false,
+      "description": "RedThread export readiness is ready_with_gaps.",
+      "detector_hint_context": {
+        "adopt_redthread_schema": "redthread.intent_evidence.v1",
+        "limitations": [
+          "sanitized observation only",
+          "RedThread JudgeAgent must evaluate before any finding",
+          "missing_boundary_context",
+          "missing_reviewer_observation"
+        ],
+        "source_observation_id": "subject_001_obs_004",
+        "strength": "weak"
+      },
+      "evidence_label": "imported_weak_evidence",
+      "evidence_mode": "weak_imported_evidence",
+      "evidence_strength": "weak_imported_evidence",
+      "is_confirmed_finding": false,
+      "not_scored_reason": "weak_imported_evidence",
+      "promotion_impact": "none",
+      "raw": {},
+      "requires_judge_confirmation": true,
+      "source": "adopt-redthread",
+      "source_id": "ev_001_004",
+      "title": "adopt-redthread sanitized evidence ev_001_004"
+    },
+    {
+      "candidate_probe_seed": null,
+      "creates_defense_claim": false,
+      "creates_promotion_claim": false,
+      "creates_regression_case": false,
+      "description": "Sanitized review identified missing context: missing_boundary_context, missing_reviewer_observation",
+      "detector_hint_context": {
+        "adopt_redthread_schema": "redthread.intent_evidence.v1",
+        "limitations": [
+          "sanitized observation only",
+          "RedThread JudgeAgent must evaluate before any finding",
+          "missing_boundary_context",
+          "missing_reviewer_observation"
+        ],
+        "source_observation_id": "subject_001_obs_005",
+        "strength": "weak"
+      },
+      "evidence_label": "imported_weak_evidence",
+      "evidence_mode": "weak_imported_evidence",
+      "evidence_strength": "weak_imported_evidence",
+      "is_confirmed_finding": false,
+      "not_scored_reason": "weak_imported_evidence",
+      "promotion_impact": "none",
+      "raw": {},
+      "requires_judge_confirmation": true,
+      "source": "adopt-redthread",
+      "source_id": "ev_001_005",
+      "title": "adopt-redthread sanitized evidence ev_001_005"
+    },
+    {
+      "candidate_probe_seed": {
+        "expected_behavior": "JudgeAgent must evaluate before promotion.",
+        "metadata": {
+          "imported_source_keys": [
+            "action",
+            "expected_signal",
+            "id",
+            "redthread_decides",
+            "requires_live_execution",
+            "requires_raw_payload",
+            "subject_id",
+            "success_condition",
+            "supporting_evidence_ids"
+          ]
+        },
+        "prompt": "[redacted:prompt]",
+        "source_id": "step_001_001"
+      },
+      "creates_defense_claim": false,
+      "creates_promotion_claim": false,
+      "creates_regression_case": false,
+      "description": "collect approved boundary context before RedThread-owned authorization-boundary evaluation",
+      "detector_hint_context": {
+        "adopt_redthread_schema": "redthread.intent_evidence.v1",
+        "expected_signal": "RedThread determines whether the sanitized workflow evidence is meaningful enough for JudgeAgent evaluation",
+        "requires_live_execution": false,
+        "requires_raw_payload": false,
+        "success_condition": "JudgeAgent completes final evaluation; adopt-redthread makes no finding claim",
+        "supporting_evidence_ids": [
+          "ev_001_001",
+          "ev_001_002",
+          "ev_001_003",
+          "ev_001_004",
+          "ev_001_005"
+        ]
+      },
+      "evidence_label": "imported_weak_evidence",
+      "evidence_mode": "weak_imported_evidence",
+      "evidence_strength": "weak_imported_evidence",
+      "is_confirmed_finding": false,
+      "not_scored_reason": "weak_imported_evidence",
+      "promotion_impact": "none",
+      "raw": {},
+      "requires_judge_confirmation": true,
+      "source": "adopt-redthread",
+      "source_id": "step_001_001",
+      "title": "adopt-redthread candidate step step_001_001"
+    }
+  ],
+  "limitations": [
+    "Imported adopt-redthread intent evidence is weak imported context, not proof.",
+    "JudgeAgent confirmation is required before creating findings or regression cases.",
+    "No raw HAR, URL, header, cookie, body, payload, or secret is imported."
+  ],
+  "not_scored_reason": "weak_imported_evidence",
+  "promotion_impact": "none",
+  "schema_version": "redthread.external_evidence_bundle.v1",
+  "source": "adopt-redthread"
+}

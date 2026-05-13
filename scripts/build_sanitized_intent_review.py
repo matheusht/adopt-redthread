@@ -4,8 +4,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +31,10 @@ INTENT_EVIDENCE_VALIDATION_SCHEMA_VERSION = "redthread.intent_evidence_validatio
 IMPORTABILITY_REPORT_SCHEMA_VERSION = "redthread.importability_report.v1"
 CANDIDATE_WORKFLOW_IMPORT_SCHEMA_VERSION = "redthread.candidate_workflow_import.v1"
 PRODUCT_PROOF_SCHEMA_VERSION = "redthread.intent_evidence_product_proof.v1"
+PENTEST_CONTEXT_PACKAGE_SCHEMA_VERSION = "adopt_redthread.pentest_context_package.v0"
+PENTEST_AGENT_HANDOFF_SCHEMA_VERSION = "adopt_redthread.pentest_agent_handoff.v0"
+APPROVED_AUTH_BUNDLE_SCHEMA_VERSION = "adopt_redthread.approved_auth_bundle.v0"
+APPROVED_WRITE_BUNDLE_SCHEMA_VERSION = "adopt_redthread.approved_write_bundle.v0"
 
 ALLOWED_SUBJECT_ARTIFACTS = {
     "workflow_summary.json",
@@ -87,6 +93,38 @@ INTENT_EVIDENCE_REQUIRED_PRIVACY_FALSE_FLAGS = {
     "secrets_included",
     "raw_payloads_included",
 }
+APPROVED_BUNDLE_ENVIRONMENTS = {"local_lab", "test", "staging", "non_production"}
+APPROVED_AUTH_BUNDLE_ACTIONS = {"review_sanitized_context", "plan_candidate_probe", "authenticated_read_probe"}
+APPROVED_AUTH_REFERENCE_TYPES = {"env_var", "secret_manager_ref", "operator_supplied_runtime_ref"}
+APPROVED_WRITE_OPERATION_CLASSES = {"idempotent_check", "test_resource_create", "test_resource_update", "reversible_non_destructive_write"}
+DESTRUCTIVE_WRITE_OPERATION_CLASSES = {"delete", "payment", "external_notification", "privilege_change", "production_mutation", "bulk_export"}
+FORBIDDEN_AUTH_VALUE_KEYS = {
+    "authorization",
+    "authorization_header",
+    "bearer",
+    "bearer_token",
+    "token",
+    "access_token",
+    "refresh_token",
+    "api_key",
+    "password",
+    "cookie",
+    "cookies",
+    "set_cookie",
+    "header",
+    "headers",
+    "session",
+    "value",
+    "raw_value",
+    "secret_value",
+}
+FORBIDDEN_AUTH_VALUE_PATTERNS = (
+    re.compile(r"authorization\s*:", re.IGNORECASE),
+    re.compile(r"cookie\s*:", re.IGNORECASE),
+    re.compile(r"set-cookie", re.IGNORECASE),
+    re.compile(r"bearer\s+\S+", re.IGNORECASE),
+    re.compile(r"eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"),
+)
 
 REVIEW_REQUIRED_KEYS = {
     "schema_version",
@@ -1321,6 +1359,520 @@ def render_product_proof_markdown(proof: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _package_privacy_block() -> dict[str, Any]:
+    return {
+        "sanitized": True,
+        "raw_har_included": False,
+        "raw_urls_included": False,
+        "raw_headers_included": False,
+        "raw_cookies_included": False,
+        "raw_bodies_included": False,
+        "raw_ids_included": False,
+        "auth_values_included": False,
+        "secrets_included": False,
+    }
+
+
+def build_pentest_context_package(
+    review: dict[str, Any],
+    handoff: dict[str, Any],
+    intent_evidence: dict[str, Any],
+    candidate_workflow_import: dict[str, Any],
+) -> dict[str, Any]:
+    candidates = handoff.get("execution_candidates", [])
+    endpoint_inventory = []
+    workflow_map = []
+    hypotheses = []
+    auth_requirements = []
+    missing_context = []
+    for candidate in candidates:
+        subject_id = candidate.get("subject_id", "unknown_subject")
+        candidate_id = candidate.get("candidate_id", "candidate_unknown")
+        observations = candidate.get("supporting_sanitized_observations", [])
+        evidence_ids = [str(obs.get("observation_id")) for obs in observations if obs.get("observation_id")]
+        endpoint_inventory.append({
+            "endpoint_id": f"endpoint_{candidate_id}",
+            "subject_id": subject_id,
+            "method_class": "sanitized_unknown_or_mixed",
+            "path_template": "sanitized_path_template_not_exported",
+            "operation_class": "candidate_boundary_or_workflow_operation",
+            "auth_required": "requires_approved_context" if candidate.get("missing_context") else "unknown",
+            "data_sensitivity": ["sanitized_runtime_evidence"],
+            "evidence_ids": evidence_ids,
+            "confidence": candidate.get("evidence_strength", "low"),
+        })
+        workflow_map.append({
+            "workflow_id": f"workflow_{candidate_id}",
+            "subject_id": subject_id,
+            "summary": candidate.get("candidate_workflow_intent", "sanitized workflow candidate"),
+            "ordered_endpoint_ids": [f"endpoint_{candidate_id}"],
+            "requires_auth_bundle": True,
+            "requires_write_bundle": candidate.get("recommended_redthread_action") == "prepare_reviewed_replay_plan",
+            "evidence_ids": evidence_ids,
+            "confidence": candidate.get("evidence_strength", "low"),
+        })
+        hypotheses.append({
+            "hypothesis_id": f"hypothesis_{candidate_id}",
+            "subject_id": subject_id,
+            "category": candidate.get("recommended_redthread_action", "redthread_triage"),
+            "summary": candidate.get("operator_summary", "Sanitized candidate for downstream RedThread evaluation."),
+            "not_a_finding": True,
+            "requires_judge_confirmation": True,
+            "recommended_downstream_action": candidate.get("recommended_redthread_action"),
+            "evidence_ids": evidence_ids,
+            "missing_context": [gap.get("category", "missing_context") for gap in candidate.get("missing_context", [])],
+        })
+        auth_requirements.append({
+            "subject_id": subject_id,
+            "auth_bundle_required": True,
+            "write_bundle_required": candidate.get("recommended_redthread_action") == "prepare_reviewed_replay_plan",
+            "allowed_without_bundle": ["review_sanitized_context", "plan_candidate_probe"],
+            "blocked_without_bundle": ["authenticated_live_probe", "state_changing_replay"],
+        })
+        for gap in candidate.get("missing_context", []):
+            missing_context.append({
+                "subject_id": subject_id,
+                "category": gap.get("category", "missing_context"),
+                "question": gap.get("question") or gap.get("next_action") or "Collect approved context before downstream execution.",
+                "evidence_ids": evidence_ids,
+            })
+    package = {
+        "schema_version": PENTEST_CONTEXT_PACKAGE_SCHEMA_VERSION,
+        "package_id": "pentest_context_package_001",
+        "source": {
+            "tool": "adopt-redthread",
+            "source_review_id": review.get("review_id"),
+            "source_intent_evidence_schema_version": intent_evidence.get("schema_version"),
+            "raw_artifacts_included": False,
+        },
+        "manifest": {
+            "canonical_files": [
+                "manifest.json",
+                "package_summary.json",
+                "privacy_audit.json",
+                "safety_policy.json",
+                "endpoint_inventory.json",
+                "workflow_map.json",
+                "attack_surface_hypotheses.json",
+                "auth_requirements.json",
+                "missing_context.json",
+                "pentest_agent_handoff.json",
+            ],
+            "auth_bundle_included": False,
+            "write_bundle_included": False,
+        },
+        "package_summary": {
+            "purpose": "sanitized_context_bridge_for_downstream_pentest_agent",
+            "endpoint_count": len(endpoint_inventory),
+            "workflow_count": len(workflow_map),
+            "hypothesis_count": len(hypotheses),
+            "candidate_probe_count": candidate_workflow_import.get("candidate_workflow_count", 0),
+        },
+        "privacy": _package_privacy_block(),
+        "safety_policy": {
+            "default_live_execution_allowed": False,
+            "downstream_execution_requires_opt_in_bundle": True,
+            "judge_agent_required": True,
+            "adopt_redthread_makes_findings": False,
+            "destructive_actions_blocked_by_default": True,
+            "auth_bundle_schema_version": APPROVED_AUTH_BUNDLE_SCHEMA_VERSION,
+            "write_bundle_schema_version": APPROVED_WRITE_BUNDLE_SCHEMA_VERSION,
+        },
+        "endpoint_inventory": endpoint_inventory,
+        "workflow_map": workflow_map,
+        "attack_surface_hypotheses": hypotheses,
+        "auth_requirements": auth_requirements,
+        "missing_context": missing_context,
+        "redthread_import_hint": {
+            "import_as": "weak_context_package_not_finding",
+            "candidate_probe_seed_count": candidate_workflow_import.get("candidate_workflow_count", 0),
+            "judge_agent_required": True,
+        },
+    }
+    return package
+
+
+def build_pentest_agent_handoff(package: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": PENTEST_AGENT_HANDOFF_SCHEMA_VERSION,
+        "source_package_schema_version": package.get("schema_version"),
+        "objective": "Use sanitized application context to plan scoped downstream pentest probes; do not treat hypotheses as findings.",
+        "allowed_actions": ["review_context", "plan_candidate_probes", "request_missing_context"],
+        "forbidden_actions": ["claim_finding", "assign_severity", "promote_regression", "execute_live_without_opt_in_bundle", "perform_destructive_action"],
+        "auth_bundle_policy": {
+            "default_auth_values_included": False,
+            "approved_auth_bundle_schema_version": APPROVED_AUTH_BUNDLE_SCHEMA_VERSION,
+            "approved_write_bundle_schema_version": APPROVED_WRITE_BUNDLE_SCHEMA_VERSION,
+            "secret_values_must_not_be_logged_or_rendered": True,
+        },
+        "candidate_objectives": [
+            {
+                "objective_id": f"objective_{index:03d}",
+                "source_hypothesis_id": hypothesis.get("hypothesis_id"),
+                "subject_id": hypothesis.get("subject_id"),
+                "summary": hypothesis.get("summary"),
+                "evidence_ids": hypothesis.get("evidence_ids", []),
+                "requires_judge_confirmation": True,
+                "not_a_finding": True,
+            }
+            for index, hypothesis in enumerate(package.get("attack_surface_hypotheses", []), start=1)
+        ],
+        "expected_downstream_result": {
+            "redthread_or_pentest_agent_owns_execution": True,
+            "judge_agent_required_before_finding": True,
+            "adopt_redthread_claims_security_truth": False,
+        },
+    }
+
+
+def validate_pentest_context_package(package: dict[str, Any], handoff: dict[str, Any]) -> dict[str, Any]:
+    errors: list[str] = []
+    if package.get("schema_version") != PENTEST_CONTEXT_PACKAGE_SCHEMA_VERSION:
+        errors.append("package.schema_version")
+    privacy = package.get("privacy", {})
+    if not privacy.get("sanitized"):
+        errors.append("privacy.sanitized")
+    for flag in ("raw_har_included", "raw_urls_included", "raw_headers_included", "raw_cookies_included", "raw_bodies_included", "raw_ids_included", "auth_values_included", "secrets_included"):
+        if privacy.get(flag):
+            errors.append(f"privacy.{flag}")
+    manifest = package.get("manifest", {})
+    if manifest.get("auth_bundle_included") is not False:
+        errors.append("manifest.auth_bundle_included")
+    if manifest.get("write_bundle_included") is not False:
+        errors.append("manifest.write_bundle_included")
+    if "approved_auth_bundle" in package or "auth_bundle" in package:
+        errors.append("package.auth_bundle_embedded")
+    if "approved_write_bundle" in package or "write_bundle" in package:
+        errors.append("package.write_bundle_embedded")
+    if package.get("safety_policy", {}).get("default_live_execution_allowed"):
+        errors.append("safety_policy.default_live_execution_allowed")
+    if not package.get("safety_policy", {}).get("judge_agent_required"):
+        errors.append("safety_policy.judge_agent_required")
+    for hypothesis in package.get("attack_surface_hypotheses", []):
+        hid = hypothesis.get("hypothesis_id", "unknown_hypothesis")
+        if not hypothesis.get("evidence_ids"):
+            errors.append(f"hypothesis.{hid}.evidence_ids")
+        if not hypothesis.get("not_a_finding"):
+            errors.append(f"hypothesis.{hid}.not_a_finding")
+        if not hypothesis.get("requires_judge_confirmation"):
+            errors.append(f"hypothesis.{hid}.requires_judge_confirmation")
+        summary = str(hypothesis.get("summary", "")).casefold()
+        for phrase in INTENT_EVIDENCE_FORBIDDEN_LANGUAGE:
+            if phrase in summary:
+                errors.append(f"hypothesis.{hid}.forbidden_language.{phrase.replace(' ', '_')}")
+    if handoff.get("schema_version") != PENTEST_AGENT_HANDOFF_SCHEMA_VERSION:
+        errors.append("handoff.schema_version")
+    for objective in handoff.get("candidate_objectives", []):
+        oid = objective.get("objective_id", "unknown_objective")
+        if not objective.get("evidence_ids"):
+            errors.append(f"objective.{oid}.evidence_ids")
+        if not objective.get("not_a_finding"):
+            errors.append(f"objective.{oid}.not_a_finding")
+        summary = str(objective.get("summary", "")).casefold()
+        for phrase in INTENT_EVIDENCE_FORBIDDEN_LANGUAGE:
+            if phrase in summary:
+                errors.append(f"objective.{oid}.forbidden_language.{phrase.replace(' ', '_')}")
+    audit = marker_audit(json.dumps({"package": package, "handoff": handoff}, sort_keys=True))
+    if not audit.get("passed"):
+        errors.append("privacy_marker_audit")
+    return {
+        "schema_version": "adopt_redthread.pentest_context_package_validation.v0",
+        "valid": not errors,
+        "privacy_safe": bool(audit.get("passed")) and not errors,
+        "error_count": len(errors),
+        "errors": errors,
+        "raw_field_hit_count": int(audit.get("raw_field_hit_count", 0)),
+        "marker_hit_count": int(audit.get("marker_hit_count", 0)),
+    }
+
+
+def _parse_bundle_timestamp(value: Any) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    normalized = value.strip().replace("Z", "+00:00")
+    try:
+        datetime.fromisoformat(normalized)
+    except ValueError:
+        return False
+    return True
+
+
+def _collect_package_ids(package: dict[str, Any]) -> dict[str, set[str]]:
+    return {
+        "subject_ids": {
+            str(item.get("subject_id"))
+            for section in ("endpoint_inventory", "workflow_map", "attack_surface_hypotheses", "auth_requirements")
+            for item in package.get(section, [])
+            if item.get("subject_id")
+        },
+        "workflow_ids": {str(item.get("workflow_id")) for item in package.get("workflow_map", []) if item.get("workflow_id")},
+        "endpoint_ids": {str(item.get("endpoint_id")) for item in package.get("endpoint_inventory", []) if item.get("endpoint_id")},
+    }
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _scope_values(scope: dict[str, Any], key: str) -> list[str]:
+    values = scope.get(key, [])
+    if not isinstance(values, list):
+        return []
+    return [str(value) for value in values if str(value)]
+
+
+def _scope_is_bounded(scope: dict[str, Any], key: str, errors: list[str], prefix: str) -> list[str]:
+    values = _scope_values(scope, key)
+    if not values:
+        errors.append(f"{prefix}.scope.{key}")
+    if any(value.casefold() in {"*", "all", "any"} for value in values):
+        errors.append(f"{prefix}.scope.{key}.unbounded")
+    return values
+
+
+def _append_unknown_scope_errors(values: list[str], known_values: set[str], key: str, errors: list[str], prefix: str) -> None:
+    if not known_values:
+        return
+    for value in values:
+        if value not in known_values:
+            errors.append(f"{prefix}.scope.{key}.unknown.{value}")
+
+
+def _scan_for_auth_material(payload: Any, errors: list[str], prefix: str, path: str = "") -> None:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            key_text = str(key)
+            next_path = f"{path}.{key_text}" if path else key_text
+            if key_text.casefold() in FORBIDDEN_AUTH_VALUE_KEYS:
+                errors.append(f"{prefix}.forbidden_auth_value_key.{next_path}")
+            _scan_for_auth_material(value, errors, prefix, next_path)
+    elif isinstance(payload, list):
+        for index, value in enumerate(payload):
+            _scan_for_auth_material(value, errors, prefix, f"{path}[{index}]")
+    elif isinstance(payload, str):
+        if any(pattern.search(payload) for pattern in FORBIDDEN_AUTH_VALUE_PATTERNS):
+            errors.append(f"{prefix}.forbidden_auth_value_literal.{path or 'root'}")
+
+
+def _validate_bundle_common(bundle: dict[str, Any], schema_version: str, prefix: str, package: dict[str, Any] | None) -> tuple[list[str], dict[str, Any]]:
+    errors: list[str] = []
+    if bundle.get("schema_version") != schema_version:
+        errors.append(f"{prefix}.schema_version")
+    if bundle.get("approved") is not True:
+        errors.append(f"{prefix}.approved")
+    approval = _as_dict(bundle.get("approval", {}))
+    if not approval:
+        errors.append(f"{prefix}.approval")
+    if not _parse_bundle_timestamp(approval.get("expires_at")):
+        errors.append(f"{prefix}.approval.expires_at")
+    if approval.get("environment") not in APPROVED_BUNDLE_ENVIRONMENTS:
+        errors.append(f"{prefix}.approval.environment")
+    scope = _as_dict(approval.get("scope", {}))
+    subject_ids = _scope_is_bounded(scope, "subject_ids", errors, prefix)
+    package_ids = _collect_package_ids(package or {})
+    _append_unknown_scope_errors(subject_ids, package_ids["subject_ids"], "subject_ids", errors, prefix)
+    rendering = _as_dict(bundle.get("rendering_policy", {}))
+    if rendering.get("markdown_rendering_allowed") is not False:
+        errors.append(f"{prefix}.rendering_policy.markdown_rendering_allowed")
+    if rendering.get("llm_prompt_inclusion_allowed") is not False:
+        errors.append(f"{prefix}.rendering_policy.llm_prompt_inclusion_allowed")
+    if rendering.get("log_value_allowed") is not False:
+        errors.append(f"{prefix}.rendering_policy.log_value_allowed")
+    audit = marker_audit(json.dumps(bundle, sort_keys=True))
+    if not audit.get("passed"):
+        errors.append(f"{prefix}.privacy_marker_audit")
+    _scan_for_auth_material(bundle, errors, prefix)
+    return errors, {
+        "subject_ids": subject_ids,
+        "package_ids": package_ids,
+        "audit": audit,
+    }
+
+
+def validate_approved_auth_bundle(bundle: dict[str, Any], package: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Validate an opt-in auth bundle without copying or rendering credential values."""
+    errors, common = _validate_bundle_common(bundle, APPROVED_AUTH_BUNDLE_SCHEMA_VERSION, "auth_bundle", package)
+    approval = _as_dict(bundle.get("approval", {}))
+    scope = _as_dict(approval.get("scope", {}))
+    workflow_ids = _scope_is_bounded(scope, "workflow_ids", errors, "auth_bundle")
+    endpoint_ids = _scope_values(scope, "endpoint_ids")
+    _append_unknown_scope_errors(workflow_ids, common["package_ids"]["workflow_ids"], "workflow_ids", errors, "auth_bundle")
+    _append_unknown_scope_errors(endpoint_ids, common["package_ids"]["endpoint_ids"], "endpoint_ids", errors, "auth_bundle")
+    allowed_actions = _scope_values(scope, "allowed_actions")
+    if not allowed_actions:
+        errors.append("auth_bundle.scope.allowed_actions")
+    for action in allowed_actions:
+        if action not in APPROVED_AUTH_BUNDLE_ACTIONS:
+            errors.append(f"auth_bundle.scope.allowed_actions.unsupported.{action}")
+    credentials = _as_dict(bundle.get("credential_references", {}))
+    if credentials.get("storage") != "external_reference_only":
+        errors.append("auth_bundle.credential_references.storage")
+    if credentials.get("values_included") is not False:
+        errors.append("auth_bundle.credential_references.values_included")
+    references = credentials.get("references", [])
+    if not isinstance(references, list) or not references:
+        errors.append("auth_bundle.credential_references.references")
+        references = []
+    for index, reference in enumerate(references, start=1):
+        if not isinstance(reference, dict):
+            errors.append(f"auth_bundle.credential_references.references.{index}.object")
+            continue
+        reference_id = str(reference.get("reference_id", f"reference_{index:03d}"))
+        if reference.get("reference_type") not in APPROVED_AUTH_REFERENCE_TYPES:
+            errors.append(f"auth_bundle.credential_references.{reference_id}.reference_type")
+        handle = reference.get("handle")
+        if not isinstance(handle, str) or not handle.strip() or any(char.isspace() for char in handle):
+            errors.append(f"auth_bundle.credential_references.{reference_id}.handle")
+    safety = _as_dict(bundle.get("safety", {}))
+    if safety.get("judge_agent_required") is not True:
+        errors.append("auth_bundle.safety.judge_agent_required")
+    if safety.get("state_changing_actions_allowed") is not False:
+        errors.append("auth_bundle.safety.state_changing_actions_allowed")
+    if safety.get("write_bundle_required_for_state_change") is not True:
+        errors.append("auth_bundle.safety.write_bundle_required_for_state_change")
+    audit = common["audit"]
+    return {
+        "schema_version": "adopt_redthread.approved_auth_bundle_validation.v0",
+        "source_schema_version": bundle.get("schema_version"),
+        "valid": not errors,
+        "approved": bundle.get("approved") is True,
+        "privacy_safe": bool(audit.get("passed")) and not errors,
+        "bundle_values_renderable": False,
+        "credential_reference_count": len(references),
+        "scoped_subject_count": len(common["subject_ids"]),
+        "scoped_workflow_count": len(workflow_ids),
+        "live_execution_authorized": False,
+        "state_changing_actions_allowed": False,
+        "judge_agent_required": safety.get("judge_agent_required") is True,
+        "error_count": len(errors),
+        "errors": errors,
+        "raw_field_hit_count": int(audit.get("raw_field_hit_count", 0)),
+        "marker_hit_count": int(audit.get("marker_hit_count", 0)),
+    }
+
+
+def validate_approved_write_bundle(bundle: dict[str, Any], package: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Validate an opt-in write bundle while keeping destructive operations blocked."""
+    errors, common = _validate_bundle_common(bundle, APPROVED_WRITE_BUNDLE_SCHEMA_VERSION, "write_bundle", package)
+    approval = _as_dict(bundle.get("approval", {}))
+    scope = _as_dict(approval.get("scope", {}))
+    workflow_ids = _scope_is_bounded(scope, "workflow_ids", errors, "write_bundle")
+    _append_unknown_scope_errors(workflow_ids, common["package_ids"]["workflow_ids"], "workflow_ids", errors, "write_bundle")
+    if bundle.get("auth_bundle_embedded") is not False:
+        errors.append("write_bundle.auth_bundle_embedded")
+    if "credential_references" in bundle or "approved_auth_bundle" in bundle:
+        errors.append("write_bundle.auth_material_embedded")
+    policy = _as_dict(bundle.get("write_policy", {}))
+    allowed_operation_classes = policy.get("allowed_operation_classes", [])
+    if not isinstance(allowed_operation_classes, list) or not allowed_operation_classes:
+        errors.append("write_bundle.write_policy.allowed_operation_classes")
+        allowed_operation_classes = []
+    for operation_class in allowed_operation_classes:
+        operation_text = str(operation_class)
+        if operation_text not in APPROVED_WRITE_OPERATION_CLASSES:
+            errors.append(f"write_bundle.write_policy.allowed_operation_classes.unsupported.{operation_text}")
+    forbidden_operation_classes = {str(item) for item in policy.get("forbidden_operation_classes", []) if str(item)}
+    missing_destructive_blocks = DESTRUCTIVE_WRITE_OPERATION_CLASSES - forbidden_operation_classes
+    for operation_class in sorted(missing_destructive_blocks):
+        errors.append(f"write_bundle.write_policy.forbidden_operation_classes.missing.{operation_class}")
+    safety = _as_dict(bundle.get("safety", {}))
+    if safety.get("dry_run_required_by_default") is not True:
+        errors.append("write_bundle.safety.dry_run_required_by_default")
+    if safety.get("destructive_operations_allowed") is not False:
+        errors.append("write_bundle.safety.destructive_operations_allowed")
+    if safety.get("live_execution_authorized_by_bundle") is not False:
+        errors.append("write_bundle.safety.live_execution_authorized_by_bundle")
+    if safety.get("requires_runtime_confirmation") is not True:
+        errors.append("write_bundle.safety.requires_runtime_confirmation")
+    if not isinstance(safety.get("rollback_or_cleanup_notes"), str) or not safety.get("rollback_or_cleanup_notes", "").strip():
+        errors.append("write_bundle.safety.rollback_or_cleanup_notes")
+    audit = common["audit"]
+    return {
+        "schema_version": "adopt_redthread.approved_write_bundle_validation.v0",
+        "source_schema_version": bundle.get("schema_version"),
+        "valid": not errors,
+        "approved": bundle.get("approved") is True,
+        "privacy_safe": bool(audit.get("passed")) and not errors,
+        "auth_bundle_embedded": bundle.get("auth_bundle_embedded") is True,
+        "scoped_subject_count": len(common["subject_ids"]),
+        "scoped_workflow_count": len(workflow_ids),
+        "allowed_operation_class_count": len(allowed_operation_classes),
+        "destructive_operations_allowed": safety.get("destructive_operations_allowed") is True,
+        "live_execution_authorized": False,
+        "dry_run_required_by_default": safety.get("dry_run_required_by_default") is True,
+        "requires_runtime_confirmation": safety.get("requires_runtime_confirmation") is True,
+        "error_count": len(errors),
+        "errors": errors,
+        "raw_field_hit_count": int(audit.get("raw_field_hit_count", 0)),
+        "marker_hit_count": int(audit.get("marker_hit_count", 0)),
+    }
+
+
+def build_auth_write_bundle_validation_summary(
+    auth_validation: dict[str, Any] | None,
+    write_validation: dict[str, Any] | None,
+) -> dict[str, Any]:
+    auth_valid = auth_validation is not None and bool(auth_validation.get("valid"))
+    write_valid = write_validation is not None and bool(write_validation.get("valid"))
+    return {
+        "schema_version": "adopt_redthread.auth_write_bundle_validation_summary.v0",
+        "auth_bundle_provided": auth_validation is not None,
+        "write_bundle_provided": write_validation is not None,
+        "auth_bundle_valid": auth_valid,
+        "write_bundle_valid": write_valid,
+        "auth_values_rendered": False,
+        "write_values_rendered": False,
+        "default_package_contains_bundles": False,
+        "live_execution_authorized_by_adopt_redthread": False,
+        "state_changing_execution_authorized_by_adopt_redthread": False,
+        "judge_agent_required": True,
+        "ready_for_downstream_opt_in_review": all(
+            validation is None or validation.get("valid")
+            for validation in (auth_validation, write_validation)
+        ),
+    }
+
+
+def render_pentest_agent_brief_markdown(package: dict[str, Any], handoff: dict[str, Any]) -> str:
+    lines = [
+        "# Pentest Agent Brief",
+        "",
+        "## Purpose",
+        "Use this sanitized context to plan downstream RedThread/pentest evaluation. This brief is not a finding report.",
+        "",
+        "## Safety",
+        "- Live execution authorized by this package: No",
+        "- Auth values included by default: No",
+        "- JudgeAgent required before findings: Yes",
+        "- Adopt RedThread assigns severity: No",
+        "",
+        "## Candidate objectives",
+    ]
+    for objective in handoff.get("candidate_objectives", []):
+        lines.append(f"- `{objective['objective_id']}` from `{objective['source_hypothesis_id']}`: {objective['summary']}")
+        lines.append(f"  - Evidence: {', '.join(objective.get('evidence_ids', []))}")
+    lines.extend(["", "## Missing context"])
+    for gap in package.get("missing_context", []):
+        lines.append(f"- `{gap['subject_id']}` {gap['category']}: {gap['question']}")
+    return "\n".join(lines) + "\n"
+
+
+def render_pentest_reviewer_packet_markdown(package: dict[str, Any], validation: dict[str, Any]) -> str:
+    return "\n".join([
+        "# Pentest Context Reviewer Packet",
+        "",
+        f"- Package valid: {validation['valid']}",
+        f"- Privacy safe: {validation['privacy_safe']}",
+        f"- Endpoints: {package['package_summary']['endpoint_count']}",
+        f"- Workflows: {package['package_summary']['workflow_count']}",
+        f"- Hypotheses: {package['package_summary']['hypothesis_count']}",
+        "- Findings claimed: No",
+        "- Live execution authorized: No",
+        "- Auth bundle included: No",
+        "",
+    ])
+
+
 def build_redthread_evidence_export(review: dict[str, Any]) -> dict[str, Any]:
     subjects = review.get("subjects", [])
     return {
@@ -1701,6 +2253,8 @@ def build_sanitized_intent_review(
     prepare_llm_prompt: bool = False,
     boundary_rubric: str | Path | None = None,
     reviewer_observations: str | Path | None = None,
+    approved_auth_bundle: str | Path | None = None,
+    approved_write_bundle: str | Path | None = None,
 ) -> dict[str, Any]:
     batch_dir = Path(batch_dir)
     output_dir = Path(output_dir) if output_dir else batch_dir / "intent_review"
@@ -1747,6 +2301,24 @@ def build_sanitized_intent_review(
     importability_report = build_redthread_importability_report(intent_evidence, intent_evidence_validation)
     candidate_workflow_import = build_redthread_candidate_workflow_import(intent_evidence, intent_evidence_validation)
     product_proof = build_product_proof_report(intent_evidence, intent_evidence_validation, importability_report, candidate_workflow_import)
+    pentest_context_package = build_pentest_context_package(review, handoff, intent_evidence, candidate_workflow_import)
+    pentest_agent_handoff = build_pentest_agent_handoff(pentest_context_package)
+    pentest_context_validation = validate_pentest_context_package(pentest_context_package, pentest_agent_handoff)
+    if not pentest_context_validation["valid"]:
+        raise ValueError(f"pentest context package validation failed: {pentest_context_validation}")
+    auth_bundle_validation = None
+    if approved_auth_bundle:
+        auth_payload = _read_json(Path(approved_auth_bundle))
+        auth_bundle_validation = validate_approved_auth_bundle(auth_payload, pentest_context_package)
+        if not auth_bundle_validation["valid"]:
+            raise ValueError(f"approved auth bundle validation failed: {auth_bundle_validation}")
+    write_bundle_validation = None
+    if approved_write_bundle:
+        write_payload = _read_json(Path(approved_write_bundle))
+        write_bundle_validation = validate_approved_write_bundle(write_payload, pentest_context_package)
+        if not write_bundle_validation["valid"]:
+            raise ValueError(f"approved write bundle validation failed: {write_bundle_validation}")
+    bundle_validation_summary = build_auth_write_bundle_validation_summary(auth_bundle_validation, write_bundle_validation)
     business_validation = build_business_validation_plan(review, advancement)
     schema_validation = validate_intent_review_contract(review, export)
     if not schema_validation["passed"]:
@@ -1760,7 +2332,13 @@ def build_sanitized_intent_review(
     candidate_workflow_markdown = render_candidate_workflow_import_markdown(candidate_workflow_import)
     product_proof_markdown = render_product_proof_markdown(product_proof)
     operator_handoff_markdown = render_operator_handoff_markdown(intent_evidence, importability_report, candidate_workflow_import, product_proof)
-    safety_payloads: list[dict[str, Any] | str] = [context, review, export, advancement, handoff, handoff_validation, intent_evidence, intent_evidence_validation, importability_report, candidate_workflow_import, product_proof, business_validation, schema_validation, contract_preview, markdown, advancement_markdown, handoff_markdown, intent_evidence_markdown, importability_markdown, candidate_workflow_markdown, product_proof_markdown, operator_handoff_markdown]
+    pentest_agent_brief_markdown = render_pentest_agent_brief_markdown(pentest_context_package, pentest_agent_handoff)
+    pentest_reviewer_packet_markdown = render_pentest_reviewer_packet_markdown(pentest_context_package, pentest_context_validation)
+    safety_payloads: list[dict[str, Any] | str] = [context, review, export, advancement, handoff, handoff_validation, intent_evidence, intent_evidence_validation, importability_report, candidate_workflow_import, product_proof, pentest_context_package, pentest_agent_handoff, pentest_context_validation, bundle_validation_summary, business_validation, schema_validation, contract_preview, markdown, advancement_markdown, handoff_markdown, intent_evidence_markdown, importability_markdown, candidate_workflow_markdown, product_proof_markdown, operator_handoff_markdown, pentest_agent_brief_markdown, pentest_reviewer_packet_markdown]
+    if auth_bundle_validation:
+        safety_payloads.append(auth_bundle_validation)
+    if write_bundle_validation:
+        safety_payloads.append(write_bundle_validation)
     if local_llm_status:
         safety_payloads.append(local_llm_status)
     audit = _assert_safe_artifacts(safety_payloads, fail_on_marker_hit)
@@ -1786,6 +2364,29 @@ def build_sanitized_intent_review(
     _write_json(output_dir / "redthread_product_proof.json", product_proof)
     _write_text(output_dir / "redthread_product_proof.md", product_proof_markdown)
     _write_text(output_dir / "redthread_operator_handoff.md", operator_handoff_markdown)
+    pentest_dir = output_dir / "pentest_context_package_v0"
+    _write_json(pentest_dir / "manifest.json", {"schema_version": "adopt_redthread.pentest_context_manifest.v0", **pentest_context_package["manifest"]})
+    _write_json(pentest_dir / "package_summary.json", pentest_context_package["package_summary"])
+    _write_json(pentest_dir / "privacy_audit.json", {"schema_version": "adopt_redthread.pentest_context_privacy_audit.v0", **pentest_context_package["privacy"]})
+    _write_json(pentest_dir / "safety_policy.json", pentest_context_package["safety_policy"])
+    _write_json(pentest_dir / "endpoint_inventory.json", {"schema_version": "adopt_redthread.endpoint_inventory.v0", "endpoints": pentest_context_package["endpoint_inventory"]})
+    _write_json(pentest_dir / "workflow_map.json", {"schema_version": "adopt_redthread.workflow_map.v0", "workflows": pentest_context_package["workflow_map"]})
+    _write_json(pentest_dir / "attack_surface_hypotheses.json", {"schema_version": "adopt_redthread.attack_surface_hypotheses.v0", "hypotheses": pentest_context_package["attack_surface_hypotheses"]})
+    _write_json(pentest_dir / "auth_requirements.json", {"schema_version": "adopt_redthread.auth_requirements.v0", "requirements": pentest_context_package["auth_requirements"]})
+    _write_json(pentest_dir / "missing_context.json", {"schema_version": "adopt_redthread.missing_context.v0", "items": pentest_context_package["missing_context"]})
+    _write_json(pentest_dir / "pentest_context_package.json", pentest_context_package)
+    _write_json(pentest_dir / "pentest_agent_handoff.json", pentest_agent_handoff)
+    _write_json(pentest_dir / "pentest_context_package_validation.json", pentest_context_validation)
+    _write_json(pentest_dir / "redthread_import_hint.json", pentest_context_package["redthread_import_hint"])
+    _write_text(pentest_dir / "pentest_agent_brief.md", pentest_agent_brief_markdown)
+    _write_text(pentest_dir / "reviewer_packet.md", pentest_reviewer_packet_markdown)
+    if auth_bundle_validation or write_bundle_validation:
+        bundle_dir = output_dir / "opt_in_bundle_validations"
+        if auth_bundle_validation:
+            _write_json(bundle_dir / "approved_auth_bundle_validation.json", auth_bundle_validation)
+        if write_bundle_validation:
+            _write_json(bundle_dir / "approved_write_bundle_validation.json", write_bundle_validation)
+        _write_json(bundle_dir / "auth_write_bundle_validation_summary.json", bundle_validation_summary)
     _write_json(output_dir / "business_validation_plan.json", business_validation)
     _write_json(output_dir / "schema_validation.json", schema_validation)
     _write_json(output_dir / "redthread_evidence_contract_preview.json", contract_preview)
@@ -1805,6 +2406,11 @@ def build_sanitized_intent_review(
         "candidate_workflow_created": importability_report["candidate_workflow_created"],
         "candidate_workflow_import_path": str(output_dir / "redthread_candidate_workflow_import.json"),
         "product_proof_passed": product_proof["passed"],
+        "pentest_context_package_path": str(output_dir / "pentest_context_package_v0"),
+        "pentest_context_package_valid": pentest_context_validation["valid"],
+        "approved_auth_bundle_valid": auth_bundle_validation["valid"] if auth_bundle_validation else None,
+        "approved_write_bundle_valid": write_bundle_validation["valid"] if write_bundle_validation else None,
+        "auth_write_bundle_validation_summary": bundle_validation_summary,
     }
     if local_llm_status:
         result["local_llm_status"] = local_llm_status
@@ -1821,6 +2427,8 @@ def main() -> int:
     parser.add_argument("--prepare-llm-prompt", action="store_true", help="Write sanitized LLM prompt/context and exit without requiring model output.")
     parser.add_argument("--boundary-rubric", help="Optional sanitized boundary context/rubric intake JSON.")
     parser.add_argument("--reviewer-observations", help="Optional sanitized reviewer observations intake JSON.")
+    parser.add_argument("--approved-auth-bundle", help="Optional opt-in auth bundle JSON to validate without copying values into the package.")
+    parser.add_argument("--approved-write-bundle", help="Optional opt-in write bundle JSON to validate separately from auth context.")
     args = parser.parse_args()
     result = build_sanitized_intent_review(
         args.batch_dir,
@@ -1831,6 +2439,8 @@ def main() -> int:
         prepare_llm_prompt=args.prepare_llm_prompt,
         boundary_rubric=args.boundary_rubric,
         reviewer_observations=args.reviewer_observations,
+        approved_auth_bundle=args.approved_auth_bundle,
+        approved_write_bundle=args.approved_write_bundle,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

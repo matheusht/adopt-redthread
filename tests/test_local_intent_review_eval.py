@@ -26,6 +26,10 @@ class LocalIntentReviewEvalTests(unittest.TestCase):
             self.assertEqual(report["summary"]["redthread_importable_count"], 1)
             self.assertEqual(report["summary"]["candidate_workflow_created_count"], 1)
             self.assertEqual(report["summary"]["product_proof_passed_count"], 1)
+            self.assertEqual(report["summary"]["pentest_context_package_valid_count"], 1)
+            self.assertEqual(report["summary"]["pentest_handoff_safe_count"], 1)
+            self.assertEqual(report["summary"]["pentest_handoff_objectives_count"], 1)
+            self.assertEqual(report["summary"]["pentest_objectives_with_citations_count"], 1)
             self.assertTrue(report["cases"][0]["execution_candidate_present"])
             self.assertTrue(report["cases"][0]["next_redthread_action_clear"])
             self.assertTrue(report["cases"][0]["missing_context_clear"])
@@ -33,6 +37,9 @@ class LocalIntentReviewEvalTests(unittest.TestCase):
             self.assertTrue(report["cases"][0]["redthread_intent_evidence_importable"])
             self.assertTrue(report["cases"][0]["workflow_import_safe"])
             self.assertTrue(report["cases"][0]["judge_required"])
+            self.assertTrue(report["cases"][0]["pentest_context_package_valid"])
+            self.assertTrue(report["cases"][0]["pentest_context_privacy_safe"])
+            self.assertTrue(report["cases"][0]["pentest_handoff_safe"])
             self.assertTrue((root / "eval" / "local_intent_review_eval.md").exists())
 
     def test_eval_reports_useful_delta_from_valid_local_output(self) -> None:

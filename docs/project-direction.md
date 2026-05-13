@@ -2,7 +2,11 @@
 
 ## Bottom Line
 
-Adopt RedThread should become an evidence bridge for agent-builder security assurance, not a general scanner and not a fake autonomous attack platform. The main use now is simple: take Adopt/ZAPI/NoUI discovery artifacts, turn them into inspectable workflow and RedThread evidence, then make a conservative `approve`, `review`, or `block` decision. Yes, we should execute requests, but only inside the current safety envelope: deterministic demos, safe reads, and reviewed staging writes with explicit approved context. The next direction is not more integrations; it is making one reviewer-facing proof path boringly clear, then moving the generic evidence contract upstream into RedThread.
+Adopt RedThread should pivot into a **runtime-evidence-to-pentest-context bridge**, not a general scanner and not a fake autonomous attack platform. The main product surface should be: take HAR/ZAPI/NoUI/Adopt discovery artifacts, sanitize them, build an endpoint/workflow/auth/attack-surface context package, optionally attach explicit opt-in auth/write bundles, and hand that package to RedThread or a specialized pentest/red-team agent.
+
+Adopt RedThread owns context packaging, evidence provenance, privacy checks, missing-context questions, and handoff/import proof. RedThread or the downstream pentest agent owns live execution, exploitation, JudgeAgent confirmation, findings, severity, defense, regression, and final gate semantics.
+
+Decision memo: [`docs/pentest-context-bridge-pivot.md`](pentest-context-bridge-pivot.md).
 
 ## Current Reality
 

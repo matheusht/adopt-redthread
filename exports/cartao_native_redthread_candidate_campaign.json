@@ -1,0 +1,69 @@
+{
+  "campaign_config_hint": {
+    "benchmark_evidence_mode": "weak_imported_evidence",
+    "not_scored_reason": "weak_imported_evidence",
+    "objective": "Evaluate adopt-redthread sanitized cartao authorization-boundary evidence with RedThread.",
+    "probe_seed_examples": "[redacted:probe_seed_examples]",
+    "promotion_impact": "none",
+    "risks": [
+      {
+        "custom_policy": {
+          "default_strategy_ids": [
+            "static_seed_replay"
+          ],
+          "id": "imported_adopt-redthread_evidence",
+          "name": "Imported adopt-redthread evidence",
+          "text": "Evaluate adopt-redthread sanitized cartao authorization-boundary evidence with RedThread."
+        }
+      }
+    ],
+    "safety_note": "Run these as RedThread probes; do not treat imported evidence as a finding.",
+    "strategies": {
+      "include": [
+        "static_seed_replay"
+      ]
+    }
+  },
+  "creates_defense_claim": false,
+  "creates_promotion_claim": false,
+  "creates_regression_case": false,
+  "evidence_mode": "weak_imported_evidence",
+  "limitations": [
+    "Candidate campaigns are planning hints only.",
+    "Imported evidence remains weak until JudgeAgent confirms a RedThread attack result.",
+    "This artifact does not create findings or regression cases.",
+    "This artifact does not create defenses, scores, or promotion claims."
+  ],
+  "not_scored_reason": "weak_imported_evidence",
+  "objective": "Evaluate adopt-redthread sanitized cartao authorization-boundary evidence with RedThread.",
+  "probe_seeds": [
+    {
+      "expected_behavior": "JudgeAgent must evaluate before promotion.",
+      "metadata": {
+        "imported_source_keys": [
+          "action",
+          "expected_signal",
+          "id",
+          "redthread_decides",
+          "requires_live_execution",
+          "requires_raw_payload",
+          "subject_id",
+          "success_condition",
+          "supporting_evidence_ids"
+        ]
+      },
+      "prompt": "[redacted:prompt]",
+      "source_id": "step_001_001"
+    }
+  ],
+  "promotion_impact": "none",
+  "risk_ids": [
+    "imported_external_evidence"
+  ],
+  "schema_version": "redthread.external_campaign_candidates.v1",
+  "source": "adopt-redthread",
+  "source_bundle_schema": "redthread.external_evidence_bundle.v1",
+  "strategy_ids": [
+    "static_seed_replay"
+  ]
+}

@@ -1,158 +1,278 @@
-# Adopt RedThread
+# threadgate
 
-Adopt RedThread is the bridge repo between **Adopt AI** and **RedThread**.
+> Turn discovered agent/tool surfaces into sanitized security evidence RedThread can attack, replay, and judge.
 
-It exists to prove one clear idea:
+threadgate is the bridge between an agent-builder plane and the RedThread security assurance engine.
 
-> **Adopt discovers and builds tool surfaces. This repo turns them into security-testable evidence. RedThread evaluates normalized security inputs. The local bridge gate combines that evidence into approve, review, or block.**
+It does one focused job:
 
-Project direction:
-- keep Adopt-specific discovery and glue in this repo
-- keep RedThread generic and upstream-safe
-- prove impact with inspectable artifacts before expanding scope
-- treat `review` and `block` as valid safety outcomes, not demo failures
+```text
+discovery artifact
+  -> sanitized app/tool/workflow context
+  -> normalized replay fixtures
+  -> bridge-owned safe replay evidence
+  -> RedThread replay / dry-run evidence
+  -> reviewer-facing approve / review / block decision
+```
+
+This repo is not trying to be a broad scanner. It is not a fake autonomous pentest platform. It is a local/reference implementation for turning ZAPI, HAR, NoUI, MCP, and Adopt-style action artifacts into evidence a reviewer can inspect before trusting or publishing an agent workflow.
+
+## The core idea
+
+RedThread is the standalone security engine:
+
+- generate attacks,
+- execute/replay target behavior,
+- score with a judge,
+- synthesize defense candidates,
+- validate with replay,
+- preserve promotion evidence.
+
+This repo gives RedThread better application context without polluting RedThread with product-specific parsing.
+
+In plain English:
+
+> The builder plane discovers and builds tool surfaces. threadgate sanitizes and packages those surfaces. RedThread evaluates normalized security inputs. threadgate combines local workflow evidence and RedThread evidence into `approve`, `review`, or `block`.
 
 ## Current status
 
-This repo is already integrated at the **prototype bridge** level.
+This is a working prototype bridge.
 
 What works today:
-- ingest a ZAPI-style discovery export
-- ingest a real HAR-shaped ZAPI capture and extract app-relevant endpoints
-- ingest a NoUI MCP server output (`manifest.json` + `tools.json`)
-- normalize all three discovery lanes into RedThread-friendly fixtures
-- ingest an Adopt-style action catalog
-- generate replay-pack groups
-- generate a prototype pre-publish gate verdict
-- feed live replay/workflow evidence and real RedThread replay verdicts back into that gate
-- export normalized fixtures into real RedThread replay-bundle inputs
-- evaluate those replay traces with RedThread's actual promotion-gate code
-- generate a machine-readable live attack plan with execution policy fields
-- execute the first policy-gated live safe-read replay lane for allowed GET cases
-- execute reviewed auth-bound safe-read GET cases only when explicit approved auth context is supplied
-- execute reviewed non-destructive write cases in staging only when explicit approved write context is supplied
-- run a deterministic ATP-like reviewed-write reference demo from one operator command and emit one evidence report
-- generate a machine-readable live workflow plan for grouped multi-step cases
-- execute the first bounded sequential workflow replay lane for grouped multi-step cases
-- carry bounded workflow state/evidence forward across sequential steps and emit structured workflow failure reasons
-- surface planned/applied/failed response-binding evidence in workflow replay rows and gate/runtime handoff artifacts
-- run generated bridge cases through a real RedThread dry-run campaign path
-- run a one-command bridge workflow from one artifact input
-- run a live ZAPI capture and hand its selected HAR into that one-command workflow
-- keep that live capture explicitly human-guided with saved operator metadata when needed
-- run an explicit local folder of `.har` captures through an offline-only evidence batch harness that preserves gate decisions and writes sanitized aggregate blocker/gap summaries
 
-What is **not** live yet:
-- direct pull from real Adopt services
-- broad support for all real-world NoUI output families beyond the first MCP server shape
-- full session-aware authenticated replay beyond approved header reuse
-- richer workflow state beyond the new bounded evidence-carry-forward grouped replay
-- full reviewed write coverage beyond the deterministic ATP-like reviewed-write reference path
-- fully automatic live ZAPI runtime -> RedThread attack loop against a real Adopt-managed session
-- production-grade publish gating
-- richer gate policy beyond the first evidence-aware prototype
+- ingest ZAPI-style discovery exports,
+- ingest HAR-shaped ZAPI captures and extract app-relevant endpoints,
+- ingest one NoUI MCP server shape: `manifest.json` + `tools.json`,
+- ingest Adopt-style action catalogs,
+- normalize discovery lanes into RedThread-friendly fixtures,
+- generate replay-pack groups,
+- export RedThread replay-bundle inputs,
+- evaluate replay traces with RedThread promotion-gate code,
+- run generated bridge cases through a real RedThread dry-run campaign path,
+- generate machine-readable live attack and workflow plans,
+- run policy-gated live safe-read GET replay for allowed cases,
+- run reviewed auth-bound safe reads only with explicit approved auth context,
+- run reviewed non-destructive staging writes only with explicit approved write context,
+- carry bounded workflow state and response-binding evidence across sequential steps,
+- emit structured workflow failure reasons,
+- run a deterministic ATP-like reviewed-write reference demo,
+- run a one-command bridge workflow from one artifact input,
+- run a live ZAPI capture into the bridge workflow,
+- run an offline-only HAR evidence batch with sanitized aggregate blocker/gap summaries,
+- produce reviewer-facing evidence packets, readiness ledgers, remediation queues, and external review handoff artifacts.
 
-Important decision boundary:
-- RedThread replay/dry-run output is evidence consumed by this repo
-- live workflow execution is currently owned by this repo
-- the final `approve`, `review`, or `block` verdict currently comes from this repo's local pre-publish gate
+What is not live yet:
 
-So the honest status is:
+- direct pull from real Adopt services,
+- broad support for all NoUI/MCP output families,
+- full session-aware authenticated replay beyond approved header reuse,
+- broad reviewed write coverage beyond the first deterministic reference lane,
+- fully automatic live RedThread attack execution against real Adopt-managed sessions,
+- production-grade publish gating,
+- RedThread owning final live workflow execution for Adopt-managed sessions.
 
-- **yes, the bridge prototype exists and runs end to end**
-- **no, this is not a full live integration yet**
+Honest status:
+
+- **yes:** the bridge prototype runs end to end,
+- **no:** this is not a full production integration or universal safety proof.
 
 ## Why this repo exists
 
-`redthread/` stays standalone.
+`redthread/` should stay generic and upstream-safe.
 
-That repo is the main portfolio project and should keep its own identity:
-- autonomous AI red-teaming
-- replay and validation
-- self-healing
-- runtime-truth and agentic-security work
+RedThread owns reusable security logic:
 
-This repo is different.
-It is the integration lab for:
-- ZAPI ingestion
-- Adopt action/tool mapping
-- NoUI MCP/tool output mapping
-- replay-pack generation
-- RedThread runtime export
-- pre-publish security gates
-- evidence-aware publish recommendations from replay/runtime results
-- recruiter-ready demos for practical agent hardening
+- attack algorithms,
+- JudgeAgent scoring,
+- replay and promotion gates,
+- defense synthesis,
+- agentic-security controls,
+- telemetry and evidence semantics.
 
-## Quick architecture
+This repo owns integration glue:
+
+- ZAPI ingestion,
+- HAR filtering,
+- NoUI/MCP tool-shape mapping,
+- Adopt action mapping,
+- sanitized context packaging,
+- replay-pack generation,
+- local workflow replay demos,
+- reviewer-facing bridge reports,
+- prototype pre-publish gate decisions.
+
+Rule of thumb:
+
+> Generic assurance belongs in RedThread. Product/discovery-specific adaptation belongs here.
+
+## Architecture
 
 ```mermaid
 flowchart TD
-    A[Real app or website] --> B[ZAPI / NoUI / Adopt discovery artifacts]
-    B --> C[Adopt RedThread adapters]
-    C --> D[Normalized fixtures and workflow plans]
-    D --> E[Bridge-owned live/workflow replay evidence]
-    D --> F[RedThread runtime inputs]
-    F --> G[RedThread replay verdict and dry-run evidence]
-    E --> H[Local bridge pre-publish gate]
-    G --> H
-    H --> I[Approve / Review / Block]
+    A[App / Website / Agent Builder] --> B[ZAPI / HAR / NoUI / MCP / Action artifacts]
+    B --> C[Bridge adapters]
+    C --> D[Sanitized context package]
+    C --> E[Normalized fixtures and workflow plans]
+    E --> F[Bridge-owned safe replay evidence]
+    E --> G[RedThread replay and dry-run inputs]
+    G --> H[RedThread evidence]
+    F --> I[Local bridge gate]
+    H --> I
+    I --> J[Approve / Review / Block]
 ```
 
-## Repo goals
+### Ownership split
 
-Short term:
-- ingest ZAPI-discovered API metadata
-- ingest real HAR-derived discovery captures
-- classify endpoint risk
-- convert the catalog into RedThread-friendly fixtures
-- generate first replay packs
+| Layer | Owns | Does not own yet |
+|---|---|---|
+| Builder plane | discovery, tool generation, action/workflow authoring | security verdict truth |
+| threadgate | normalization, sanitization, context packaging, local evidence, handoff | generic attack engine or production enforcement |
+| RedThread | attack, judge, replay, defense, promotion evidence | product-specific parsing or final bridge business decision |
 
-Medium term:
-- expand the new RedThread runtime export beyond dry-run seeds into stronger execution adapters
-- test Adopt-generated actions with RedThread attack suites
-- add multi-turn workflow replay
-- add pre-publish security gate experiments
+## Evidence model
 
-Long term:
-- become a practical reference implementation for agent-builder security assurance
+The project treats `approve`, `review`, and `block` as different useful outcomes.
 
-## How to test locally
+| Decision | Meaning today | What it proves | What it does not prove |
+|---|---|---|---|
+| `approve` | Tested path matched the safe evidence envelope. | The specific replayed workflow passed its current checks. | The whole app is safe. |
+| `review` | Evidence exists, but risk requires human review. | The bridge preserved risk semantics instead of forcing a happy path. | Silent publish is allowed. |
+| `block` | Required evidence/context is missing or replay failed. | The system can fail closed and explain why. | The app is bad. |
 
-### Run the test suite
+A `review` or `block` result is not a demo failure. For write-capable, auth-bound, tenant-sensitive workflows, conservative outcomes are the point.
+
+## Main use case
+
+Use this repo before trusting or publishing an agent/tool workflow.
+
+It helps answer:
+
+- What endpoints, tools, and workflows were discovered?
+- Which operations are read-only, mutating, destructive, auth-bound, or tenant-sensitive?
+- What replay evidence exists?
+- What did RedThread evaluate?
+- Why did the gate approve, review, or block?
+- What context is missing before safe execution?
+- What is not proven yet?
+
+Best current wedge:
+
+> Evidence-backed workflow assurance for generated or discovered agent tools before publish.
+
+## Supported input lanes
+
+### ZAPI / HAR
+
+The bridge can ingest:
+
+- catalog-style ZAPI JSON with endpoint metadata,
+- HAR-shaped browser captures,
+- local `.har` folders through the offline batch harness.
+
+The HAR lane is conservative. It filters noisy browser traffic, drops obvious static/third-party noise, dedupes app-like API calls, and emits normalized fixture bundles.
+
+Raw HAR files can contain cookies, tokens, IDs, request bodies, response bodies, and private messages. Keep raw HARs out of git.
+
+### NoUI / MCP
+
+The bridge supports one real NoUI output shape today:
+
+```text
+manifest.json
++ tools.json
+```
+
+This adds useful runtime/tool context:
+
+- auth strategy,
+- MCP transport style,
+- direct execution vs plain HTTP shape,
+- parameter schema,
+- response surface,
+- tool-callable operation semantics.
+
+### Adopt actions
+
+Adopt-style action catalogs are mapped into RedThread-friendly targets while preserving:
+
+- read/write classification,
+- approval requirement,
+- destructive potential,
+- tenant scope,
+- action semantics.
+
+## Quickstart
+
+### Run tests
 
 ```bash
 make test
 ```
 
-### Run the full local demo flow
+### Run the full local demo
 
 ```bash
 make demo-all
 ```
 
-This will:
-1. ingest sample ZAPI discovery
-2. ingest sample Adopt actions
-3. generate a replay plan
-4. generate a pre-publish gate verdict
+This runs the basic fixture flow:
 
-### Run an offline HAR evidence batch
+1. ingest sample ZAPI discovery,
+2. ingest sample Adopt actions,
+3. generate replay plans,
+4. generate pre-publish gate verdicts.
 
-Use this for local batch QA across explicit `.har` captures. It writes sanitized aggregate follow-up, evidence-review, remediation, and recommended-next-step counts without persisting raw input paths. It does not run live replay, auth reuse, writes, boundary probes, or approval collection.
+### Run the one-input bridge pipeline
+
+```bash
+python3 scripts/run_bridge_pipeline.py \
+  --input fixtures/zapi_samples/sample_filtered_har.json \
+  --kind zapi_har \
+  --output runs/sample_har_pipeline
+```
+
+### Run the reviewed-write reference demo
+
+```bash
+make demo-reviewed-write-reference
+```
+
+Expected result: `review`, not `approve`.
+
+That is correct because reviewed write paths require human approval and non-production context.
+
+### Run evidence matrix
+
+```bash
+make evidence-matrix
+```
+
+The matrix should preserve three different states:
+
+- `approve` for deterministic safe-read binding evidence,
+- `review` for deterministic reviewed-write evidence,
+- `block` when required context is missing.
+
+### Run offline HAR evidence batch
 
 ```bash
 make evidence-har-batch \
   HAR_INPUT_DIR=./captures \
   HAR_BATCH_OUTPUT=runs/har_batches/batch_001 \
   HAR_BATCH_LIMIT=10
+```
 
-# or use a manifest with relative .har paths resolved from the manifest directory
+Or use a manifest:
+
+```bash
 make evidence-har-batch \
   HAR_BATCH_MANIFEST=./manifests/batch.json \
   HAR_BATCH_OUTPUT=runs/har_batches/batch_001
 ```
 
-### Run commands one by one
+This is offline-only. It writes sanitized aggregate follow-up, evidence-review, remediation, and recommended-next-step counts. It does not run live replay, auth reuse, writes, boundary probes, or approval collection.
+
+## Useful commands
 
 ```bash
 make demo-zapi
@@ -174,235 +294,162 @@ make evidence-external-review-sessions
 make evidence-external-validation-readout
 make evidence-freshness
 make evidence-readiness
-make evidence-readiness EVIDENCE_APPROVED_REPLAY_RESULT=runs/approved_context_replay/approved_context_replay_result.json
 make evidence-external-review-distribution
 make evidence-external-review-returns
 make evidence-remediation-queue
-make evidence-remediation-queue EVIDENCE_APPROVED_REPLAY_RESULT=runs/approved_context_replay/approved_context_replay_result.json
 make evidence-boundary-probe-plan
 make evidence-boundary-execution-design
 make evidence-boundary-probe-context
 make evidence-boundary-probe-result
-make evidence-approved-context-replay APPROVED_REPLAY_CASE=case_id
-make evidence-approved-context-replay-approval-request APPROVED_REPLAY_OUTPUT=runs/approved_context_replay
-make evidence-observation-summary OBSERVATION=/path/to/filled_reviewer_observation_template.md OBSERVATION_OUTPUT=/path/to/review_output_dir
-make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"
 make redthread-contract-proposal
 make check-zapi-reference
 ```
 
-## Key demo files
+## Key files
 
 Inputs:
+
 - `fixtures/zapi_samples/sample_discovery.json`
 - `fixtures/zapi_samples/sample_filtered_har.json`
 - `fixtures/noui_samples/expedia_stay_search/manifest.json`
 - `fixtures/noui_samples/expedia_stay_search/tools.json`
 - `fixtures/adopt_action_samples/sample_actions.json`
 
-Generated outputs:
+Generated sample outputs:
+
 - `fixtures/replay_packs/sample_fixture_bundle.json`
 - `fixtures/replay_packs/sample_har_fixture_bundle.json`
 - `fixtures/replay_packs/sample_noui_fixture_bundle.json`
 - `fixtures/replay_packs/sample_action_fixture_bundle.json`
 - `fixtures/replay_packs/sample_replay_plan.json`
-- `fixtures/replay_packs/sample_har_replay_plan.json`
 - `fixtures/replay_packs/sample_gate_verdict.json`
-- `fixtures/replay_packs/sample_har_gate_verdict.json`
 - `fixtures/replay_packs/sample_har_redthread_runtime_inputs.json`
-- `fixtures/replay_packs/sample_har_live_attack_plan.json`
 - `fixtures/replay_packs/sample_har_redthread_replay_verdict.json`
 - `fixtures/replay_packs/sample_har_redthread_dryrun_case0.json`
-- `fixtures/replay_packs/sample_noui_redthread_runtime_inputs.json`
-- `fixtures/replay_packs/sample_noui_redthread_replay_verdict.json`
-- `fixtures/replay_packs/sample_noui_redthread_dryrun_case0.json`
-- `runs/sample_har_pipeline/` — generated one-command sample pipeline outputs
-- `runs/hero_binding_truth/` — generated deterministic golden demo artifacts; regenerate with `make demo-hero-binding-truth`
-- `runs/reviewed_write_reference/` — generated deterministic ATP-like reviewed-write reference; run with `make demo-reviewed-write-reference`, inspect `evidence_report.md`
-- `runs/evidence_matrix/` — generated approve/review/block evidence matrix; run with `make evidence-matrix`
-- `runs/reviewer_packet/` — generated sanitized reviewer handoff index with silent-review questions, cold-review protocol, artifact hashes, marker/completeness audit results, reviewer observation template, optional boundary result/context-request artifacts, and optional reviewer-observation summary; run with `make evidence-packet` and `make evidence-observation-summary OBSERVATION=/path/to/filled_template.md`
-- `runs/external_review_handoff/` — generated external human cold-review handoff directory with only sanitized artifacts, including the boundary context request when present, instructions, hashes, and marker audit; run with `make evidence-external-review-handoff`; this is not validation until filled observations are summarized
-- `runs/external_review_sessions/` — generated isolated per-review folders for the external handoff, including the boundary context request when present; run with `make evidence-external-review-sessions`; these are not validation evidence until filled observations are summarized
-- `runs/external_validation_readout/` — generated external validation state/readout from sanitized session summaries plus bounded boundary-context-request input coverage; run with `make evidence-external-validation-readout`; missing summaries report waiting state, not validation
-- `runs/evidence_freshness/` — generated hash/freshness manifest for sanitized reviewer-facing copies, including the boundary context request when present; run with `make evidence-freshness`; stale copies mean regenerate packets, not a security finding or context approval
-- `runs/evidence_readiness/` — generated one-page sanitized readiness ledger across matrix, packet, handoff, sessions, validation readout, external review returns, boundary context, boundary context request, boundary result, freshness, and optional approved-context replay result; run with `make evidence-readiness`; optionally pass `EVIDENCE_APPROVED_REPLAY_RESULT=...`; current no-reviewer state is waiting, not validation
-- `runs/external_review_distribution/` — generated distribution manifest for exact per-review send lists, freshness state, expected summary paths, and summary commands; run with `make evidence-external-review-distribution`; ready to distribute is not validation
-- `runs/external_review_returns/` — generated per-review return/follow-up ledger from sanitized reviewer-observation summaries plus bounded boundary-context-request input coverage; run with `make evidence-external-review-returns`; missing summaries remain waiting state, not validation
-- `runs/evidence_remediation/` — generated ordered remediation queue from sanitized readiness and distribution blockers; run with `make evidence-remediation-queue`; current open items can include external reviewer observations, boundary execution, and approved-context replay execution approval/execution
-- `runs/boundary_probe_plan/` — generated sanitized tenant/user boundary next-probe plan from existing reviewed-write evidence; run with `make evidence-boundary-probe-plan`; this is planning evidence, not execution evidence
-- `runs/boundary_execution_design/` — generated copy of the tenant/user boundary execution design and result contract; run with `make evidence-boundary-execution-design`; checked-in source is `docs/tenant-user-boundary-execution-design.md`
-- `runs/boundary_probe_context/` — generated sanitized boundary context template/intake validator; run with `make evidence-boundary-probe-context` or validate an ignored sanitized context with `make evidence-boundary-probe-context BOUNDARY_CONTEXT=path/to/sanitized_context.json`; current default is `blocked_missing_context`, not execution proof
-- `runs/boundary_probe_context_request/` — generated sanitized request package for approved non-production boundary context metadata; run with `make evidence-boundary-context-request`; this is a checklist/request artifact, not execution proof
-- `runs/boundary_probe_result/` — generated sanitized tenant/user boundary result artifact; run with `make evidence-boundary-probe-result`; current default is `blocked_missing_context`, not execution proof
-- `runs/approved_context_replay/` — generated approved-context replay plan/result artifacts for one live-plan case; run with `make evidence-approved-context-replay APPROVED_REPLAY_CASE=case_id`; default mode is not-run, live execution requires approved runtime context plus sanitized execution approval with explicit case/mode scope; wildcard approval scope is rejected; run `make evidence-approved-context-replay-approval-request APPROVED_REPLAY_OUTPUT=runs/approved_context_replay` to generate the sanitized approval request/template
-- `runs/reviewer_validation/` — generated validation rollup across sanitized reviewer-observation summaries; run with `make evidence-observation-summary OBSERVATION=/path/to/filled_template.md OBSERVATION_OUTPUT=runs/reviewer_validation/review_1` per reviewer, then `make evidence-validation-rollup SUMMARIES="/path/to/summary1.json /path/to/summary2.json /path/to/summary3.json"`
-- `runs/redthread_evidence_contract_proposal/` — generated copy of the tiny generic RedThread evidence-contract proposal; run with `make redthread-contract-proposal`; checked-in source is `docs/redthread-evidence-contract-proposal.md`
-- `runs/atp_tennis_01_live_bound/` — real ZAPI reference run; final decision is `review`, not `approve`, because write paths still require manual review; validate with `make check-zapi-reference`
 
-## Docs
+Generated run artifacts:
 
-- `docs/project-direction.md` — current direction, scope, proof standard, and proven/not-proven boundary
-- `docs/reviewed-write-reference-demo.md` — deterministic reviewed-write reference demo with one operator command
-- `docs/zapi-reference-demo.md` — real ATP Tennis ZAPI reference demo and `review` evidence standard
-- `docs/strategy.md` — why the repo split exists and what each system owns
-- `docs/impact-execution-checklist.md` — current impact-first execution checklist and upstream boundary
-- `docs/impact-implementation-log.md` — implementation notes for runtime binding truth and RedThread context surfacing
-- `docs/reviewer-validation-loop.md` — cold-review protocol, observation summary, and multi-review validation rollup flow
-- `docs/external-human-cold-review-handoff.md` — exact external human reviewer handoff protocol and count rules
-- `docs/external-review-session-batch.md` — isolated per-review session folders and summary command path for external cold reviews
-- `docs/external-validation-readout.md` — external validation readout statuses, boundary-context-request input coverage, non-claims, and privacy boundary
-- `docs/evidence-freshness-manifest.md` — sanitized hash/freshness checks for reviewer packet, external handoff, and per-review session copies
-- `docs/evidence-readiness-ledger.md` — one-page local readiness state across sanitized evidence artifacts, freshness, external validation, external review returns, boundary-context/request blockers, and boundary-result blockers
-- `docs/external-review-distribution-manifest.md` — distribution manifest for exact external reviewer session send lists, freshness checks, and expected summary paths
-- `docs/external-review-return-ledger.md` — per-review return/follow-up ledger for missing, incomplete, privacy-blocked, decision-follow-up, complete sanitized summaries, and boundary-context-request input coverage
-- `docs/evidence-remediation-queue.md` — ordered local remediation queue from sanitized readiness/distribution blockers
-- `docs/ai-cold-review-validation-readout.md` — no-tools AI cold-review validation result, parser fixes found by validation, and limits of the evidence
-- `docs/next-three-slices-plan.md` — implementation plan and acceptance criteria for the external handoff plus boundary execution design slices
-- `docs/next-two-slices-plan.md` — current implemented next-two-slices plan and acceptance criteria for local privacy-preserving evidence-loop work
-- `docs/tenant-user-boundary-execution-design.md` — design-only approved-context and sanitized-result contract for future tenant/user boundary probe execution
-- `docs/tenant-user-boundary-probe-context.md` — sanitized boundary context template/intake validator for approved non-production probe metadata
-- `docs/tenant-user-boundary-probe-context-request.md` — sanitized missing-context request package, forbidden-input rules, and validation command path
-- `docs/approved-context-replay-v1.md` — narrow project-wide engine slice for approval-gated endpoint replay/proof with sanitized result artifacts and no gate override
-- `docs/tenant-user-boundary-probe-result.md` — sanitized boundary result artifact schema, command, privacy rules, and decision semantics
-- `docs/hero-flow-binding-truth.md` — demo-grade proof artifact guide for planned/applied binding evidence
-- `docs/architecture.md` — proposed end-to-end integration architecture
-- `docs/live-workflow-explained.md` — simple explanation of what is live now, what is not, and how the workflow should act
-- `docs/full-live-loop-diagram.md` — blunt diagrams for what the future full live loop actually means
-- `docs/live-attack-implementation-plan.md` — step-by-step plan for getting from human-guided ZAPI capture to policy-controlled live RedThread execution
-- `docs/strix-fit-assessment.md` — blunt assessment of whether Strix should influence or integrate with this project
-- `docs/recruiter-demo-notes.md` — how to present this repo in outreach
-- `examples/zapi_to_replay_demo.md` — clean recruiter walkthrough for catalog-style input
-- `examples/har_to_replay_demo.md` — clean walkthrough for HAR-derived real-input intake
-- `examples/redthread_runtime_demo.md` — walkthrough from bridge fixtures into real RedThread replay and dry-run execution inputs
-- `examples/noui_to_redthread_demo.md` — walkthrough from NoUI MCP output into normalized fixtures and then into RedThread
-- `examples/live_zapi_bridge_demo.md` — one-command live ZAPI capture into bridge outputs and RedThread checks
-- `examples/reviewed_staging_write_demo.md` — reviewed non-destructive staging write replay with explicit approved write context
-- `examples/live_workflow_replay_demo.md` — grouped multi-step workflow replay with stop-on-first-failure, carried workflow evidence, and structured failure reasons
+- `runs/sample_har_pipeline/` — one-command sample pipeline outputs.
+- `runs/hero_binding_truth/` — deterministic binding-truth demo artifacts.
+- `runs/reviewed_write_reference/` — deterministic reviewed-write reference evidence.
+- `runs/evidence_matrix/` — approve/review/block evidence matrix.
+- `runs/reviewer_packet/` — sanitized reviewer handoff packet.
+- `runs/external_review_handoff/` — external human cold-review handoff.
+- `runs/evidence_readiness/` — one-page readiness ledger.
+- `runs/evidence_remediation/` — ordered remediation queue.
+- `runs/boundary_probe_*` — boundary probe plans, context requests, and result contracts.
+- `runs/redthread_evidence_contract_proposal/` — local copy of the generic RedThread evidence-contract proposal.
+
+Most `runs/` artifacts are local and should not be committed unless they are curated, sanitized fixtures.
 
 ## Repo structure
 
-- `adapters/zapi/` — ZAPI ingestion code for catalog-style exports and HAR-derived captures
-- `adapters/adopt_actions/` — Adopt action/tool catalog mapping
-- `adapters/noui/` — NoUI MCP manifest/tools adaptation
-- `adapters/redthread_runtime/` — bridge export into real RedThread replay and dry-run campaign inputs
-- `fixtures/zapi_samples/` — sample discovery artifacts
-- `fixtures/adopt_action_samples/` — sample Adopt action catalogs
-- `fixtures/replay_packs/` — generated replay suites and gate verdicts
-- `scripts/` — helper scripts and MVP entrypoints, including one-command workflow runners
-- `tests/` — zero-dependency local test suite
-- `examples/` — end-to-end demos
+```text
+adapters/
+  adopt_actions/       Adopt action/tool mapping
+  bridge/              shared bridge helpers
+  live_replay/         bounded safe/reviewed replay helpers
+  noui/                NoUI/MCP adaptation
+  redthread_runtime/   RedThread replay and dry-run export
+  zapi/                ZAPI and HAR ingestion
 
-## Working rule
+docs/                  direction, architecture, safety, evidence workflows
+examples/              end-to-end demo walkthroughs
+fixtures/              sample inputs and generated safe fixture outputs
+scripts/               CLI-like workflow scripts and evidence builders
+tests/                 zero-dependency local tests
+```
 
-If logic is generic and reusable, it should probably belong upstream in `redthread/`.
+## Safety boundaries
 
-If logic is Adopt-specific, integration-specific, HAR-shape-specific, or demo-specific, it belongs here.
+Do not run or commit unsafe artifacts.
 
-## NoUI support
+Never commit:
 
-This repo now supports one real NoUI output shape:
-- MCP server directory with `manifest.json` + `tools.json`
+- raw HARs,
+- cookies,
+- auth headers,
+- session tokens,
+- request bodies from real users,
+- response bodies with private data,
+- production write contexts,
+- local `runs/`, `logs/`, or approval-context files unless explicitly sanitized.
 
-Current NoUI bridge behavior:
-- loads the server manifest and tool inventory
-- maps auth/runtime/tool metadata into the same normalized fixture model used by ZAPI and Adopt actions
-- preserves downstream compatibility with replay-pack generation and RedThread runtime export
+Do not run:
 
-This matters because NoUI gives a stronger app/runtime view than plain API discovery alone.
-It tells us:
-- auth strategy
-- MCP/runtime execution style
-- tool parameter shapes
-- response field shapes
+- production writes,
+- destructive operations,
+- broad authenticated replay with copied session cookies,
+- automatic RedThread live attacks against real sessions,
+- hidden retries that mutate state,
+- replay against unknown third-party targets.
 
-That gives RedThread more realistic surfaces to validate.
+Safe only with explicit approved non-production context:
 
-## One-command workflow support
-
-This repo now has two higher-level runners:
-
-- `scripts/generate_live_attack_plan.py` — build `live_attack_plan.json` from one supported bridge input
-- `scripts/run_live_safe_replay.py` — execute policy-allowed safe reads, reviewed auth-safe-read GETs, and reviewed non-destructive staging writes when explicit approved context is supplied
-- `scripts/run_approved_context_replay.py` — plan or execute one approval-gated endpoint replay from `live_attack_plan.json`; default mode emits not-run proof, execution requires approved non-production context plus sanitized execution approval
-- `scripts/build_approved_context_replay_execution_request.py` — generate the sanitized execution-approval request and false-by-default local approval template for one approved-context replay result
-- `scripts/run_live_workflow_replay.py` — execute grouped sequential workflow replay from `live_workflow_plan.json` + `live_attack_plan.json`
-  - carries bounded workflow evidence forward between steps
-  - emits structured workflow failure reasons for gate mapping
-- `scripts/run_bridge_pipeline.py` — one input artifact in, full bridge outputs out
-- `scripts/run_live_zapi_bridge.py` — live ZAPI capture in, then full bridge workflow out
-
-That means the intended operator story is now much closer to real life:
-1. capture or provide one discovery artifact
-2. normalize it
-3. generate replay and gate artifacts
-4. export RedThread runtime inputs
-5. run RedThread replay evaluation
-6. run one RedThread dry-run case
-7. inspect one final summary JSON
-
-Still honest:
-- this is workflow automation around the bridge we already had
-- it is not yet full live RedThread attack execution against a real production runtime
-
-## Real RedThread runtime support
-
-This repo now has a real bridge seam into RedThread itself.
-
-From a normalized fixture bundle, it can now generate:
-- a **RedThread replay bundle** shaped for `redthread.evaluation.replay_corpus.ReplayBundle`
-- a set of **dry-run campaign cases** shaped for `RedThreadEngine.run(...)`
-
-The bridge also ships local scripts to:
-- evaluate the replay bundle with RedThread's real promotion-gate code
-- run one generated case through a real RedThread dry-run campaign
-
-This is important because the bridge is no longer only doing planning.
-It now reaches one real RedThread replay path and one real RedThread dry-run execution path.
-
-Still honest:
-- this is not yet live attack execution against a real Adopt-managed runtime
-- generated campaign prompts are bridge seeds, not production target truth
-- this is still a bridge-layer prototype, not a full platform integration
-
-## Real HAR support
-
-This repo now supports two ZAPI intake lanes:
-
-1. **catalog-style** JSON with an `endpoints` list
-2. **HAR-style** JSON with `log.entries`
-
-The HAR lane is intentionally conservative.
-It:
-- keeps app-like API calls
-- drops obvious static assets
-- drops common analytics and third-party transport noise
-- dedupes by method + path
-- emits the same normalized fixture shape used by the replay-pack and gate scripts
-
-That keeps the RedThread boundary clean:
-- Adopt discovery gives us better app-specific surfaces
-- this repo adapts those surfaces
-- RedThread remains the engine that attacks, replays, validates, and hardens
-
-## Safety rule for HAR files
-
-Raw HAR files may contain:
-- cookies
-- tokens
-- user ids
-- device ids
-- message content
-- internal response payloads
-
-So raw HAR files should stay local and out of git history.
-The commit-safe artifact is the normalized fixture bundle, not the raw capture.
+- auth-bound safe reads,
+- approved-context replay execution,
+- reviewed non-destructive staging writes,
+- tenant/user boundary probes,
+- any workflow needing IDs, headers, cookies, request bodies, or app-specific values from a real session.
 
 ## RedThread interpreter note
 
-The replay-evaluation and dry-run execution demos use the RedThread repo's local virtualenv by default:
+Replay evaluation and dry-run execution use the sibling RedThread virtualenv by default:
 
-- `../redthread/.venv/bin/python`
+```text
+../redthread/.venv/bin/python
+```
 
-Why:
-- the bridge repo stays zero-dependency for its own tests where possible
-- real replay evaluation needs RedThread's actual dependencies and modules
+That keeps this bridge lightweight while still exercising real RedThread runtime seams.
+
+## Current direction
+
+Primary direction:
+
+> Make the reviewer-facing evidence path unmistakably clear.
+
+The next useful improvements are not broad platform expansion. They are better proof artifacts:
+
+- clearer evidence reports,
+- stable approve/review/block examples,
+- sanitized reviewer packets,
+- stronger reason taxonomy,
+- better RedThread context fields,
+- approved-context replay proof for one endpoint at a time,
+- reviewer validation that confirms the artifact is understandable without a walkthrough.
+
+Defer:
+
+- generic scanner aggregation,
+- production enforcement,
+- broad autonomous live attacks,
+- direct Adopt service pulls,
+- large NoUI coverage expansion,
+- moving product-specific parsing into RedThread.
+
+## Docs map
+
+Start here:
+
+- `docs/project-direction.md` — current direction, scope, proof standard, and proven/not-proven boundary.
+- `docs/architecture.md` — integration architecture and ownership split.
+- `docs/strategy.md` — why RedThread stays standalone and threadgate stays the bridge.
+- `docs/reviewed-write-reference-demo.md` — deterministic reviewed-write reference demo.
+- `docs/zapi-reference-demo.md` — real ATP Tennis ZAPI reference demo and `review` evidence standard.
+- `docs/reviewer-validation-loop.md` — cold-review protocol and multi-review validation rollup.
+- `docs/approved-context-replay-v1.md` — narrow approval-gated endpoint replay/proof slice.
+- `docs/redthread-evidence-contract-proposal.md` — tiny generic evidence-contract proposal.
+
+## What good looks like
+
+A reviewer should be able to open one evidence report or matrix and answer:
+
+- what input was tested,
+- what workflow ran,
+- what RedThread evaluated,
+- what was approved, reviewed, or blocked,
+- why that decision happened,
+- what context is missing,
+- what is not proven.
+
+That is the bar for this repo.

@@ -1,8 +1,8 @@
-# threadgate
+# adopt-redthread
 
 > Turn discovered agent/tool surfaces into sanitized security evidence RedThread can attack, replay, and judge.
 
-threadgate is the bridge between an agent-builder plane and the RedThread security assurance engine.
+adopt-redthread is the bridge between an agent-builder plane and the RedThread security assurance engine.
 
 It does one focused job:
 
@@ -32,7 +32,7 @@ This repo gives RedThread better application context without polluting RedThread
 
 In plain English:
 
-> The builder plane discovers and builds tool surfaces. threadgate sanitizes and packages those surfaces. RedThread evaluates normalized security inputs. threadgate combines local workflow evidence and RedThread evidence into `approve`, `review`, or `block`.
+> The builder plane discovers and builds tool surfaces. adopt-redthread sanitizes and packages those surfaces. RedThread evaluates normalized security inputs. adopt-redthread combines local workflow evidence and RedThread evidence into `approve`, `review`, or `block`.
 
 ## Current status
 
@@ -126,7 +126,7 @@ flowchart TD
 | Layer | Owns | Does not own yet |
 |---|---|---|
 | Builder plane | discovery, tool generation, action/workflow authoring | security verdict truth |
-| threadgate | normalization, sanitization, context packaging, local evidence, handoff | generic attack engine or production enforcement |
+| adopt-redthread | normalization, sanitization, context packaging, local evidence, handoff | generic attack engine or production enforcement |
 | RedThread | attack, judge, replay, defense, promotion evidence | product-specific parsing or final bridge business decision |
 
 ## Evidence model
@@ -433,7 +433,7 @@ Start here:
 
 - `docs/project-direction.md` — current direction, scope, proof standard, and proven/not-proven boundary.
 - `docs/architecture.md` — integration architecture and ownership split.
-- `docs/strategy.md` — why RedThread stays standalone and threadgate stays the bridge.
+- `docs/strategy.md` — why RedThread stays standalone and adopt-redthread stays the bridge.
 - `docs/reviewed-write-reference-demo.md` — deterministic reviewed-write reference demo.
 - `docs/zapi-reference-demo.md` — real ATP Tennis ZAPI reference demo and `review` evidence standard.
 - `docs/reviewer-validation-loop.md` — cold-review protocol and multi-review validation rollup.

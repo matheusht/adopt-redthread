@@ -1,12 +1,14 @@
 # adopt-redthread
 
-> From HAR to high-signal pentest context.
+> **Adopt AI integration layer and security assurance patterns built around RedThread**
+>
+> *A high-fidelity .har and runtime evidence ingestion engine for AI pentesting agents and RedThread.*
 
-adopt-redthread is a context compiler for authenticated app security testing.
+adopt-redthread is a context compiler and security assurance bridge for authenticated app testing.
 
-It turns sensitive runtime evidence — HAR captures, ZAPI exports, NoUI/MCP tool manifests, and action catalogs — into sanitized, structured context packages for RedThread or another specialized pentest agent.
+It ingests sensitive runtime evidence — HAR captures, ZAPI exports, NoUI/MCP tool manifests, and Adopt action catalogs — and compiles them into sanitized, structured **Pentest Context Packages** for RedThread or specialized pentesting agents.
 
-It is not only a gate between a builder plane and RedThread. Its stronger role is to give a downstream pentesting agent superpowers: endpoint inventory, workflow order, auth boundaries, write/destructive hints, tenant/user clues, missing-context questions, and attack-surface hypotheses without dumping raw HAR secrets into a prompt or report.
+Rather than just a static gate, adopt-redthread gives downstream AI pentesting agents **superpowers**: endpoint inventory, sequential workflow maps, auth boundaries, write/destructive hints, tenant/user boundary clues, missing-context checklists, and targeted attack-surface hypotheses — **all without dumping raw HAR secrets, session cookies, or PII into LLM prompts or reports.**
 
 ```text
 network HAR / runtime evidence
@@ -19,137 +21,97 @@ network HAR / runtime evidence
 
 ## What adopt-redthread does
 
-adopt-redthread prepares the battlefield.
+adopt-redthread prepares the battlefield for AI pentesting.
 
-A raw HAR or runtime capture can contain the app map a pentester needs:
+Raw HAR and network captures are full of crucial application maps that pentesting agents need:
+- API endpoint parameters and methods,
+- Workflow sequence and execution ordering,
+- Resource identifiers and object IDs,
+- Authentication requirements and access schemes,
+- Tenant/user safety boundaries,
+- Read/write/destructive classification,
+- State propagation and response-binding clues,
+- Missing context needed for safe replay.
 
-- endpoints,
-- methods,
-- workflow sequence,
-- object IDs,
-- auth requirements,
-- tenant/user boundaries,
-- read/write/destructive behavior,
-- response-binding clues,
-- missing context needed for safe replay.
+However, raw HARs are highly sensitive, containing live session cookies, credentials, production tokens, request/response bodies, and PII. 
 
-But raw HARs are sensitive. They may include cookies, auth headers, session values, request bodies, response bodies, PII, and production identifiers.
+adopt-redthread solves this by compiling raw runtime evidence into a **completely sanitized, high-signal context package**:
+- **Sanitized Endpoint Inventory**: Endpoint schemas mapped without secrets.
+- **Workflow Sequence Map**: Reconstructed ordering of execution steps.
+- **Auth/Write Diagnostics**: Scoped identification of state-changing paths.
+- **Attack-Surface Hypotheses**: Candidates for auth/boundary testing (marked as hypotheses, never overclaimed as findings).
+- **Missing-Context Questions**: Checklists of details needed for safe replay.
+- **Safety Policy & Privacy Audit**: Automated verification that no raw secrets leak.
+- **Reviewer Packet & Handoff Brief**: Premium human-readable and agent-readable briefs.
+- **RedThread Import Hints**: Direct instructions mapped into RedThread replay capabilities.
 
-adopt-redthread's job is to compile that runtime evidence into a safe, useful package:
-
-- sanitized endpoint inventory,
-- workflow map,
-- auth/write diagnostics,
-- attack-surface hypotheses,
-- missing-context questions,
-- safety policy,
-- reviewer packet,
-- pentest-agent brief,
-- RedThread import hints.
-
-The package gives the downstream agent high-signal context. The downstream agent still owns execution and validation.
+This gives the downstream pentesting agent the precise context it needs to target its testing. The downstream agent still owns execution, probe selection, and validation.
 
 ## What adopt-redthread is not
 
-adopt-redthread is not:
-
-- an autonomous pentester,
-- a scanner replacement,
-- an exploit engine,
-- a severity engine,
+adopt-redthread is **not**:
+- an autonomous exploit engine,
+- a generic vulnerability scanner,
+- a severity classification engine,
 - a confirmed-finding validator,
 - a production release authority,
-- a place to store raw secrets or raw HAR values.
+- a repository or database for storing raw cookies, secrets, or raw HAR files.
 
-It produces source-grounded context and handoff artifacts. It does not claim confirmed vulnerabilities by itself.
+It produces source-grounded, privacy-aware context packages and handoff briefs. It does not independently claim confirmed vulnerabilities or make final release promote verdicts.
 
 ## Responsibility split
 
 | Layer | Owns | Does not own |
 |---|---|---|
-| adopt-redthread | runtime artifact ingestion, sanitization, endpoint/workflow/auth context, attack-surface hypotheses, missing-context questions, safety policy, handoff package | exploitation, confirmed findings, severity, defense, regression, final promotion |
-| RedThread / pentest agent | scoped execution, probe selection, exploit validation, JudgeAgent confirmation, findings, severity, defense/remediation, regression, final gate semantics | raw product-specific parsing or default secret handling |
-| Builder plane | discovery, generated tools/actions, workflow authoring, draft/test/publish UX | security verdict truth |
+| **adopt-redthread** | Ingestion adapters, sanitization, privacy audit, endpoint inventory, workflow mapping, auth/write diagnostics, attack hypotheses, missing-context questions, safety policies, handoff packaging | Exploitation, finding confirmation, severity scoring, defense/remediation, regression runs, final publish gates |
+| **RedThread / Pentest Agent** | Scoped execution, probe selection, exploit validation, JudgeAgent confirmation, confirmed findings, severity, defense recommendations, regression tests | Raw, product-specific parsing or default credential/secret sanitization |
+| **Builder Plane (Adopt AI)** | API discovery, generated tools/actions, workflow authoring, draft/test/publish UI | Security verdict truth or adversarial verification |
 
 Best rule:
 
-> adopt-redthread packages the truth from runtime evidence. RedThread or the pentest agent proves what is exploitable.
+> **adopt-redthread** packages the truth from runtime evidence. **RedThread** or the pentest agent proves what is exploitable.
 
 ## Current status
 
-This is a working prototype bridge with a new pivot toward pentest-context packaging.
+This repository is a fully operational context bridge built around the **Pentest Context Package v0** specification and the **Approved Context Replay v1** engine slice.
 
-What works today:
+### What works today (Live):
 
-- ingest ZAPI-style discovery exports,
-- ingest HAR-shaped ZAPI captures and extract app-relevant endpoints,
-- ingest one NoUI MCP server shape: `manifest.json` + `tools.json`,
-- ingest Adopt-style action catalogs,
-- normalize discovery lanes into RedThread-friendly fixtures,
-- generate replay-pack groups,
-- export RedThread replay-bundle inputs,
-- evaluate replay traces with RedThread promotion-gate code,
-- run generated bridge cases through a real RedThread dry-run campaign path,
-- generate machine-readable live attack and workflow plans,
-- run policy-gated live safe-read GET replay for allowed cases,
-- run reviewed auth-bound safe reads only with explicit approved auth context,
-- run reviewed non-destructive staging writes only with explicit approved write context,
-- carry bounded workflow state and response-binding evidence across sequential steps,
-- emit structured workflow failure reasons,
-- run a deterministic ATP-like reviewed-write reference demo,
-- run a one-command bridge workflow from one artifact input,
-- run a live ZAPI capture into the bridge workflow,
-- run an offline-only HAR evidence batch with sanitized aggregate blocker/gap summaries,
-- produce reviewer-facing evidence packets, readiness ledgers, remediation queues, and external review handoff artifacts.
+- **Sanitized Ingestion Lanes**:
+  - Ingest raw `.har` captures (offline batch harness or individual files).
+  - Ingest ZAPI-style discovery exports and HAR-shaped API logs.
+  - Ingest NoUI/MCP tool manifests (`manifest.json` + `tools.json`).
+  - Ingest Adopt-style action catalogs.
+- **Context Compilation & Safety**:
+  - Automatically filter noisy browser traffic, drop static/third-party assets, and deduplicate API calls.
+  - Generate canonical `pentest_context_package_v0` outputs (manifest, privacy audit, inventory, hypotheses, etc.).
+  - Produce reviewer-facing evidence packets, readiness ledgers, and remediation queues.
+  - Formulate structured **Attack-Surface Hypotheses** marked strictly with `not_a_finding: true` and `requires_judge_confirmation: true`.
+- **Policy-Gated Execution Bridge**:
+  - Generate detailed, machine-readable live attack and workflow plans.
+  - Execute policy-gated safe-read GET replays.
+  - Run **Approved Context Replay v1**: executing auth-bound reads or non-destructive staging writes *only* when explicit, separate, and approved non-production staging context is provided.
+  - Map context package outputs directly into RedThread's dry-run campaign path.
+  - Carry sequential workflow state and response-binding clues across execution steps.
+- **Sanitized Review Workflows**:
+  - Generate external human cold-review handoffs, distribution lists, and return trackers.
+  - Trace readiness/remediation status using sanitized boolean fields (preventing raw secret leakage in reports).
 
-New direction being implemented:
+### What is in development / planned:
 
-- canonical pentest context package v0,
-- attack-surface hypotheses marked as hypotheses, not findings,
-- RedThread / pentest-agent handoff files,
-- optional auth/write bundle contracts kept separate from default safe outputs,
-- stronger privacy audit and no-overclaim semantics.
+- Broad support for additional NoUI/MCP output schemas.
+- Direct API pulling from real live Adopt builder-plane services.
+- Production-grade publish gating integrations.
+- RedThread independently owning live workflow execution for Adopt-managed sessions.
 
-What is not live yet:
-
-- full canonical `pentest_context_package_v0` as the primary output for every lane,
-- broad support for all NoUI/MCP output families,
-- direct pull from real Adopt services,
-- autonomous pentest execution inside this repo,
-- confirmed findings or severity from this repo,
-- production-grade publish gating,
-- RedThread owning final live workflow execution for Adopt-managed sessions.
-
-Honest status:
-
-- **yes:** adopt-redthread can already ingest, normalize, replay, and hand off evidence,
-- **yes:** the pivot makes context packaging the primary product shape,
-- **no:** adopt-redthread does not prove vulnerabilities or execute a full pentest by itself.
+### Honest status check:
+- **Yes**: adopt-redthread can ingest, sanitize, and map runtime evidence into targeted, safe pentest context packages.
+- **Yes**: the context bridge successfully provides high-signal inputs that give RedThread and specialized agents superpowers.
+- **No**: adopt-redthread does not autonomously exploit targets or confirm vulnerabilities without downstream agent execution.
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    A[HAR / ZAPI / NoUI / MCP / Action artifacts] --> B[Source adapter]
-    B --> C[Sanitizer + privacy audit]
-    C --> D[Context map builder]
-    D --> E[Endpoint inventory]
-    D --> F[Workflow map]
-    D --> G[Auth and write diagnostics]
-    D --> H[Attack-surface hypotheses]
-    D --> I[Missing-context questions]
-    E --> J[Pentest context package]
-    F --> J
-    G --> J
-    H --> J
-    I --> J
-    J --> K[Reviewer packet]
-    J --> L[Pentest-agent brief]
-    J --> M[RedThread import hint]
-    L --> N[RedThread / specialized pentest agent]
-    M --> N
-    N --> O[Execution, validation, findings, severity, defense]
-```
+![adopt-redthread Architecture](docs/assets/architecture.svg)
 
 ## Canonical package shape
 
@@ -442,26 +404,21 @@ That keeps adopt-redthread lightweight while still exercising real RedThread run
 
 Primary direction:
 
-> Build the runtime-evidence-to-pentest-context bridge.
+> **Make the reviewer-facing evidence path unmistakably clear.**
 
 Next useful work:
-
-- make `pentest_context_package_v0` the primary output,
-- ensure every hypothesis cites sanitized evidence IDs,
-- keep every hypothesis marked as not a finding,
-- add stronger privacy audits,
-- add opt-in auth/write bundle validation,
-- generate a better pentest-agent handoff,
-- prove RedThread or another agent can import the package and produce better scoped tests.
+- Strengthen the engine's decision reason taxonomy and coverage confidence indices.
+- Evolve targeted security rubrics and automatic pentest-agent brief/briefing synthesis.
+- Hardener tenant and user boundary context probe validation.
+- Collect and roll up multi-reviewer cold observations into evidence matrices.
+- Upstream a tiny, generic RedThread evidence contract schema (once human reviewer comprehension is verified).
 
 Defer:
-
-- broad autonomous exploitation,
-- production enforcement,
-- generic scanner aggregation,
-- direct service pulls,
-- confirmed finding/severity claims inside adopt-redthread,
-- moving product-specific parsing into RedThread.
+- Broad autonomous exploitation loops.
+- Production publish gating or enforcement.
+- Generic scanner/vulnerability tool aggregation.
+- Direct pulling from Adopt builder plane services (until demand for local package flow is verified).
+- Confirmed vulnerability or severity claims inside `adopt-redthread` (always deferred downstream).
 
 ## Docs map
 

@@ -10,18 +10,7 @@ This repo wires the two together without pretending the full production loop exi
 
 ## High-level flow
 
-```mermaid
-flowchart TD
-    A[Real app or website] --> B[ZAPI / NoUI / Adopt discovery artifacts]
-    B --> C[Adopt RedThread adapters]
-    C --> D[Normalized fixtures and workflow plans]
-    D --> E[Bridge-owned live/workflow replay evidence]
-    D --> F[RedThread runtime inputs]
-    F --> G[RedThread replay verdict and dry-run evidence]
-    E --> H[Local bridge pre-publish gate]
-    G --> H
-    H --> I[Approve / Review / Block]
-```
+![adopt-redthread High-level Flow](assets/high_level_flow.svg)
 
 Current truth: RedThread's replay verdict is an input to the local bridge gate. The local gate currently decides `approve`, `review`, or `block`.
 

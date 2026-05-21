@@ -10,7 +10,7 @@ This repo wires the two together without pretending the full production loop exi
 
 ## High-level flow
 
-![adopt-redthread High-level Flow](assets/high_level_flow.svg)
+![adopt-redthread High-level Flow](assets/high_level_flow.png)
 
 Current truth: RedThread's replay verdict is an input to the local bridge gate. The local gate currently decides `approve`, `review`, or `block`.
 

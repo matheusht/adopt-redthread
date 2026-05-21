@@ -111,7 +111,7 @@ This repository is a fully operational context bridge built around the **Pentest
 
 ## Architecture
 
-![adopt-redthread Architecture](docs/assets/architecture.svg)
+![adopt-redthread Architecture](docs/assets/architecture.png)
 
 ## Canonical package shape
 

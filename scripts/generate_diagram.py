@@ -737,23 +737,25 @@ def create_architecture_diagram():
     excalidraw_elements.extend(make_excalidraw_rect("code_redact", '"cookie": "session_id=prod_sec..." (REDACTED)', 195, 517.5, 270, 45, "#1e1e2e"))
     
     # ------------------ ZONE 2 CONTENT ------------------
-    # Column/Row 2x3 diamond grid in Zone 2
+    # Column/Row 2x3 rounded rectangle grid in Zone 2
     steps = [
-        ("step1", ["1. Ingest Sanitizer", "noise filters &amp;", "deduplication"], 460, 170, 130, 70, "#f5c2e7"),
-        ("step2", ["2. Traffic Filter", "identifies active", "app endpoints"], 610, 170, 130, 70, "#89b4fa"),
-        ("step3", ["3. Privacy Audit", "redacts credentials", "&amp; drops PII"], 760, 170, 130, 70, "#f38ba8"),
-        ("step4", ["4. Auth &amp; Write Tag", "classifies mutating", "&amp; destructive"], 460, 290, 130, 70, "#fab387"),
-        ("step5", ["5. Context Compiler", "maps clean schema", "without secrets"], 610, 290, 130, 70, "#a6e3a1"),
-        ("step6", ["6. Hypothesis Gen", "marks hypotheses", "never overclaims"], 760, 290, 130, 70, "#f9e2af")
+        ("step1", ["1. Ingest Sanitizer", "noise filters &amp;", "deduplication"], 460, 170, 136, 75, "#f5c2e7"),
+        ("step2", ["2. Traffic Filter", "identifies active", "app endpoints"], 610, 170, 136, 75, "#89b4fa"),
+        ("step3", ["3. Privacy Audit", "redacts credentials", "&amp; drops PII"], 760, 170, 136, 75, "#f38ba8"),
+        ("step4", ["4. Auth &amp; Write Tag", "classifies mutating", "&amp; destructive"], 460, 290, 136, 75, "#fab387"),
+        ("step5", ["5. Context Compiler", "maps clean schema", "without secrets"], 610, 290, 136, 75, "#a6e3a1"),
+        ("step6", ["6. Hypothesis Gen", "marks hypotheses", "never overclaims"], 760, 290, 136, 75, "#f9e2af")
     ]
     for nid, lines, cx, cy, w, h, color in steps:
-        svg.append(f'  <polygon points="{cx},{cy - h/2} {cx + w/2},{cy} {cx},{cy + h/2} {cx - w/2},{cy}" fill="{color}" class="sketch-fill" />')
-        diamond_path = sketchy_diamond(cx, cy, w, h)
-        svg.append(f'  <path d="{diamond_path}" class="sketch-stroke" />')
+        x = cx - w / 2
+        y = cy - h / 2
+        svg.append(f'  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{color}" class="sketch-fill" />')
+        rect_path = sketchy_rect(x, y, w, h)
+        svg.append(f'  <path d="{rect_path}" class="sketch-stroke" />')
         draw_svg_text(svg, lines, cx, cy, is_title=True)
         
         raw_text = "\n".join(lines).replace("&amp;", "&")
-        excalidraw_elements.extend(make_excalidraw_diamond(nid, raw_text, cx, cy, w, h, color))
+        excalidraw_elements.extend(make_excalidraw_rect(nid, raw_text, cx, cy, w, h, color))
         
     # Code block at bottom of Zone 2
     lines_json_output = [

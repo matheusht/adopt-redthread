@@ -138,7 +138,7 @@ def make_excalidraw_rect(node_id, text, cx, cy, w, h, bg_color, textAlign="cente
         "width": w,
         "height": h,
         "angle": 0,
-        "strokeColor": "#181825",
+        "strokeColor": "#ffffff",
         "backgroundColor": bg_color,
         "fillStyle": "solid",
         "strokeWidth": 2,
@@ -175,7 +175,7 @@ def make_excalidraw_rect(node_id, text, cx, cy, w, h, bg_color, textAlign="cente
         "width": text_w,
         "height": text_height,
         "angle": 0,
-        "strokeColor": "#181825",
+        "strokeColor": "#ffffff",
         "backgroundColor": "transparent",
         "fillStyle": "solid",
         "strokeWidth": 1,
@@ -220,7 +220,7 @@ def make_excalidraw_ellipse(node_id, text, cx, cy, w, h, bg_color):
         "width": w,
         "height": h,
         "angle": 0,
-        "strokeColor": "#181825",
+        "strokeColor": "#ffffff",
         "backgroundColor": bg_color,
         "fillStyle": "solid",
         "strokeWidth": 2,
@@ -250,7 +250,7 @@ def make_excalidraw_ellipse(node_id, text, cx, cy, w, h, bg_color):
         "width": w - 20,
         "height": text_height,
         "angle": 0,
-        "strokeColor": "#181825",
+        "strokeColor": "#ffffff",
         "backgroundColor": "transparent",
         "fillStyle": "solid",
         "strokeWidth": 1,
@@ -295,7 +295,7 @@ def make_excalidraw_diamond(node_id, text, cx, cy, w, h, bg_color):
         "width": w,
         "height": h,
         "angle": 0,
-        "strokeColor": "#181825",
+        "strokeColor": "#ffffff",
         "backgroundColor": bg_color,
         "fillStyle": "solid",
         "strokeWidth": 2,
@@ -324,7 +324,7 @@ def make_excalidraw_diamond(node_id, text, cx, cy, w, h, bg_color):
         "width": w - 30,
         "height": text_height,
         "angle": 0,
-        "strokeColor": "#181825",
+        "strokeColor": "#ffffff",
         "backgroundColor": "transparent",
         "fillStyle": "solid",
         "strokeWidth": 1,
@@ -353,7 +353,7 @@ def make_excalidraw_diamond(node_id, text, cx, cy, w, h, bg_color):
     
     return [diamond_elem, text_elem]
 
-def make_excalidraw_arrow(arrow_id, x1, y1, x2, y2, strokeColor="#45475a"):
+def make_excalidraw_arrow(arrow_id, x1, y1, x2, y2, strokeColor="#ffffff"):
     seed = random.randint(100000, 999999)
     dx = x2 - x1
     dy = y2 - y1
@@ -394,7 +394,7 @@ def make_excalidraw_arrow(arrow_id, x1, y1, x2, y2, strokeColor="#45475a"):
         "endArrowhead": "arrow"
     }
 
-def make_excalidraw_line(line_id, x1, y1, x2, y2, strokeColor="#45475a", strokeStyle="solid"):
+def make_excalidraw_line(line_id, x1, y1, x2, y2, strokeColor="#ffffff", strokeStyle="solid"):
     seed = random.randint(100000, 999999)
     dx = x2 - x1
     dy = y2 - y1
@@ -447,7 +447,7 @@ def make_excalidraw_boundary(boundary_id, label, x, y, w, h):
         "width": w,
         "height": h,
         "angle": 0,
-        "strokeColor": "#585b70",
+        "strokeColor": "#ffffff",
         "backgroundColor": "transparent",
         "fillStyle": "solid",
         "strokeWidth": 1.5,
@@ -474,7 +474,7 @@ def make_excalidraw_boundary(boundary_id, label, x, y, w, h):
         "width": w - 30,
         "height": 20,
         "angle": 0,
-        "strokeColor": "#11111b",
+        "strokeColor": "#ffffff",
         "backgroundColor": "transparent",
         "fillStyle": "solid",
         "strokeWidth": 1,
@@ -519,7 +519,7 @@ def make_excalidraw_circle_marker(marker_id, text, cx, cy, diameter, bg_color):
         "width": diameter,
         "height": diameter,
         "angle": 0,
-        "strokeColor": "#181825",
+        "strokeColor": "#ffffff",
         "backgroundColor": bg_color,
         "fillStyle": "solid",
         "strokeWidth": 2,
@@ -548,7 +548,7 @@ def make_excalidraw_circle_marker(marker_id, text, cx, cy, diameter, bg_color):
         "width": 160,
         "height": text_height,
         "angle": 0,
-        "strokeColor": "#45475a",
+        "strokeColor": "#ffffff",
         "backgroundColor": "transparent",
         "fillStyle": "solid",
         "strokeWidth": 1,
@@ -610,12 +610,12 @@ def create_architecture_diagram():
         font-family: 'Architects Daughter', 'Comic Neue', sans-serif;
         font-size: 24px;
         font-weight: bold;
-        fill: #1e1e2e;
+        fill: #ffffff;
       }
       .main-subtitle {
         font-family: 'Architects Daughter', 'Comic Neue', sans-serif;
         font-size: 13px;
-        fill: #45475a;
+        fill: #ffffff;
         font-style: italic;
       }
       
@@ -623,17 +623,17 @@ def create_architecture_diagram():
         font-family: 'Architects Daughter', 'Comic Neue', 'Comic Sans MS', sans-serif;
         font-size: 12.5px;
         font-weight: bold;
-        fill: #11111b;
+        fill: #ffffff;
       }
       
       .label-text {
         font-family: 'Architects Daughter', 'Comic Neue', 'Comic Sans MS', sans-serif;
         font-size: 11px;
-        fill: #313244;
+        fill: #ffffff;
       }
       
       .sketch-stroke {
-        stroke: #181825;
+        stroke: #ffffff;
         stroke-width: 1.8;
         fill: none;
         stroke-linecap: round;
@@ -642,7 +642,7 @@ def create_architecture_diagram():
       }
       
       .sketch-stroke-arrow {
-        stroke: #45475a;
+        stroke: #ffffff;
         stroke-width: 1.5;
         fill: none;
         stroke-linecap: round;
@@ -652,14 +652,14 @@ def create_architecture_diagram():
       
       .sketch-fill {
         stroke: none;
-        opacity: 0.12;
+        opacity: 0.15;
       }
       
       .group-label {
         font-family: 'Architects Daughter', 'Comic Neue', 'Comic Sans MS', sans-serif;
         font-size: 13.5px;
         font-weight: bold;
-        fill: #11111b;
+        fill: #ffffff;
       }
     </style>
   </defs>""")
@@ -936,7 +936,7 @@ def create_architecture_diagram():
     ]
     for mid, text, mcx, mcy, mcolor in markers:
         # SVG circle and text
-        svg.append(f'  <circle cx="{mcx}" cy="{mcy}" r="8" fill="{mcolor}" stroke="#181825" stroke-width="1.8" />')
+        svg.append(f'  <circle cx="{mcx}" cy="{mcy}" r="8" fill="{mcolor}" stroke="#ffffff" stroke-width="1.8" />')
         lines_marker = text.split("\n")
         draw_svg_text(svg, lines_marker, mcx, mcy + 25, line_height=14, is_title=False)
         
@@ -1069,17 +1069,17 @@ def create_flow_diagram():
         font-family: 'Architects Daughter', 'Comic Neue', 'Comic Sans MS', sans-serif;
         font-size: 13px;
         font-weight: bold;
-        fill: #11111b;
+        fill: #ffffff;
       }
       
       .label-text {
         font-family: 'Architects Daughter', 'Comic Neue', 'Comic Sans MS', sans-serif;
         font-size: 11px;
-        fill: #313244;
+        fill: #ffffff;
       }
       
       .sketch-stroke {
-        stroke: #181825;
+        stroke: #ffffff;
         stroke-width: 1.8;
         fill: none;
         stroke-linecap: round;
@@ -1088,7 +1088,7 @@ def create_flow_diagram():
       }
       
       .sketch-stroke-arrow {
-        stroke: #45475a;
+        stroke: #ffffff;
         stroke-width: 1.5;
         fill: none;
         stroke-linecap: round;
@@ -1105,7 +1105,7 @@ def create_flow_diagram():
         font-family: 'Architects Daughter', 'Comic Neue', 'Comic Sans MS', sans-serif;
         font-size: 14px;
         font-weight: bold;
-        fill: #11111b;
+        fill: #ffffff;
       }
     </style>
   </defs>""")

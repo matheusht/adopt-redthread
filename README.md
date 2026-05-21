@@ -451,3 +451,8 @@ A downstream pentest agent or RedThread run should be able to consume the contex
 A human reviewer should be able to inspect the generated packet without seeing raw secrets.
 
 That is the bar for adopt-redthread.
+
+## References & Integrations
+
+- **Adopt AI**: The core agent builder plane and platform. Learn more at [Adopt AI](https://github.com/adoptai).
+- **ZAPI**: The runtime API discovery and evidence ingestion pipeline. Explore the repository and specification at [ZAPI](https://github.com/adoptai/zapi).

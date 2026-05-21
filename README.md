@@ -1,8 +1,8 @@
-# threadgate
+# adopt-redthread
 
 > From HAR to high-signal pentest context.
 
-threadgate is a context compiler for authenticated app security testing.
+adopt-redthread is a context compiler for authenticated app security testing.
 
 It turns sensitive runtime evidence — HAR captures, ZAPI exports, NoUI/MCP tool manifests, and action catalogs — into sanitized, structured context packages for RedThread or another specialized pentest agent.
 
@@ -17,9 +17,9 @@ network HAR / runtime evidence
   -> RedThread or specialized pentest-agent handoff
 ```
 
-## What threadgate does
+## What adopt-redthread does
 
-threadgate prepares the battlefield.
+adopt-redthread prepares the battlefield.
 
 A raw HAR or runtime capture can contain the app map a pentester needs:
 
@@ -35,7 +35,7 @@ A raw HAR or runtime capture can contain the app map a pentester needs:
 
 But raw HARs are sensitive. They may include cookies, auth headers, session values, request bodies, response bodies, PII, and production identifiers.
 
-threadgate's job is to compile that runtime evidence into a safe, useful package:
+adopt-redthread's job is to compile that runtime evidence into a safe, useful package:
 
 - sanitized endpoint inventory,
 - workflow map,
@@ -49,9 +49,9 @@ threadgate's job is to compile that runtime evidence into a safe, useful package
 
 The package gives the downstream agent high-signal context. The downstream agent still owns execution and validation.
 
-## What threadgate is not
+## What adopt-redthread is not
 
-threadgate is not:
+adopt-redthread is not:
 
 - an autonomous pentester,
 - a scanner replacement,
@@ -67,13 +67,13 @@ It produces source-grounded context and handoff artifacts. It does not claim con
 
 | Layer | Owns | Does not own |
 |---|---|---|
-| threadgate | runtime artifact ingestion, sanitization, endpoint/workflow/auth context, attack-surface hypotheses, missing-context questions, safety policy, handoff package | exploitation, confirmed findings, severity, defense, regression, final promotion |
+| adopt-redthread | runtime artifact ingestion, sanitization, endpoint/workflow/auth context, attack-surface hypotheses, missing-context questions, safety policy, handoff package | exploitation, confirmed findings, severity, defense, regression, final promotion |
 | RedThread / pentest agent | scoped execution, probe selection, exploit validation, JudgeAgent confirmation, findings, severity, defense/remediation, regression, final gate semantics | raw product-specific parsing or default secret handling |
 | Builder plane | discovery, generated tools/actions, workflow authoring, draft/test/publish UX | security verdict truth |
 
 Best rule:
 
-> threadgate packages the truth from runtime evidence. RedThread or the pentest agent proves what is exploitable.
+> adopt-redthread packages the truth from runtime evidence. RedThread or the pentest agent proves what is exploitable.
 
 ## Current status
 
@@ -122,9 +122,9 @@ What is not live yet:
 
 Honest status:
 
-- **yes:** threadgate can already ingest, normalize, replay, and hand off evidence,
+- **yes:** adopt-redthread can already ingest, normalize, replay, and hand off evidence,
 - **yes:** the pivot makes context packaging the primary product shape,
-- **no:** threadgate does not prove vulnerabilities or execute a full pentest by itself.
+- **no:** adopt-redthread does not prove vulnerabilities or execute a full pentest by itself.
 
 ## Architecture
 
@@ -186,7 +186,7 @@ requires_judge_confirmation: true
 
 ## Evidence model
 
-threadgate can still emit local `approve`, `review`, and `block` style decisions for bridge demos and reviewer workflows.
+adopt-redthread can still emit local `approve`, `review`, and `block` style decisions for bridge demos and reviewer workflows.
 
 | Decision | Meaning today | What it proves | What it does not prove |
 |---|---|---|---|
@@ -200,7 +200,7 @@ In the pivot, these are local evidence states. Final confirmed findings, severit
 
 ### HAR / ZAPI
 
-threadgate can ingest:
+adopt-redthread can ingest:
 
 - catalog-style ZAPI JSON with endpoint metadata,
 - HAR-shaped browser captures,
@@ -212,7 +212,7 @@ Raw HAR files can contain cookies, tokens, IDs, request bodies, response bodies,
 
 ### NoUI / MCP
 
-threadgate supports one real NoUI output shape today:
+adopt-redthread supports one real NoUI output shape today:
 
 ```text
 manifest.json
@@ -436,7 +436,7 @@ Replay evaluation and dry-run execution use the sibling RedThread virtualenv by 
 ../redthread/.venv/bin/python
 ```
 
-That keeps threadgate lightweight while still exercising real RedThread runtime seams.
+That keeps adopt-redthread lightweight while still exercising real RedThread runtime seams.
 
 ## Current direction
 
@@ -460,7 +460,7 @@ Defer:
 - production enforcement,
 - generic scanner aggregation,
 - direct service pulls,
-- confirmed finding/severity claims inside threadgate,
+- confirmed finding/severity claims inside adopt-redthread,
 - moving product-specific parsing into RedThread.
 
 ## Docs map
@@ -471,7 +471,7 @@ Start here:
 - `docs/pentest-context-bridge-implementation-plan.md` — phased implementation plan for package v0 and handoff.
 - `docs/project-direction.md` — current direction, scope, proof standard, and proven/not-proven boundary.
 - `docs/architecture.md` — integration architecture and ownership split.
-- `docs/strategy.md` — why RedThread stays standalone and threadgate stays the bridge.
+- `docs/strategy.md` — why RedThread stays standalone and adopt-redthread stays the bridge.
 - `docs/reviewed-write-reference-demo.md` — deterministic reviewed-write reference demo.
 - `docs/zapi-reference-demo.md` — real ATP Tennis ZAPI reference demo and `review` evidence standard.
 - `docs/reviewer-validation-loop.md` — cold-review protocol and multi-review validation rollup.
@@ -493,4 +493,4 @@ A downstream pentest agent or RedThread run should be able to consume the contex
 
 A human reviewer should be able to inspect the generated packet without seeing raw secrets.
 
-That is the bar for threadgate.
+That is the bar for adopt-redthread.
